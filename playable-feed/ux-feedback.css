@@ -43,6 +43,18 @@
   text-transform: none;
 }
 
+/* Fire and XP are passive progress indicators. Stats is the only interactive
+   control in this group, so label it instead of using an ambiguous arrow. */
+.stats-button {
+  width: auto;
+  min-width: 60px;
+  padding: 0 11px;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
 /* Lane Dodge: the first playtest read the falling object as something to catch.
    Make player vs hazard semantics explicit before adding tutorial friction. */
 .lane-player {
