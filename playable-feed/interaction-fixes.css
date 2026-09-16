@@ -1,0 +1,39 @@
+/* Mobile gesture hardening for the playable surface.
+   The feed is an app-like interaction area, not selectable document content. */
+html,
+body,
+#appShell,
+#feedStage,
+#gameCard,
+#gameHost,
+.game-area,
+.game-copy,
+.game-meta-row,
+.skip-hint,
+button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Prevent the browser from turning vertical game/feed gestures into page scrolling,
+   pull-to-refresh, text selection, or gesture competition. Individual games use
+   Pointer Events, so they retain tap/drag/swipe control themselves. */
+#feedStage,
+#gameCard,
+#gameHost,
+.game-area {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+img,
+svg {
+  -webkit-user-drag: none;
+  user-select: none;
+}
