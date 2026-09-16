@@ -41,9 +41,11 @@ const state = {
   current: null,
   controller: null,
   shownAt: 0,
+  activeAccumulatedMs: 0,
   firstInteractionAt: null,
   finished: false,
   started: false,
+  pausedForVisibility: false,
   xp: Number(sessionStorage.getItem("playloop.xp") || 0),
   streak: Number(sessionStorage.getItem("playloop.streak") || 0),
   difficulty: Number(sessionStorage.getItem("playloop.difficulty") || 1),
@@ -99,8 +101,14 @@ function updateHud() {
 }
 
 function activeMs() {
-  if (!state.shownAt) return 0;
-  return Math.max(0, Math.round(performance.now() - state.shownAt));
+  const currentSlice = state.shownAt ? performance.now() - state.shownAt : 0;
+  return Math.max(0, Math.round(state.activeAccumulatedMs + currentSlice));
+}
+
+function freezeActiveClock() {
+  if (!state.shownAt) return;
+  state.activeAccumulatedMs += Math.max(0, performance.now() - state.shownAt);
+  state.shownAt = 0;
 }
 
 function logReachMilestone() {
@@ -114,7 +122,7 @@ function logReachMilestone() {
   }
 }
 
-function mountCurrent({ retry = false } = {}) {
+function mountCurrent({ retry = false, resumed = false } = {}) {
   if (!state.started || !state.deck.length) return;
 
   state.controller?.destroy?.();
@@ -124,7 +132,11 @@ function mountCurrent({ retry = false } = {}) {
 
   state.current = state.deck[state.index];
   state.finished = false;
-  state.firstInteractionAt = null;
+  state.pausedForVisibility = false;
+  if (!resumed) {
+    state.firstInteractionAt = null;
+    state.activeAccumulatedMs = 0;
+  }
   state.shownAt = performance.now();
 
   const game = state.current;
@@ -134,21 +146,31 @@ function mountCurrent({ retry = false } = {}) {
   els.category.textContent = game.category.toUpperCase();
   els.instruction.textContent = game.instruction;
 
-  state.impressions += 1;
-  analytics.log("game_impression", {
-    game_id: game.id,
-    variant_id: game.variantId,
-    feed_position: state.cycle * state.deck.length + state.index,
-    session_impression: state.impressions,
-    position_in_cycle: state.index,
-    cycle: state.cycle,
-    difficulty: game.difficulty,
-    retry,
-  });
-  logReachMilestone();
+  // A retry is another attempt at the same feed item, not another item seen.
+  // Likewise, a background/foreground lifecycle restart must not inflate reach.
+  if (!retry && !resumed) {
+    state.impressions += 1;
+    analytics.log("game_impression", {
+      game_id: game.id,
+      variant_id: game.variantId,
+      feed_position: state.cycle * state.deck.length + state.index,
+      session_impression: state.impressions,
+      position_in_cycle: state.index,
+      cycle: state.cycle,
+      difficulty: game.difficulty,
+    });
+    logReachMilestone();
+  } else if (resumed) {
+    analytics.log("game_resumed_after_background", {
+      game_id: game.id,
+      variant_id: game.variantId,
+      active_ms_before_resume: Math.round(state.activeAccumulatedMs),
+      feed_position: state.cycle * state.deck.length + state.index,
+    });
+  }
 
   const interact = (type, data = {}) => {
-    if (state.finished) return;
+    if (state.finished || state.pausedForVisibility) return;
     if (state.firstInteractionAt === null) {
       state.firstInteractionAt = performance.now();
       analytics.log("game_first_interaction", {
@@ -177,7 +199,8 @@ function mountCurrent({ retry = false } = {}) {
 }
 
 function finishGame(outcome, result = {}) {
-  if (!state.started || state.finished || !state.current) return;
+  if (!state.started || state.finished || state.pausedForVisibility || !state.current) return;
+  freezeActiveClock();
   state.finished = true;
   state.controller?.destroy?.();
 
@@ -231,8 +254,9 @@ function finishGame(outcome, result = {}) {
 }
 
 function skipCurrent(reason = "swipe") {
-  if (!state.started || !state.current || state.transitioning) return;
+  if (!state.started || !state.current || state.transitioning || state.pausedForVisibility) return;
   if (!state.finished) {
+    freezeActiveClock();
     analytics.log("game_skip", {
       game_id: state.current.id,
       variant_id: state.current.variantId,
@@ -247,7 +271,7 @@ function skipCurrent(reason = "swipe") {
 }
 
 function advance(reason = "swipe") {
-  if (!state.started || !state.current || state.transitioning) return;
+  if (!state.started || !state.current || state.transitioning || state.pausedForVisibility) return;
   state.transitioning = true;
   analytics.log("feed_advance", {
     from_game_id: state.current.id,
@@ -282,7 +306,7 @@ function retry() {
   analytics.log("game_retry", {
     game_id: state.current.id,
     variant_id: state.current.variantId,
-    elapsed_ms_before_retry: activeMs(),
+    active_ms_before_retry: activeMs(),
   });
   mountCurrent({ retry: true });
 }
@@ -318,11 +342,15 @@ function closeStats() {
 
 let pointerStart = null;
 els.stage.addEventListener("pointerdown", (event) => {
-  if (!state.started) return;
+  if (!state.started || state.pausedForVisibility) return;
   pointerStart = { x: event.clientX, y: event.clientY, at: performance.now() };
 });
+
+// Capture pointer-up before game controls receive it. This reserves an upward
+// gesture for feed navigation so Swipe Call / Hold Steady cannot first record a
+// failure for the same gesture and corrupt skip/failure analytics.
 els.stage.addEventListener("pointerup", (event) => {
-  if (!pointerStart || state.transitioning || !state.started) return;
+  if (!pointerStart || state.transitioning || !state.started || state.pausedForVisibility) return;
   const dx = event.clientX - pointerStart.x;
   const dy = event.clientY - pointerStart.y;
   const elapsed = performance.now() - pointerStart.at;
@@ -331,6 +359,8 @@ els.stage.addEventListener("pointerup", (event) => {
   const isUp = dy < -72 && Math.abs(dy) > Math.abs(dx) * 1.15 && elapsed < 850;
   if (!isUp) return;
 
+  event.preventDefault();
+  event.stopPropagation();
   analytics.log("feed_swipe", {
     direction: "up",
     dy: Math.round(dy),
@@ -340,7 +370,11 @@ els.stage.addEventListener("pointerup", (event) => {
   });
   haptic(5);
   skipCurrent("swipe_up");
-});
+}, { capture: true });
+
+els.stage.addEventListener("pointercancel", () => {
+  pointerStart = null;
+}, { capture: true });
 
 els.retry.addEventListener("click", retry);
 els.next.addEventListener("click", () => advance("next_button"));
@@ -369,13 +403,41 @@ els.startButton.addEventListener("click", () => {
 });
 
 window.addEventListener("visibilitychange", () => {
-  analytics.log(document.hidden ? "app_hidden" : "app_visible", {
+  if (document.hidden) {
+    pointerStart = null;
+    if (state.started && state.current && !state.finished && !state.pausedForVisibility) {
+      freezeActiveClock();
+      state.pausedForVisibility = true;
+      state.controller?.destroy?.();
+      analytics.log("game_paused_background", {
+        game_id: state.current.id,
+        variant_id: state.current.variantId,
+        active_ms: activeMs(),
+      });
+    }
+    analytics.log("app_hidden", {
+      started: state.started,
+      game_id: state.current?.id || null,
+      game_state: state.current ? (state.finished ? "finished" : "active") : "not_started",
+    });
+    return;
+  }
+
+  analytics.log("app_visible", {
     started: state.started,
     game_id: state.current?.id || null,
     game_state: state.current ? (state.finished ? "finished" : "active") : "not_started",
   });
+
+  if (state.pausedForVisibility && state.started && state.current && !state.finished) {
+    // Restart the same deterministic variant after backgrounding. The feed item
+    // is not counted again, and active-time accounting excludes hidden time.
+    mountCurrent({ resumed: true });
+  }
 });
+
 window.addEventListener("pagehide", () => {
+  freezeActiveClock();
   analytics.log("session_end", {
     ...analytics.summary(),
     xp: state.xp,
@@ -384,8 +446,9 @@ window.addEventListener("pagehide", () => {
     started: state.started,
   });
 });
+
 window.addEventListener("keydown", (event) => {
-  if (!state.started) return;
+  if (!state.started || state.pausedForVisibility) return;
   if (event.key === "ArrowUp" || event.key === "PageDown") skipCurrent("keyboard");
   if (event.key.toLowerCase() === "r" && state.finished) retry();
 });
