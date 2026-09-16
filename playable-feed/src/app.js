@@ -49,6 +49,7 @@ const state = {
   difficulty: Number(sessionStorage.getItem("playloop.difficulty") || 1),
   outcomes: [],
   transitioning: false,
+  impressions: 0,
 };
 
 let audioContext = null;
@@ -64,7 +65,7 @@ function tone(frequency = 520, duration = 0.05) {
     oscillator.start();
     oscillator.stop(audioContext.currentTime + duration);
   } catch {
-    // Sound is optional.
+    // Sound is optional and should never block play.
   }
 }
 
@@ -89,18 +90,33 @@ function applyTheme(config) {
 }
 
 function updateHud() {
-  els.progress.textContent = `${state.index + 1}/${state.deck.length}`;
+  const deckLength = state.deck.length || GAME_DEFINITIONS.length;
+  els.progress.textContent = `${state.index + 1}/${deckLength}`;
   els.cycle.textContent = `SET ${state.cycle + 1}`;
-  els.difficulty.textContent = `LV ${state.difficulty}`;
+  els.difficulty.textContent = `LV ${state.current?.difficulty ?? state.difficulty}`;
   els.xp.textContent = `${state.xp} XP`;
   els.streak.textContent = state.streak > 1 ? `🔥 ${state.streak}` : "";
 }
 
 function activeMs() {
+  if (!state.shownAt) return 0;
   return Math.max(0, Math.round(performance.now() - state.shownAt));
 }
 
+function logReachMilestone() {
+  const milestones = new Set([3, 5, 10, 20, 50, 100]);
+  if (milestones.has(state.impressions)) {
+    analytics.log("feed_reach_milestone", {
+      games_seen: state.impressions,
+      cycle: state.cycle,
+      difficulty: state.difficulty,
+    });
+  }
+}
+
 function mountCurrent({ retry = false } = {}) {
+  if (!state.started || !state.deck.length) return;
+
   state.controller?.destroy?.();
   els.host.replaceChildren();
   els.result.hidden = true;
@@ -118,15 +134,18 @@ function mountCurrent({ retry = false } = {}) {
   els.category.textContent = game.category.toUpperCase();
   els.instruction.textContent = game.instruction;
 
+  state.impressions += 1;
   analytics.log("game_impression", {
     game_id: game.id,
     variant_id: game.variantId,
     feed_position: state.cycle * state.deck.length + state.index,
+    session_impression: state.impressions,
     position_in_cycle: state.index,
     cycle: state.cycle,
-    difficulty: state.difficulty,
+    difficulty: game.difficulty,
     retry,
   });
+  logReachMilestone();
 
   const interact = (type, data = {}) => {
     if (state.finished) return;
@@ -158,7 +177,7 @@ function mountCurrent({ retry = false } = {}) {
 }
 
 function finishGame(outcome, result = {}) {
-  if (state.finished) return;
+  if (!state.started || state.finished || !state.current) return;
   state.finished = true;
   state.controller?.destroy?.();
 
@@ -171,7 +190,7 @@ function finishGame(outcome, result = {}) {
     active_ms: ms,
     score,
     detail: result.detail || null,
-    difficulty: state.difficulty,
+    difficulty: game.difficulty,
   });
 
   state.outcomes.push(outcome);
@@ -196,18 +215,23 @@ function finishGame(outcome, result = {}) {
   els.result.hidden = false;
   sessionStorage.setItem("playloop.xp", String(state.xp));
   sessionStorage.setItem("playloop.streak", String(state.streak));
-  updateHud();
 
   const previousDifficulty = state.difficulty;
   state.difficulty = nextDifficulty(state.difficulty, state.outcomes);
   if (state.difficulty !== previousDifficulty) {
-    analytics.log("difficulty_changed", { from: previousDifficulty, to: state.difficulty, reason: state.outcomes.slice(-3) });
+    analytics.log("difficulty_changed", {
+      from: previousDifficulty,
+      to: state.difficulty,
+      reason: state.outcomes.slice(-3),
+      applies_from_next_cycle: true,
+    });
     sessionStorage.setItem("playloop.difficulty", String(state.difficulty));
   }
+  updateHud();
 }
 
 function skipCurrent(reason = "swipe") {
-  if (!state.current || state.transitioning) return;
+  if (!state.started || !state.current || state.transitioning) return;
   if (!state.finished) {
     analytics.log("game_skip", {
       game_id: state.current.id,
@@ -223,11 +247,11 @@ function skipCurrent(reason = "swipe") {
 }
 
 function advance(reason = "swipe") {
-  if (state.transitioning) return;
+  if (!state.started || !state.current || state.transitioning) return;
   state.transitioning = true;
   analytics.log("feed_advance", {
-    from_game_id: state.current?.id || null,
-    from_variant_id: state.current?.variantId || null,
+    from_game_id: state.current.id,
+    from_variant_id: state.current.variantId,
     reason,
     feed_position: state.cycle * state.deck.length + state.index,
   });
@@ -239,9 +263,14 @@ function advance(reason = "swipe") {
   setTimeout(() => {
     state.index += 1;
     if (state.index >= state.deck.length) {
+      const completedCycle = state.cycle;
       state.cycle += 1;
       buildCurrentDeck();
-      analytics.log("feed_cycle_completed", { completed_cycle: state.cycle - 1, next_cycle: state.cycle, difficulty: state.difficulty });
+      analytics.log("feed_cycle_completed", {
+        completed_cycle: completedCycle,
+        next_cycle: state.cycle,
+        next_cycle_difficulty: state.difficulty,
+      });
     }
     mountCurrent();
     state.transitioning = false;
@@ -249,11 +278,11 @@ function advance(reason = "swipe") {
 }
 
 function retry() {
-  if (!state.current || state.transitioning) return;
+  if (!state.started || !state.current || state.transitioning || !state.finished) return;
   analytics.log("game_retry", {
     game_id: state.current.id,
     variant_id: state.current.variantId,
-    active_ms_before_retry: activeMs(),
+    elapsed_ms_before_retry: activeMs(),
   });
   mountCurrent({ retry: true });
 }
@@ -264,11 +293,15 @@ function renderStats() {
     ["Seen", summary.gamesSeen],
     ["Started", summary.gamesStarted],
     ["Completed", summary.completed],
+    ["Failed", summary.failed],
     ["Skipped", summary.skipped],
     ["Retries", summary.retries],
     ["Avg active", `${(summary.averageActiveMs / 1000).toFixed(1)}s`],
+    ["Session", `${Math.round(summary.sessionMs / 1000)}s`],
   ];
-  els.statsBody.innerHTML = values.map(([label, value]) => `<div class="stat-cell"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  els.statsBody.innerHTML = values
+    .map(([label, value]) => `<div class="stat-cell"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
 }
 
 function openStats() {
@@ -285,6 +318,7 @@ function closeStats() {
 
 let pointerStart = null;
 els.stage.addEventListener("pointerdown", (event) => {
+  if (!state.started) return;
   pointerStart = { x: event.clientX, y: event.clientY, at: performance.now() };
 });
 els.stage.addEventListener("pointerup", (event) => {
@@ -324,23 +358,34 @@ els.clearButton.addEventListener("click", () => {
 });
 
 els.startButton.addEventListener("click", () => {
+  if (state.started) return;
   state.started = true;
   els.onboarding.hidden = true;
   audioContext?.resume?.();
   analytics.log("onboarding_completed");
+  analytics.log("feed_started", { game_count: GAME_DEFINITIONS.length, difficulty: state.difficulty });
   haptic(6);
+  mountCurrent();
 });
 
 window.addEventListener("visibilitychange", () => {
   analytics.log(document.hidden ? "app_hidden" : "app_visible", {
+    started: state.started,
     game_id: state.current?.id || null,
-    game_state: state.finished ? "finished" : "active",
+    game_state: state.current ? (state.finished ? "finished" : "active") : "not_started",
   });
 });
 window.addEventListener("pagehide", () => {
-  analytics.log("session_end", { ...analytics.summary(), xp: state.xp, streak: state.streak, difficulty: state.difficulty });
+  analytics.log("session_end", {
+    ...analytics.summary(),
+    xp: state.xp,
+    streak: state.streak,
+    difficulty: state.difficulty,
+    started: state.started,
+  });
 });
 window.addEventListener("keydown", (event) => {
+  if (!state.started) return;
   if (event.key === "ArrowUp" || event.key === "PageDown") skipCurrent("keyboard");
   if (event.key.toLowerCase() === "r" && state.finished) retry();
 });
@@ -350,5 +395,5 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 
 buildCurrentDeck();
-mountCurrent();
+updateHud();
 analytics.log("app_ready", { game_count: GAME_DEFINITIONS.length, difficulty: state.difficulty });
