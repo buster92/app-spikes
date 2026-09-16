@@ -11,6 +11,7 @@ const expectedFiles = [
   "index.html",
   "styles.css",
   "interaction-fixes.css",
+  "icons/playloop-icon.svg",
   "manifest.webmanifest",
   "sw.js",
   "src/app.js",
@@ -40,7 +41,18 @@ test("index contains the core feed, result, onboarding and analytics surfaces", 
   }
   assert.match(html, /styles\.css/);
   assert.match(html, /interaction-fixes\.css/);
+  assert.match(html, /icons\/playloop-icon\.svg/);
   assert.match(html, /src\/app\.js/);
+});
+
+test("manifest has standalone metadata and an app icon", async () => {
+  const raw = await readFile(resolve(root, "manifest.webmanifest"), "utf8");
+  const manifest = JSON.parse(raw);
+  assert.equal(manifest.display, "standalone");
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  assert.ok(Array.isArray(manifest.icons) && manifest.icons.length > 0);
+  assert.equal(manifest.icons[0].src, "./icons/playloop-icon.svg");
 });
 
 test("service worker pre-caches the critical offline assets", async () => {
@@ -49,6 +61,7 @@ test("service worker pre-caches the critical offline assets", async () => {
     "index.html",
     "styles.css",
     "interaction-fixes.css",
+    "icons/playloop-icon.svg",
     "src/app.js",
     "src/games.js",
     "manifest.webmanifest",
