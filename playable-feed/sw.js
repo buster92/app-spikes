@@ -1,9 +1,10 @@
-const CACHE = "playloop-spike-v2";
+const CACHE = "playloop-spike-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./interaction-fixes.css",
+  "./icons/playloop-icon.svg",
   "./src/app.js",
   "./src/analytics.js",
   "./src/feed.js",
