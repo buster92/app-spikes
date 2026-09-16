@@ -4,6 +4,8 @@ const ASSETS = [
   "./index.html",
   "./styles.css",
   "./interaction-fixes.css",
+  "./ux-feedback.css",
+  "./ux-feedback.js",
   "./icons/playloop-icon.svg",
   "./icons/playloop-192.png",
   "./icons/playloop-512.png",
