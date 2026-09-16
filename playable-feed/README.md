@@ -31,6 +31,44 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 - Installable/offline-capable PWA shell with standard 192/512 Android install icons and an iOS home-screen icon.
 - Zero runtime dependencies and zero accounts/backend required for the spike.
 
+## Early playtest signal
+
+The first hands-on playtest produced a stronger behavioral signal than expected:
+
+- the player voluntarily continued through roughly eight different games in the first session
+- the games felt different enough that variety did not collapse into repetition
+- the player wanted to continue partly to see difficulty increase
+- streak/fire feedback added motivation without interrupting the loop
+- changing post-game continuation from a prominent **Next** button to swipe-first behavior made the interaction feel closer to the intended `play → swipe → play` loop
+
+This is still anecdotal and from a tiny sample, so it is not product validation. It is enough evidence to keep testing the loop rather than expanding into platform infrastructure.
+
+## Progression / competition ideas to test later
+
+A promising motivation layer is lightweight record chasing rather than a large progression system.
+
+**Local record — cheap and appropriate soon**
+
+- best streak
+- highest difficulty reached
+- longest run / games completed in one run
+- optional personal best score where a mechanic has meaningful scoring
+- clearly surface when a player beats their own record
+
+This can remain entirely on-device and does not require accounts or a backend.
+
+**Global competition — later, only after retention signal**
+
+Potential hooks:
+
+- global highest streak / longest run leaderboards
+- daily or weekly leaderboard resets so new users can compete
+- percentile messaging such as “top 8% today” rather than only an intimidating all-time top 10
+- lightweight aliases or anonymous generated names before requiring accounts
+- eventually friend/group leaderboards if social competition proves useful
+
+Do **not** add a global leaderboard to v0 yet. It creates backend, identity, anti-cheat and moderation concerns and could hide whether the core playable feed is intrinsically compelling. First prove that people return and voluntarily keep playing. If that happens, competition is a strong candidate for the next retention experiment.
+
 ## Analytics captured
 
 The prototype stores bounded events in `localStorage` and exposes an in-app analytics sheet. Events include:
@@ -48,6 +86,7 @@ The prototype stores bounded events in `localStorage` and exposes an in-app anal
 - `feed_reach_milestone` for 3 / 5 / 10 / 20 / 50 / 100 feed items
 - `difficulty_changed`
 - visibility/background transitions
+- unexpected runtime errors / unhandled promise rejections for debugging failed or blank game mounts
 
 Every game event includes game/variant identifiers and timing where relevant. Use **Export JSON** from the app after a playtest.
 
@@ -97,4 +136,4 @@ There is intentionally **no GitHub Actions workflow** for this spike. Run `npm t
 
 Put this exact build in front of 5–10 people without explaining the mechanics. Give only one instruction: **"Use this for a few minutes and stop whenever you want."** Export each session's JSON. The main evidence is where they stop, what they skip, what they replay, and whether the next-game action becomes automatic.
 
-Only after the feed loop shows signal should the spike expand toward 20+ mechanics, remote analytics, recommendation/personalization and downloadable HTML5 playable content.
+Only after the feed loop shows signal should the spike expand toward 20+ mechanics, remote analytics, recommendation/personalization, global competition and downloadable HTML5 playable content.
