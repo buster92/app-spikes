@@ -1,0 +1,10 @@
+{
+  "name": "playable-feed-spike",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/analytics.js && node --check src/games.js && node --check src/feed.js && node --check src/app.js && node --check sw.js"
+  }
+}
