@@ -25,6 +25,8 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 - Lightweight adaptive difficulty from 1–5 based on recent outcomes.
 - XP/streak feedback, micro-animation, optional sound and supported-device haptics.
 - Skip by swiping upward at any time; retry/next after an outcome.
+- Mobile gesture hardening so the browser does not select text, show iOS callouts, scroll, or steal game/feed gestures.
+- Background lifecycle handling: an active round is stopped while hidden and the same deterministic variant restarts on return without counting another feed impression or hidden time as active play.
 - Strong local analytics with JSON export.
 - Installable/offline-capable PWA shell.
 - Zero runtime dependencies and zero accounts/backend required for the spike.
@@ -34,14 +36,16 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 The prototype stores bounded events in `localStorage` and exposes an in-app analytics sheet. Events include:
 
 - `session_start` / `session_end`
-- `game_impression`
+- `game_impression` — only a new feed item, never a retry/resume
 - `game_first_interaction` with time-to-first-action
 - categorized `game_interaction`
 - `game_complete` / `game_fail`
 - `game_skip` including whether the user interacted first
 - `game_retry`
+- `game_paused_background` / `game_resumed_after_background`
 - `feed_swipe` / `feed_advance`
 - `feed_cycle_completed`
+- `feed_reach_milestone` for 3 / 5 / 10 / 20 / 50 / 100 feed items
 - `difficulty_changed`
 - visibility/background transitions
 
@@ -82,6 +86,10 @@ npm run check
 ```
 
 No `npm install` is needed.
+
+### CI policy for spikes
+
+There is intentionally **no GitHub Actions workflow** for this spike. Run `npm test` and `npm run check` locally when changing it so small experiments do not consume GitHub Actions quota.
 
 ## Suggested next validation step
 
