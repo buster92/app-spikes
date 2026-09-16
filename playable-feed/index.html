@@ -12,6 +12,55 @@
   <link rel="stylesheet" href="./interaction-fixes.css">
   <link rel="stylesheet" href="./ux-feedback.css">
   <title>Playloop — playable feed spike</title>
+  <script>
+    (() => {
+      const key = "playloop.events.v1";
+      const maxEvents = 2500;
+      const safeRead = () => {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || "[]");
+          return Array.isArray(value) ? value : [];
+        } catch {
+          return [];
+        }
+      };
+      const writeError = (name, payload = {}) => {
+        try {
+          const events = safeRead();
+          events.push({
+            schema: 1,
+            name,
+            event_id: `evt_error_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            ts: new Date().toISOString(),
+            page_url: location.href,
+            user_agent: navigator.userAgent,
+            ...payload,
+          });
+          localStorage.setItem(key, JSON.stringify(events.slice(-maxEvents)));
+        } catch {
+          // Error logging must never make a broken game fail harder.
+        }
+      };
+
+      window.addEventListener("error", (event) => {
+        writeError("client_error", {
+          message: String(event.message || "Unknown error"),
+          source: event.filename || null,
+          line: event.lineno || null,
+          column: event.colno || null,
+          stack: event.error?.stack ? String(event.error.stack).slice(0, 4000) : null,
+        });
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        const reason = event.reason;
+        writeError("client_unhandled_rejection", {
+          message: reason?.message ? String(reason.message) : String(reason ?? "Unknown rejection"),
+          stack: reason?.stack ? String(reason.stack).slice(0, 4000) : null,
+        });
+      });
+    })();
+  </script>
 </head>
 <body>
   <main id="appShell" class="app-shell">
@@ -79,7 +128,7 @@
         <button id="closeStats" class="icon-button" type="button" aria-label="Close analytics">×</button>
       </div>
       <div id="statsBody" class="stats-grid"></div>
-      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes and timing. No account or personal profile is collected.</p>
+      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes, timing, and client runtime errors. No account or personal profile is collected.</p>
       <div class="sheet-actions">
         <button id="exportButton" class="primary-button" type="button">Export JSON</button>
         <button id="clearButton" class="secondary-button" type="button">Clear local data</button>
