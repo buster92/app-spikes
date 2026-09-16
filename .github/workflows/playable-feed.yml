@@ -6,7 +6,9 @@ on:
       - "playable-feed/**"
       - ".github/workflows/playable-feed.yml"
   push:
-    branches: [main]
+    branches:
+      - main
+      - spike/playable-feed-v0
     paths:
       - "playable-feed/**"
       - ".github/workflows/playable-feed.yml"
