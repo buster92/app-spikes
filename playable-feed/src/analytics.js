@@ -43,7 +43,23 @@ export class Analytics {
     });
   }
 
+  syncFromStorage() {
+    const stored = readJson(EVENTS_KEY, []);
+    if (!Array.isArray(stored)) return;
+
+    // Runtime error capture and local-progression helpers can write directly to
+    // the shared bounded event log. Re-sync before every analytics operation so
+    // a later normal event never overwrites those externally captured records.
+    const byId = new Map();
+    for (const event of [...this.events, ...stored]) {
+      const key = event?.event_id || `${event?.name}:${event?.ts}:${byId.size}`;
+      byId.set(key, event);
+    }
+    this.events = [...byId.values()].slice(-MAX_EVENTS);
+  }
+
   log(name, properties = {}) {
+    this.syncFromStorage();
     const event = {
       schema: 1,
       name,
@@ -69,10 +85,12 @@ export class Analytics {
   }
 
   recent(limit = 100) {
+    this.syncFromStorage();
     return this.events.slice(-limit);
   }
 
   currentSessionEvents() {
+    this.syncFromStorage();
     return this.events.filter((event) => event.session_id === this.sessionId);
   }
 
@@ -100,6 +118,7 @@ export class Analytics {
   }
 
   exportPayload() {
+    this.syncFromStorage();
     return {
       exported_at: new Date().toISOString(),
       schema: 1,
