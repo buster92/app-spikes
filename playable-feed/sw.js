@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v4";
+const CACHE = "playloop-spike-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,5 +32,22 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+
+  // This spike changes frequently during phone playtests. Prefer the latest
+  // GitHub Pages response and keep the cache only as an offline fallback so an
+  // older service-worker snapshot cannot keep serving a fixed-but-stale bug.
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });
