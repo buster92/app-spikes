@@ -28,7 +28,7 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 - Mobile gesture hardening so the browser does not select text, show iOS callouts, scroll, or steal game/feed gestures.
 - Background lifecycle handling: an active round is stopped while hidden and the same deterministic variant restarts on return without counting another feed impression or hidden time as active play.
 - Strong local analytics with JSON export.
-- Installable/offline-capable PWA shell.
+- Installable/offline-capable PWA shell with standard 192/512 Android install icons and an iOS home-screen icon.
 - Zero runtime dependencies and zero accounts/backend required for the spike.
 
 ## Analytics captured
@@ -76,6 +76,8 @@ python3 -m http.server 8080
 ```
 
 Then open `http://localhost:8080` on desktop or from a phone on the same network using the computer's LAN IP.
+
+The game itself works over a LAN HTTP URL for playtesting, but service workers and normal PWA installation require a secure context. Use an HTTPS deployment (or `localhost` on the same device) when specifically testing install/offline behavior.
 
 For JavaScript checks/tests:
 
