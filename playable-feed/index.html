@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#090a12">
+  <meta name="description" content="A swipeable feed of instant playable microgames.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Playloop — playable feed spike</title>
+</head>
+<body>
+  <main id="appShell" class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">P</span><span>PLAYLOOP</span></div>
+      <div class="top-actions">
+        <span id="streakLabel" class="streak" aria-live="polite"></span>
+        <span id="xpLabel" class="xp-pill">0 XP</span>
+        <button id="statsButton" class="icon-button" type="button" aria-label="Open playtest analytics">↗</button>
+      </div>
+    </header>
+
+    <section id="feedStage" class="feed-stage" aria-label="Playable game feed">
+      <article id="gameCard" class="game-card">
+        <div class="game-meta-row">
+          <span id="gameCategory" class="category-pill">REACTION</span>
+          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/11</span></div>
+        </div>
+
+        <div id="gameHost" class="game-host" aria-live="polite"></div>
+
+        <div class="game-copy">
+          <div class="title-row"><h1 id="gameTitle">Tap Rush</h1><span id="cycleLabel">SET 1</span></div>
+          <p id="gameInstruction">Hit every target before time runs out</p>
+        </div>
+
+        <div id="resultOverlay" class="result-overlay" hidden>
+          <div class="result-card">
+            <span id="resultWord" class="result-word">NICE</span>
+            <strong id="resultScore" class="result-score">+80 XP</strong>
+            <span id="resultDetail" class="result-detail">Clean run</span>
+            <div class="result-actions">
+              <button id="retryButton" class="secondary-button" type="button">Retry</button>
+              <button id="nextButton" class="primary-button" type="button">Next ↑</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <div class="skip-hint"><span>↑</span> swipe for next</div>
+    </section>
+
+    <div id="onboarding" class="onboarding">
+      <div class="onboarding-card">
+        <div class="onboarding-logo">P</div>
+        <p class="eyebrow">PLAYABLE FEED SPIKE</p>
+        <h2>Swipe. Play. Repeat.</h2>
+        <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
+        <div class="onboarding-chips"><span>11 mechanics</span><span>Endless variants</span><span>Behavior logging</span></div>
+        <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
+        <small>Playtest events stay on this device until you export them.</small>
+      </div>
+    </div>
+
+    <div id="statsBackdrop" class="sheet-backdrop" hidden></div>
+    <aside id="statsSheet" class="stats-sheet" aria-label="Playtest analytics" hidden>
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div><p class="eyebrow">LOCAL PLAYTEST</p><h2>Behavior log</h2></div>
+        <button id="closeStats" class="icon-button" type="button" aria-label="Close analytics">×</button>
+      </div>
+      <div id="statsBody" class="stats-grid"></div>
+      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes and timing. No account or personal profile is collected.</p>
+      <div class="sheet-actions">
+        <button id="exportButton" class="primary-button" type="button">Export JSON</button>
+        <button id="clearButton" class="secondary-button" type="button">Clear local data</button>
+      </div>
+    </aside>
+  </main>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
