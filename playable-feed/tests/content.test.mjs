@@ -10,6 +10,7 @@ const root = resolve(here, "..");
 const expectedFiles = [
   "index.html",
   "styles.css",
+  "interaction-fixes.css",
   "manifest.webmanifest",
   "sw.js",
   "src/app.js",
@@ -38,12 +39,20 @@ test("index contains the core feed, result, onboarding and analytics surfaces", 
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
   assert.match(html, /styles\.css/);
+  assert.match(html, /interaction-fixes\.css/);
   assert.match(html, /src\/app\.js/);
 });
 
 test("service worker pre-caches the critical offline assets", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
-  for (const asset of ["index.html", "styles.css", "src/app.js", "src/games.js", "manifest.webmanifest"]) {
+  for (const asset of [
+    "index.html",
+    "styles.css",
+    "interaction-fixes.css",
+    "src/app.js",
+    "src/games.js",
+    "manifest.webmanifest",
+  ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
 });
@@ -60,6 +69,8 @@ test("app logging covers the behavioral events needed for the spike", async () =
     "game_fail",
     "game_skip",
     "game_retry",
+    "game_paused_background",
+    "game_resumed_after_background",
     "feed_swipe",
     "feed_advance",
     "feed_reach_milestone",
@@ -67,4 +78,17 @@ test("app logging covers the behavioral events needed for the spike", async () =
   ]) {
     assert.ok(source.includes(eventName), `missing analytics event ${eventName}`);
   }
+});
+
+test("retry/resume attempts do not count as new feed impressions", async () => {
+  const app = await readFile(resolve(root, "src/app.js"), "utf8");
+  assert.match(app, /if \(!retry && !resumed\) \{/);
+  assert.match(app, /mountCurrent\(\{ retry: true \}\)/);
+  assert.match(app, /mountCurrent\(\{ resumed: true \}\)/);
+});
+
+test("upward feed gesture is handled in capture phase before game pointer-up", async () => {
+  const app = await readFile(resolve(root, "src/app.js"), "utf8");
+  assert.match(app, /pointerup[\s\S]*\{ capture: true \}/);
+  assert.match(app, /event\.stopPropagation\(\)/);
 });
