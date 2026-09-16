@@ -1,19 +1,23 @@
-const CACHE = "playloop-spike-v5";
+const CACHE = "playloop-spike-v6";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./interaction-fixes.css",
   "./ux-feedback.css",
+  "./expansion.css",
   "./ux-feedback.js",
   "./icons/playloop-icon.svg",
   "./icons/playloop-192.png",
   "./icons/playloop-512.png",
   "./icons/apple-touch-icon.png",
+  "./src/bootstrap.js",
   "./src/app.js",
   "./src/analytics.js",
   "./src/feed.js",
   "./src/games.js",
+  "./src/extra-games-register.js",
+  "./src/progression.js",
   "./manifest.webmanifest"
 ];
 
