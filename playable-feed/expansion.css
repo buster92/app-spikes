@@ -1,0 +1,275 @@
+/* Deeper spike content: local records + richer microgames. */
+
+.record-toast {
+  position: absolute;
+  z-index: 45;
+  top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 9px 13px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  background: rgba(18,19,29,.92);
+  box-shadow: 0 14px 34px rgba(0,0,0,.36);
+  color: white;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: recordPop .24s ease;
+}
+
+.records-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.records-section h3 {
+  margin: 5px 0 10px;
+  font-size: 18px;
+}
+
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.record-cell {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 15px;
+  background: rgba(255,255,255,.04);
+}
+
+.record-cell span {
+  display: block;
+  color: rgba(255,255,255,.44);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.record-cell strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 19px;
+}
+
+/* Dodge Stream */
+.dodge-stream-game { padding: 8px; }
+.stream-lanes {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg,
+      transparent 33%, rgba(255,255,255,.08) 33%, rgba(255,255,255,.08) 34%, transparent 34%,
+      transparent 66%, rgba(255,255,255,.08) 66%, rgba(255,255,255,.08) 67%, transparent 67%);
+}
+.stream-player,
+.stream-hazard {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: left .09s ease;
+  line-height: 1;
+}
+.stream-player {
+  bottom: 7%;
+  color: #5ff2b0;
+  font-size: 36px;
+  filter: drop-shadow(0 0 11px rgba(95,242,176,.55));
+}
+.stream-player::after {
+  content: "YOU";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 3px);
+  color: #9effd0;
+  font-size: 8px;
+  font-weight: 1000;
+  letter-spacing: .1em;
+}
+.stream-hazard {
+  top: -12%;
+  color: #ff596f;
+  font-size: 44px;
+  filter: drop-shadow(0 0 13px rgba(255,70,95,.58));
+}
+.stream-status {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90%, 280px);
+  color: rgba(255,255,255,.62);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Jump Rush */
+.jump-rush-game { min-height: 320px; }
+.jump-target {
+  --jump-progress: 360deg;
+  position: absolute;
+  width: 74px;
+  height: 74px;
+  border: 7px solid transparent;
+  border-radius: 50%;
+  background:
+    linear-gradient(var(--game-accent), var(--game-accent)) padding-box,
+    conic-gradient(var(--game-accent-2) var(--jump-progress), rgba(255,255,255,.08) 0) border-box;
+  color: white;
+  font-size: 25px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 30px color-mix(in srgb, var(--game-accent) 34%, transparent);
+  cursor: pointer;
+}
+.jump-counter,
+.jump-misses {
+  position: absolute;
+  top: 12px;
+  z-index: 2;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.68);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.jump-counter { left: 12px; }
+.jump-misses { right: 12px; }
+
+/* Micro Snake */
+.snake-game {
+  align-content: center;
+  gap: 10px;
+  padding: 12px;
+}
+.snake-status,
+.match-status {
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.snake-grid {
+  width: min(80vw, 300px);
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  background: rgba(255,255,255,.035);
+}
+.snake-cell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border-radius: 5px;
+  background: rgba(255,255,255,.035);
+  font-size: 12px;
+}
+.snake-body { background: color-mix(in srgb, var(--game-accent-2) 54%, transparent); }
+.snake-head {
+  background: var(--game-accent-2);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--game-accent-2) 45%, transparent);
+}
+.snake-food {
+  color: var(--game-accent);
+  background: color-mix(in srgb, var(--game-accent) 10%, transparent);
+  text-shadow: 0 0 10px var(--game-accent);
+}
+.snake-controls {
+  width: min(72vw, 230px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    ". up ."
+    "left down right";
+  gap: 7px;
+}
+.snake-control {
+  min-height: 44px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 13px;
+  background: rgba(255,255,255,.06);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+}
+.snake-up { grid-area: up; }
+.snake-left { grid-area: left; }
+.snake-down { grid-area: down; }
+.snake-right { grid-area: right; }
+.snake-control:active { transform: scale(.95); background: rgba(255,255,255,.12); }
+
+/* Micro Match */
+.match-game {
+  align-content: center;
+  gap: 11px;
+  padding: 10px;
+}
+.match-grid {
+  width: min(84vw, 330px);
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.match-cell {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 13px;
+  background: rgba(255,255,255,.06);
+  font-size: clamp(18px, 7vw, 28px);
+  cursor: pointer;
+  transition: transform .1s ease, outline-color .1s ease, background .1s ease;
+}
+.match-cell.is-selected {
+  outline: 3px solid white;
+  outline-offset: -3px;
+  transform: scale(.93);
+}
+.match-color-0 { color: #ff6b7a; background: rgba(255,107,122,.11); }
+.match-color-1 { color: #ffd166; background: rgba(255,209,102,.11); }
+.match-color-2 { color: #4dd7a8; background: rgba(77,215,168,.11); }
+.match-color-3 { color: #5b8cff; background: rgba(91,140,255,.11); }
+.match-color-4 { color: #c58cff; background: rgba(197,140,255,.11); }
+.match-invalid { animation: matchInvalid .18s ease; }
+
+@keyframes recordPop {
+  from { opacity: 0; transform: translate(-50%, -8px) scale(.95); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes matchInvalid {
+  50% { transform: translateX(4px); filter: brightness(1.6); }
+}
+
+@media (max-width: 390px) {
+  .snake-grid { width: min(76vw, 270px); }
+  .match-grid { width: min(80vw, 290px); }
+  .match-cell { border-radius: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-toast,
+  .match-invalid { animation: none; }
+}
