@@ -3,7 +3,17 @@
   "short_name": "Playloop",
   "description": "A swipeable feed of instant playable microgames.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#05060b",
-  "theme_color": "#090a12"
+  "theme_color": "#090a12",
+  "icons": [
+    {
+      "src": "./icons/playloop-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
