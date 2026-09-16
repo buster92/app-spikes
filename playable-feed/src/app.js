@@ -176,7 +176,7 @@ function mountCurrent({ retry = false, resumed = false } = {}) {
       analytics.log("game_first_interaction", {
         game_id: game.id,
         variant_id: game.variantId,
-        time_to_first_interaction_ms: Math.round(state.firstInteractionAt - state.shownAt),
+        time_to_first_interaction_ms: activeMs(),
       });
     }
     analytics.log("game_interaction", {
