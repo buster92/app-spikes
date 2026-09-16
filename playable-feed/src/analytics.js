@@ -1,5 +1,6 @@
 const EVENTS_KEY = "playloop.events.v1";
 const USER_KEY = "playloop.anon.v1";
+const RECORDS_KEY = "playloop.records.v1";
 const MAX_EVENTS = 2500;
 
 function id(prefix) {
@@ -124,6 +125,7 @@ export class Analytics {
       schema: 1,
       product: "playable-feed-spike",
       summary: this.summary(),
+      personal_records: readJson(RECORDS_KEY, null),
       events: this.events,
     };
   }
