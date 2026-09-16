@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./interaction-fixes.css">
+  <link rel="stylesheet" href="./ux-feedback.css">
   <title>Playloop — playable feed spike</title>
 </head>
 <body>
@@ -42,6 +43,11 @@
             <span id="resultWord" class="result-word">NICE</span>
             <strong id="resultScore" class="result-score">+80 XP</strong>
             <span id="resultDetail" class="result-detail">Clean run</span>
+            <div class="swipe-continue" aria-hidden="true">
+              <span class="swipe-continue-arrow">↑</span>
+              <span>Swipe up for next game</span>
+              <small>or retry this one</small>
+            </div>
             <div class="result-actions">
               <button id="retryButton" class="secondary-button" type="button">Retry</button>
               <button id="nextButton" class="primary-button" type="button">Next ↑</button>
@@ -81,5 +87,6 @@
     </aside>
   </main>
   <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./ux-feedback.js"></script>
 </body>
 </html>
