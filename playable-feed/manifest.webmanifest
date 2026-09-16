@@ -1,0 +1,9 @@
+{
+  "name": "Playloop — Playable Feed Spike",
+  "short_name": "Playloop",
+  "description": "A swipeable feed of instant playable microgames.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#05060b",
+  "theme_color": "#090a12"
+}
