@@ -122,6 +122,36 @@ function logReachMilestone() {
   }
 }
 
+function errorDetails(error) {
+  return {
+    message: error?.message ? String(error.message) : String(error ?? "Unknown error"),
+    stack: error?.stack ? String(error.stack).slice(0, 4000) : null,
+  };
+}
+
+function showGameLoadFailure(game, error, kind = "game_mount_error") {
+  freezeActiveClock();
+  state.finished = true;
+  state.controller?.destroy?.();
+  state.controller = null;
+
+  analytics.log(kind, {
+    game_id: game?.id || null,
+    variant_id: game?.variantId || null,
+    feed_position: state.deck.length ? state.cycle * state.deck.length + state.index : null,
+    cycle: state.cycle,
+    position_in_cycle: state.index,
+    difficulty: game?.difficulty ?? state.difficulty,
+    ...errorDetails(error),
+  });
+
+  els.resultWord.textContent = "ROUND ERROR";
+  els.resultScore.textContent = "SKIP THIS ONE";
+  els.resultDetail.textContent = "This game failed to load. Swipe up to continue, or retry it.";
+  els.result.hidden = false;
+  requestAnimationFrame(() => els.card.classList.add("card-in"));
+}
+
 function mountCurrent({ retry = false, resumed = false } = {}) {
   if (!state.started || !state.deck.length) return;
 
@@ -187,15 +217,28 @@ function mountCurrent({ retry = false, resumed = false } = {}) {
     });
   };
 
-  state.controller = game.mount(els.host, game, {
-    interact,
-    haptic,
-    tone,
-    complete: (result) => finishGame("complete", result),
-    fail: (result) => finishGame("fail", result),
-  });
+  try {
+    state.controller = game.mount(els.host, game, {
+      interact,
+      haptic,
+      tone,
+      complete: (result) => finishGame("complete", result),
+      fail: (result) => finishGame("fail", result),
+    });
+  } catch (error) {
+    showGameLoadFailure(game, error);
+  } finally {
+    requestAnimationFrame(() => els.card.classList.add("card-in"));
+  }
 
-  requestAnimationFrame(() => els.card.classList.add("card-in"));
+  // Every current game renderer mounts synchronously. If nothing appears, treat
+  // it as a renderer failure instead of leaving the player on a blank feed.
+  setTimeout(() => {
+    if (state.current !== game || state.finished || state.pausedForVisibility) return;
+    if (els.host.childElementCount === 0) {
+      showGameLoadFailure(game, new Error("Game renderer mounted no visible content"), "game_empty_render");
+    }
+  }, 120);
 }
 
 function finishGame(outcome, result = {}) {
@@ -285,19 +328,31 @@ function advance(reason = "swipe") {
   els.card.classList.add("card-out");
 
   setTimeout(() => {
-    state.index += 1;
-    if (state.index >= state.deck.length) {
-      const completedCycle = state.cycle;
-      state.cycle += 1;
-      buildCurrentDeck();
-      analytics.log("feed_cycle_completed", {
-        completed_cycle: completedCycle,
-        next_cycle: state.cycle,
-        next_cycle_difficulty: state.difficulty,
+    try {
+      state.index += 1;
+      if (state.index >= state.deck.length) {
+        const completedCycle = state.cycle;
+        state.cycle += 1;
+        buildCurrentDeck();
+        analytics.log("feed_cycle_completed", {
+          completed_cycle: completedCycle,
+          next_cycle: state.cycle,
+          next_cycle_difficulty: state.difficulty,
+        });
+      }
+      mountCurrent();
+    } catch (error) {
+      analytics.log("feed_transition_error", {
+        from_game_id: state.current?.id || null,
+        cycle: state.cycle,
+        position_in_cycle: state.index,
+        ...errorDetails(error),
       });
+      els.card.classList.remove("card-out");
+      requestAnimationFrame(() => els.card.classList.add("card-in"));
+    } finally {
+      state.transitioning = false;
     }
-    mountCurrent();
-    state.transitioning = false;
   }, 180);
 }
 
