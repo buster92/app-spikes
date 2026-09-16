@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./interaction-fixes.css">
   <link rel="stylesheet" href="./ux-feedback.css">
+  <link rel="stylesheet" href="./expansion.css">
   <title>Playloop — playable feed spike</title>
   <script>
     (() => {
@@ -73,11 +74,13 @@
       </div>
     </header>
 
+    <div id="recordToast" class="record-toast" aria-live="polite" hidden>NEW BEST</div>
+
     <section id="feedStage" class="feed-stage" aria-label="Playable game feed">
       <article id="gameCard" class="game-card">
         <div class="game-meta-row">
           <span id="gameCategory" class="category-pill">REACTION</span>
-          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/11</span></div>
+          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/15</span></div>
         </div>
 
         <div id="gameHost" class="game-host" aria-live="polite"></div>
@@ -114,9 +117,9 @@
         <p class="eyebrow">PLAYABLE FEED SPIKE</p>
         <h2>Swipe. Play. Repeat.</h2>
         <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
-        <div class="onboarding-chips"><span>11 mechanics</span><span>Endless variants</span><span>Behavior logging</span></div>
+        <div class="onboarding-chips"><span>15 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
         <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
-        <small>Playtest events stay on this device until you export them.</small>
+        <small>Playtest events and personal records stay on this device until you export or clear them.</small>
       </div>
     </div>
 
@@ -128,14 +131,19 @@
         <button id="closeStats" class="icon-button" type="button" aria-label="Close analytics">×</button>
       </div>
       <div id="statsBody" class="stats-grid"></div>
-      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes, timing, and client runtime errors. No account or personal profile is collected.</p>
+      <section class="records-section" aria-labelledby="recordsHeading">
+        <p class="eyebrow">PERSONAL RECORDS</p>
+        <h3 id="recordsHeading">Your best run</h3>
+        <div id="recordsBody" class="records-grid"></div>
+      </section>
+      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes, personal-record milestones, timing, and client runtime errors. No account or personal profile is collected.</p>
       <div class="sheet-actions">
         <button id="exportButton" class="primary-button" type="button">Export JSON</button>
         <button id="clearButton" class="secondary-button" type="button">Clear local data</button>
       </div>
     </aside>
   </main>
-  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/bootstrap.js"></script>
   <script type="module" src="./ux-feedback.js"></script>
 </body>
 </html>
