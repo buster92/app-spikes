@@ -10,9 +10,15 @@
   "theme_color": "#090a12",
   "icons": [
     {
-      "src": "./icons/playloop-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./icons/playloop-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/playloop-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
