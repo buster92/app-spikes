@@ -12,6 +12,9 @@ const expectedFiles = [
   "styles.css",
   "interaction-fixes.css",
   "icons/playloop-icon.svg",
+  "icons/playloop-192.png",
+  "icons/playloop-512.png",
+  "icons/apple-touch-icon.png",
   "manifest.webmanifest",
   "sw.js",
   "src/app.js",
@@ -42,17 +45,20 @@ test("index contains the core feed, result, onboarding and analytics surfaces", 
   assert.match(html, /styles\.css/);
   assert.match(html, /interaction-fixes\.css/);
   assert.match(html, /icons\/playloop-icon\.svg/);
+  assert.match(html, /icons\/apple-touch-icon\.png/);
   assert.match(html, /src\/app\.js/);
 });
 
-test("manifest has standalone metadata and an app icon", async () => {
+test("manifest has standalone metadata and standard install icons", async () => {
   const raw = await readFile(resolve(root, "manifest.webmanifest"), "utf8");
   const manifest = JSON.parse(raw);
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "./");
   assert.equal(manifest.scope, "./");
-  assert.ok(Array.isArray(manifest.icons) && manifest.icons.length > 0);
-  assert.equal(manifest.icons[0].src, "./icons/playloop-icon.svg");
+  assert.equal(manifest.orientation, "portrait-primary");
+  assert.ok(Array.isArray(manifest.icons));
+  assert.ok(manifest.icons.some((icon) => icon.src === "./icons/playloop-192.png" && icon.sizes === "192x192"));
+  assert.ok(manifest.icons.some((icon) => icon.src === "./icons/playloop-512.png" && icon.sizes === "512x512"));
 });
 
 test("service worker pre-caches the critical offline assets", async () => {
@@ -62,6 +68,9 @@ test("service worker pre-caches the critical offline assets", async () => {
     "styles.css",
     "interaction-fixes.css",
     "icons/playloop-icon.svg",
+    "icons/playloop-192.png",
+    "icons/playloop-512.png",
+    "icons/apple-touch-icon.png",
     "src/app.js",
     "src/games.js",
     "manifest.webmanifest",
