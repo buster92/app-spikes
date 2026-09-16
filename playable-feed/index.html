@@ -28,10 +28,12 @@
       const writeError = (name, payload = {}) => {
         try {
           const events = safeRead();
+          const currentSession = [...events].reverse().find((event) => event?.name === "session_start" && event?.session_id)?.session_id || null;
           events.push({
             schema: 1,
             name,
             event_id: `evt_error_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            session_id: currentSession,
             ts: new Date().toISOString(),
             page_url: location.href,
             user_agent: navigator.userAgent,
@@ -119,7 +121,7 @@
         <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
         <div class="onboarding-chips"><span>15 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
         <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
-        <small>Playtest events and personal records stay on this device until you export or clear them.</small>
+        <small>Event logs can be exported or cleared. Personal records stay on this device.</small>
       </div>
     </div>
 
@@ -139,7 +141,7 @@
       <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes, personal-record milestones, timing, and client runtime errors. No account or personal profile is collected.</p>
       <div class="sheet-actions">
         <button id="exportButton" class="primary-button" type="button">Export JSON</button>
-        <button id="clearButton" class="secondary-button" type="button">Clear local data</button>
+        <button id="clearButton" class="secondary-button" type="button">Clear event log</button>
       </div>
     </aside>
   </main>
