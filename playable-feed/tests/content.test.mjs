@@ -11,23 +11,29 @@ const expectedFiles = [
   "index.html",
   "styles.css",
   "interaction-fixes.css",
+  "ux-feedback.css",
+  "expansion.css",
+  "ux-feedback.js",
   "icons/playloop-icon.svg",
   "icons/playloop-192.png",
   "icons/playloop-512.png",
   "icons/apple-touch-icon.png",
   "manifest.webmanifest",
   "sw.js",
+  "src/bootstrap.js",
   "src/app.js",
   "src/analytics.js",
   "src/feed.js",
   "src/games.js",
+  "src/extra-games-register.js",
+  "src/progression.js",
 ];
 
 test("all local assets needed by the shell exist", async () => {
   await Promise.all(expectedFiles.map((file) => access(resolve(root, file))));
 });
 
-test("index contains the core feed, result, onboarding and analytics surfaces", async () => {
+test("index contains the core feed, result, onboarding, records and analytics surfaces", async () => {
   const html = await readFile(resolve(root, "index.html"), "utf8");
   for (const id of [
     "appShell",
@@ -38,15 +44,19 @@ test("index contains the core feed, result, onboarding and analytics surfaces", 
     "onboarding",
     "startButton",
     "statsSheet",
+    "recordsBody",
+    "recordToast",
     "exportButton",
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
   assert.match(html, /styles\.css/);
   assert.match(html, /interaction-fixes\.css/);
+  assert.match(html, /expansion\.css/);
   assert.match(html, /icons\/playloop-icon\.svg/);
   assert.match(html, /icons\/apple-touch-icon\.png/);
-  assert.match(html, /src\/app\.js/);
+  assert.match(html, /src\/bootstrap\.js/);
+  assert.match(html, /15 mechanics/);
 });
 
 test("manifest has standalone metadata and standard install icons", async () => {
@@ -61,28 +71,33 @@ test("manifest has standalone metadata and standard install icons", async () => 
   assert.ok(manifest.icons.some((icon) => icon.src === "./icons/playloop-512.png" && icon.sizes === "512x512"));
 });
 
-test("service worker pre-caches the critical offline assets", async () => {
+test("service worker caches the expanded offline shell", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
   for (const asset of [
     "index.html",
     "styles.css",
     "interaction-fixes.css",
+    "expansion.css",
     "icons/playloop-icon.svg",
     "icons/playloop-192.png",
     "icons/playloop-512.png",
     "icons/apple-touch-icon.png",
+    "src/bootstrap.js",
     "src/app.js",
     "src/games.js",
+    "src/extra-games-register.js",
+    "src/progression.js",
     "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
 });
 
-test("app logging covers the behavioral events needed for the spike", async () => {
+test("app logging covers behavioral outcomes and renderer failures", async () => {
   const app = await readFile(resolve(root, "src/app.js"), "utf8");
   const analytics = await readFile(resolve(root, "src/analytics.js"), "utf8");
-  const source = `${app}\n${analytics}`;
+  const html = await readFile(resolve(root, "index.html"), "utf8");
+  const source = `${app}\n${analytics}\n${html}`;
   for (const eventName of [
     "game_impression",
     "game_first_interaction",
@@ -91,6 +106,11 @@ test("app logging covers the behavioral events needed for the spike", async () =
     "game_fail",
     "game_skip",
     "game_retry",
+    "game_mount_error",
+    "game_empty_render",
+    "feed_transition_error",
+    "client_error",
+    "client_unhandled_rejection",
     "game_paused_background",
     "game_resumed_after_background",
     "feed_swipe",
@@ -100,6 +120,30 @@ test("app logging covers the behavioral events needed for the spike", async () =
   ]) {
     assert.ok(source.includes(eventName), `missing analytics event ${eventName}`);
   }
+  assert.match(analytics, /syncFromStorage/);
+});
+
+test("expanded games register before app startup and report success/failure through the shared runtime", async () => {
+  const bootstrap = await readFile(resolve(root, "src/bootstrap.js"), "utf8");
+  const extras = await readFile(resolve(root, "src/extra-games-register.js"), "utf8");
+  assert.ok(bootstrap.indexOf("extra-games-register.js") < bootstrap.indexOf("app.js"));
+  for (const gameId of ["dodge-stream", "jump-rush", "micro-snake", "micro-match"]) {
+    assert.ok(extras.includes(`id: "${gameId}"`), `missing ${gameId}`);
+  }
+  assert.match(extras, /finish\("complete"/);
+  assert.match(extras, /finish\("fail"/);
+  for (const interaction of ["hazard_dodged", "target_hit", "snake_eat", "match_clear"]) {
+    assert.ok(extras.includes(interaction), `missing ${interaction} interaction logging`);
+  }
+});
+
+test("local progression persists records and logs record milestones", async () => {
+  const progression = await readFile(resolve(root, "src/progression.js"), "utf8");
+  for (const field of ["bestXp", "bestStreak", "bestDifficulty", "longestRun"]) {
+    assert.ok(progression.includes(field), `missing record field ${field}`);
+  }
+  assert.match(progression, /personal_record_broken/);
+  assert.match(progression, /playloop\.records\.v1/);
 });
 
 test("retry/resume attempts do not count as new feed impressions", async () => {
