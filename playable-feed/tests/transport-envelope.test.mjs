@@ -26,10 +26,10 @@ async function assertTinyDeterministicEnvelope(name, runtime) {
   assert.equal(first.feedDescriptor.manifestRef, first.manifestRef);
   assert.equal(first.feedDescriptor.specRef, first.manifest.specRef);
   assert.equal(first.feedDescriptor.runtime, runtime);
-  assert.equal(first.feedDescriptor.assetCount, spec.assets.length);
+  assert.equal(first.feedDescriptor.assetCount, spec.assets?.length || 0);
   assert.equal(
     first.feedDescriptor.assetBytes,
-    spec.assets.reduce((sum, asset) => sum + asset.bytes, 0),
+    (spec.assets || []).reduce((sum, asset) => sum + asset.bytes, 0),
   );
   assert.ok(first.feedDescriptorBytes < 512, `feed descriptor is ${first.feedDescriptorBytes} bytes`);
   assert.equal(canonicalJson(first.manifest), canonicalJson(second.manifest));
@@ -45,4 +45,12 @@ test("v1 draft uses the same tiny post envelope while richer game data stays laz
   assert.equal(envelope.feedDescriptor.assetBytes, 5486);
   assert.equal(envelope.feedDescriptor.assetCount, 2);
   assert.equal(envelope.feedDescriptor.instantEligible, true);
+});
+
+test("v2 bounded collections do not inflate social-feed metadata", async () => {
+  const envelope = await assertTinyDeterministicEnvelope("pattern-echo-v2", "playloop-2d-v2");
+  assert.equal(envelope.feedDescriptor.assetBytes, 0);
+  assert.equal(envelope.feedDescriptor.assetCount, 0);
+  assert.equal(envelope.feedDescriptor.instantEligible, true);
+  assert.ok(envelope.manifest.specBytes < 16 * 1024);
 });
