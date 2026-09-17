@@ -311,10 +311,7 @@
         {
           "complete": {
             "score": {
-              "max": [
-                100,
-                { "sub": [1000, { "mul": [{ "var": "moves" }, 10] }] }
-              ]
+              "sub": [1000, { "mul": [{ "var": "moves" }, 10] }]
             },
             "detail": "Crate delivered"
           }
