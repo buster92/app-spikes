@@ -3,7 +3,7 @@ import { ASSET_POLICY, decodedImageBytes } from "./asset-contract.js";
 const TOP_LEVEL_KEYS = new Set(["schemaVersion", "runtime", "id", "title", "canvas", "variables", "assets", "templates", "entities", "timers", "rules"]);
 const CANVAS_KEYS = new Set(["width", "height", "background"]);
 const ASSET_KEYS = new Set(["id", "kind", "ref", "bytes", "mime", "width", "height"]);
-const ENTITY_KEYS = new Set(["id", "kind", "tags", "x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity", "color", "text", "bounds", "asset", "collidable", "interactive"]);
+const ENTITY_KEYS = new Set(["id", "kind", "tags", "x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity", "color", "text", "bounds", "asset", "collidable", "interactive", "sourceX", "sourceY", "sourceWidth", "sourceHeight"]);
 const TEMPLATE_KEYS = new Set([...ENTITY_KEYS].filter((key) => key !== "id"));
 const TIMER_KEYS = new Set(["id", "afterMs", "everyMs"]);
 const RULE_KEYS = new Set(["on", "timerId", "targetTag", "aTag", "bTag", "condition", "actions"]);
@@ -133,7 +133,25 @@ function validateSpriteAsset(entity, path, assetsById, errors) {
     errors.push(`${path}.asset: references unknown asset '${entity?.asset}'`);
     return;
   }
-  if (asset.kind !== "image") errors.push(`${path}.asset: '${entity.asset}' is not an image asset`);
+  if (asset.kind !== "image") {
+    errors.push(`${path}.asset: '${entity.asset}' is not an image asset`);
+    return;
+  }
+
+  const sourceKeys = ["sourceX", "sourceY", "sourceWidth", "sourceHeight"];
+  const hasSourceRect = sourceKeys.some((key) => entity?.[key] !== undefined);
+  if (!hasSourceRect) return;
+  if (!sourceKeys.every((key) => Number.isInteger(entity?.[key]))) {
+    errors.push(`${path}: sprite source rectangle requires integer sourceX/sourceY/sourceWidth/sourceHeight`);
+    return;
+  }
+  if (entity.sourceX < 0 || entity.sourceY < 0 || entity.sourceWidth <= 0 || entity.sourceHeight <= 0) {
+    errors.push(`${path}: sprite source rectangle must have non-negative origin and positive size`);
+    return;
+  }
+  if (entity.sourceX + entity.sourceWidth > asset.width || entity.sourceY + entity.sourceHeight > asset.height) {
+    errors.push(`${path}: sprite source rectangle exceeds '${entity.asset}' dimensions ${asset.width}x${asset.height}`);
+  }
 }
 
 function validateEntityFlags(entity, path, errors) {
