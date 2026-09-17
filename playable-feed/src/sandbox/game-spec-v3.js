@@ -32,6 +32,10 @@ function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function isGridRead(value) {
   return isObject(value)
     && Object.keys(value).length === 1
@@ -70,11 +74,12 @@ function sanitizeExpression(value) {
 }
 
 function sanitizeActions(actions) {
-  return (actions || []).map((action) => {
+  if (!Array.isArray(actions)) return actions;
+  return actions.map((action) => {
     if (!isObject(action)) return action;
     const keys = Object.keys(action);
     if (keys.length === 1 && GRID_ACTION_SET.has(keys[0])) {
-      const payload = action[keys[0]] || {};
+      const payload = isObject(action[keys[0]]) ? action[keys[0]] : {};
       if (keys[0] === "moveGridBy") {
         return {
           moveEntity: {
@@ -96,8 +101,8 @@ function sanitizeActions(actions) {
       return {
         if: {
           condition: sanitizeExpression(action.if.condition),
-          then: sanitizeActions(action.if.then || []),
-          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else || []) }),
+          then: sanitizeActions(action.if.then),
+          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else) }),
         },
       };
     }
@@ -109,11 +114,18 @@ export function downgradeV3ForV2Validation(spec) {
   const copy = clone(spec) || {};
   copy.runtime = RUNTIME_V2_ID;
   delete copy.grids;
-  for (const entity of copy.entities || []) delete entity.grid;
-  for (const template of Object.values(copy.templates || {})) delete template.grid;
-  for (const rule of copy.rules || []) {
-    if (rule.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
-    rule.actions = sanitizeActions(rule.actions || []);
+  if (Array.isArray(copy.entities)) {
+    for (const entity of copy.entities) if (isObject(entity)) delete entity.grid;
+  }
+  if (isObject(copy.templates)) {
+    for (const template of Object.values(copy.templates)) if (isObject(template)) delete template.grid;
+  }
+  if (Array.isArray(copy.rules)) {
+    for (const rule of copy.rules) {
+      if (!isObject(rule)) continue;
+      if (rule.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
+      if (rule.actions !== undefined) rule.actions = sanitizeActions(rule.actions);
+    }
   }
   return copy;
 }
@@ -193,7 +205,9 @@ function placementCells(placement) {
 function validatePlacements(spec, gridsById, errors) {
   const occupied = new Map();
   const gridEntityIds = new Set();
-  for (const [index, entity] of (spec.entities || []).entries()) {
+  const entities = asArray(spec.entities);
+  const templates = isObject(spec.templates) ? spec.templates : {};
+  for (const [index, entity] of entities.entries()) {
     if (entity?.grid === undefined) continue;
     const placement = entity.grid;
     const path = `entities[${index}].grid`;
@@ -248,7 +262,7 @@ function validatePlacements(spec, gridsById, errors) {
     occupied.set(placement.grid, gridOccupied);
   }
 
-  for (const [id, template] of Object.entries(spec.templates || {})) {
+  for (const [id, template] of Object.entries(templates)) {
     if (template?.grid !== undefined) errors.push(`templates.${id}.grid: grid placement is not supported on v3 templates yet`);
   }
   return gridEntityIds;
@@ -401,8 +415,8 @@ function walkActions(actions, eventName, initialIds, gridEntityIds, gridsById, p
     }
     if (Object.hasOwn(action, "if") && isObject(action.if)) {
       walkExpressions(action.if.condition, eventName, initialIds, gridEntityIds, gridsById, `${actionPath}.if.condition`, errors);
-      walkActions(action.if.then || [], eventName, initialIds, gridEntityIds, gridsById, `${actionPath}.if.then`, errors);
-      walkActions(action.if.else || [], eventName, initialIds, gridEntityIds, gridsById, `${actionPath}.if.else`, errors);
+      walkActions(action.if.then, eventName, initialIds, gridEntityIds, gridsById, `${actionPath}.if.then`, errors);
+      walkActions(action.if.else, eventName, initialIds, gridEntityIds, gridsById, `${actionPath}.if.else`, errors);
       return;
     }
     validateGridControlledBaseAction(action, gridEntityIds, actionPath, errors);
@@ -423,8 +437,10 @@ export function validateGameSpecV3(spec) {
 
   const gridsById = validateGrids(spec.grids, spec.canvas, errors);
   const gridEntityIds = validatePlacements(spec, gridsById, errors);
-  const initialIds = new Set((spec.entities || []).map((entity) => entity?.id).filter(Boolean));
-  (spec.rules || []).forEach((rule, index) => {
+  const entities = asArray(spec.entities);
+  const rules = asArray(spec.rules);
+  const initialIds = new Set(entities.map((entity) => entity?.id).filter(Boolean));
+  rules.forEach((rule, index) => {
     const eventName = rule?.on;
     if (rule?.condition !== undefined) {
       walkExpressions(
@@ -438,7 +454,7 @@ export function validateGameSpecV3(spec) {
       );
     }
     walkActions(
-      rule?.actions || [],
+      rule?.actions,
       eventName,
       initialIds,
       gridEntityIds,
@@ -455,6 +471,8 @@ export function validatePublicationPolicyV3(spec) {
   const validation = validateGameSpecV3(spec);
   if (!validation.ok) return { ok: false, errors: [...validation.errors], warnings: [] };
   const base = validatePublicationPolicyV2(downgradeV3ForV2Validation(spec));
+  const grids = isObject(spec.grids) ? spec.grids : {};
+  const entities = asArray(spec.entities);
   return {
     ok: base.ok,
     errors: [...base.errors],
@@ -463,12 +481,12 @@ export function validatePublicationPolicyV3(spec) {
       ...(base.metrics || {}),
       runtime: RUNTIME_V3_ID,
       specBytes: byteLength(spec),
-      grids: Object.keys(spec.grids || {}).length,
-      gridCells: Object.values(spec.grids || {}).reduce(
+      grids: Object.keys(grids).length,
+      gridCells: Object.values(grids).reduce(
         (sum, grid) => sum + Number(grid?.columns || 0) * Number(grid?.rows || 0),
         0,
       ),
-      gridEntities: (spec.entities || []).filter((entity) => entity?.grid).length,
+      gridEntities: entities.filter((entity) => entity?.grid).length,
     },
   };
 }
@@ -476,7 +494,14 @@ export function validatePublicationPolicyV3(spec) {
 export function packageProfileV3(spec) {
   const validation = validateGameSpecV3(spec);
   const specBytes = byteLength(spec);
-  const declaredAssetBytes = (spec?.assets || []).reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
+  const assets = asArray(spec?.assets);
+  const entities = asArray(spec?.entities);
+  const rules = asArray(spec?.rules);
+  const timers = asArray(spec?.timers);
+  const templates = isObject(spec?.templates) ? spec.templates : {};
+  const collections = isObject(spec?.collections) ? spec.collections : {};
+  const grids = isObject(spec?.grids) ? spec.grids : {};
+  const declaredAssetBytes = assets.reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
   const combinedBytes = specBytes + declaredAssetBytes;
   return {
     ok: validation.ok,
@@ -487,18 +512,18 @@ export function packageProfileV3(spec) {
       specBytes,
       declaredAssetBytes,
       combinedBytes,
-      entities: spec?.entities?.length || 0,
-      templates: Object.keys(spec?.templates || {}).length,
-      rules: spec?.rules?.length || 0,
-      timers: spec?.timers?.length || 0,
-      assets: spec?.assets?.length || 0,
-      collections: Object.keys(spec?.collections || {}).length,
-      grids: Object.keys(spec?.grids || {}).length,
-      gridCells: Object.values(spec?.grids || {}).reduce(
+      entities: entities.length,
+      templates: Object.keys(templates).length,
+      rules: rules.length,
+      timers: timers.length,
+      assets: assets.length,
+      collections: Object.keys(collections).length,
+      grids: Object.keys(grids).length,
+      gridCells: Object.values(grids).reduce(
         (sum, grid) => sum + Number(grid?.columns || 0) * Number(grid?.rows || 0),
         0,
       ),
-      gridEntities: (spec?.entities || []).filter((entity) => entity?.grid).length,
+      gridEntities: entities.filter((entity) => entity?.grid).length,
     },
   };
 }
