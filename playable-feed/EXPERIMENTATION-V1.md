@@ -22,6 +22,8 @@ Rules:
 6. After exposure, subsequent analytics events carry `experiment_context`, keyed by experiment id.
 7. URL overrides are QA/debug tools only. Forced exposures are marked `forced: true` and must be excluded from experiment KPI analysis.
 8. Creator GameSpecs cannot select, read, or affect product experiment assignment.
+9. Once an experiment has produced real exposures, its id, variant set, and weights are immutable. Material changes require a new experiment id; changing weights under the same id can move an existing anonymous identity to a different variant.
+10. Surface metadata cannot override canonical exposure or analytics-envelope fields; reserved keys are stripped before logging.
 
 Example integration:
 
@@ -114,4 +116,4 @@ Avoid running several experiments that modify the same decision point unless the
 
 Experiment assignment uses the existing anonymous local id. It does not require account identity, advertising identifiers, creator data, contacts, device identity, or cross-product tracking.
 
-Keep experiment metadata low-cardinality. Do not place arbitrary user text, comments, prompts, or GameSpec payloads into experiment properties.
+Keep experiment metadata low-cardinality. Do not place arbitrary user text, comments, prompts, or GameSpec payloads into experiment properties. Canonical exposure fields (`experiment_id`, `variant_id`, `forced`, allocation/variant buckets) and analytics-envelope fields are reserved and cannot be supplied by a surface.
