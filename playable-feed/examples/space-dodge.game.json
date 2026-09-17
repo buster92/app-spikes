@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "id": "space-dodge",
+  "title": "Space Dodge",
+  "canvas": { "width": 360, "height": 560, "background": "#050915" },
+  "variables": { "score": 0, "hits": 0 },
+  "assets": [
+    {
+      "id": "space-bg",
+      "kind": "image",
+      "ref": "sha256:fe1dc859f896df3172cf307d032ed72000298ee08b77a88aaa8b7af6b5c64142",
+      "bytes": 5746,
+      "mime": "image/png",
+      "width": 360,
+      "height": 560
+    },
+    {
+      "id": "ship",
+      "kind": "image",
+      "ref": "sha256:f991c3906c21bb3d3ecd393bdcd1cc52f5d590cbd894b28e8c8862f220c5ba2d",
+      "bytes": 452,
+      "mime": "image/png",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "id": "meteor",
+      "kind": "image",
+      "ref": "sha256:5b42f691c3fb10de6dea77b2135e9c1072ad2a6b1ebb9ebe451826a609cb8e80",
+      "bytes": 563,
+      "mime": "image/png",
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "templates": {
+    "meteor": {
+      "kind": "sprite",
+      "asset": "meteor",
+      "tags": ["hazard"],
+      "width": 42,
+      "height": 42,
+      "vy": 210,
+      "bounds": "destroy",
+      "interactive": false
+    }
+  },
+  "entities": [
+    {
+      "id": "background",
+      "kind": "sprite",
+      "asset": "space-bg",
+      "x": 180,
+      "y": 280,
+      "width": 360,
+      "height": 560,
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "player",
+      "kind": "sprite",
+      "asset": "ship",
+      "tags": ["player"],
+      "x": 180,
+      "y": 492,
+      "width": 52,
+      "height": 52,
+      "bounds": "clamp",
+      "interactive": false
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 528,
+      "height": 14,
+      "text": "Drag anywhere to steer",
+      "color": "#c8d5ff",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "spawn", "afterMs": 250, "everyMs": 480 },
+    { "id": "score", "afterMs": 1000, "everyMs": 1000 },
+    { "id": "finish", "afterMs": 12000 }
+  ],
+  "rules": [
+    {
+      "on": "pointerMove",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "pointerDown",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn",
+      "actions": [
+        {
+          "spawn": {
+            "template": "meteor",
+            "x": { "random": [22, 338] },
+            "y": -24,
+            "vy": { "random": [190, 300] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "score",
+      "actions": [
+        { "addVar": { "name": "score", "value": 100 } }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "hazard",
+      "actions": [
+        { "addVar": { "name": "hits", "value": 1 } },
+        { "destroy": { "entity": "$b" } },
+        { "haptic": { "pattern": [22, 25, 22] } },
+        {
+          "if": {
+            "condition": { "left": { "var": "hits" }, "op": ">=", "right": 3 },
+            "then": [
+              { "fail": { "score": { "var": "score" }, "detail": "Three meteor hits" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "complete": { "score": { "add": [{ "var": "score" }, 500] }, "detail": "Survived the meteor field" } }
+      ]
+    }
+  ]
+}
