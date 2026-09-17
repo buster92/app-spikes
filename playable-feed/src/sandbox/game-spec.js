@@ -60,6 +60,10 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function push(errors, path, message) {
   errors.push(`${path}: ${message}`);
 }
@@ -150,6 +154,26 @@ function validateEntityRef(value, path, errors) {
   validateId(value, path, errors);
 }
 
+function validateEmitData(data, path, errors) {
+  if (data === undefined) return;
+  if (!isObject(data)) {
+    push(errors, path, "must be a flat object");
+    return;
+  }
+  const entries = Object.entries(data);
+  if (entries.length > 8) push(errors, path, "may contain at most 8 fields");
+  for (const [key, value] of entries) {
+    validateId(key, `${path}.${key}`, errors);
+    if (value === null) continue;
+    if (!["string", "number", "boolean"].includes(typeof value)) {
+      push(errors, `${path}.${key}`, "must be a scalar value");
+      continue;
+    }
+    if (typeof value === "number" && !Number.isFinite(value)) push(errors, `${path}.${key}`, "must be a finite number");
+    if (typeof value === "string" && value.length > 128) push(errors, `${path}.${key}`, "string exceeds 128 characters");
+  }
+}
+
 function validateActions(actions, path, errors) {
   if (!Array.isArray(actions)) {
     push(errors, path, "must be an array");
@@ -197,9 +221,13 @@ function validateActions(actions, path, errors) {
         break;
       case "emit":
         validateId(value?.name, `${actionPath}.emit.name`, errors);
+        validateEmitData(value?.data, `${actionPath}.emit.data`, errors);
         break;
       case "sound":
         validateId(value?.asset, `${actionPath}.sound.asset`, errors);
+        if (value?.volume !== undefined && (!isFiniteNumber(value.volume) || value.volume < 0 || value.volume > 1)) {
+          push(errors, `${actionPath}.sound.volume`, "must be a finite number from 0-1");
+        }
         break;
       case "haptic":
         if (!Array.isArray(value?.pattern) || value.pattern.length > 6 || !value.pattern.every((v) => Number.isInteger(v) && v >= 0 && v <= 100)) {
@@ -209,17 +237,36 @@ function validateActions(actions, path, errors) {
       case "complete":
       case "fail":
         if (value?.score !== undefined) validateExpression(value.score, `${actionPath}.${type}.score`, errors);
-        if (value?.detail !== undefined && typeof value.detail !== "string") push(errors, `${actionPath}.${type}.detail`, "must be a string");
+        if (value?.detail !== undefined && (typeof value.detail !== "string" || value.detail.length > 160)) {
+          push(errors, `${actionPath}.${type}.detail`, "must be a string of at most 160 characters");
+        }
         break;
       case "if":
         validateCondition(value?.condition, `${actionPath}.if.condition`, errors);
-        validateActions(value?.then || [], `${actionPath}.if.then`, errors);
+        if (!Array.isArray(value?.then)) push(errors, `${actionPath}.if.then`, "must be an array");
+        else validateActions(value.then, `${actionPath}.if.then`, errors);
         if (value?.else !== undefined) validateActions(value.else, `${actionPath}.if.else`, errors);
         break;
       default:
         break;
     }
   });
+}
+
+function validateSourceRect(entity, path, errors) {
+  const keys = ["sourceX", "sourceY", "sourceWidth", "sourceHeight"];
+  const present = keys.filter((key) => entity[key] !== undefined);
+  if (!present.length) return;
+  if (present.length !== keys.length) {
+    push(errors, path, "source rectangle requires sourceX/sourceY/sourceWidth/sourceHeight together");
+    return;
+  }
+  for (const key of ["sourceX", "sourceY"]) {
+    if (!Number.isInteger(entity[key]) || entity[key] < 0) push(errors, `${path}.${key}`, "must be a non-negative integer");
+  }
+  for (const key of ["sourceWidth", "sourceHeight"]) {
+    if (!Number.isInteger(entity[key]) || entity[key] < 1) push(errors, `${path}.${key}`, "must be a positive integer");
+  }
 }
 
 function validateEntity(entity, path, errors, template = false) {
@@ -253,9 +300,17 @@ function validateEntity(entity, path, errors, template = false) {
     if (!isFiniteNumber(entity.width) || entity.width <= 0) push(errors, `${path}.width`, "sprite width must be > 0");
     if (!isFiniteNumber(entity.height) || entity.height <= 0) push(errors, `${path}.height`, "sprite height must be > 0");
   }
+  validateSourceRect(entity, path, errors);
   if (entity.bounds !== undefined && !ALLOWED_BOUNDS.has(entity.bounds)) push(errors, `${path}.bounds`, "unsupported bounds behavior");
-  if (entity.color !== undefined && typeof entity.color !== "string") push(errors, `${path}.color`, "must be a string");
-  if (entity.text !== undefined && typeof entity.text !== "string") push(errors, `${path}.text`, "must be a string");
+  if (entity.color !== undefined && (typeof entity.color !== "string" || entity.color.length > 64)) {
+    push(errors, `${path}.color`, "must be a string of at most 64 characters");
+  }
+  if (entity.text !== undefined && (typeof entity.text !== "string" || entity.text.length > 256)) {
+    push(errors, `${path}.text`, "must be a string of at most 256 characters");
+  }
+  for (const key of ["collidable", "interactive"]) {
+    if (entity[key] !== undefined && typeof entity[key] !== "boolean") push(errors, `${path}.${key}`, "must be a boolean");
+  }
 }
 
 export function validateGameSpec(spec) {
@@ -273,7 +328,9 @@ export function validateGameSpec(spec) {
   const height = spec.canvas?.height;
   if (!Number.isInteger(width) || width < 160 || width > 1080) push(errors, "canvas.width", "must be an integer from 160–1080");
   if (!Number.isInteger(height) || height < 240 || height > 1920) push(errors, "canvas.height", "must be an integer from 240–1920");
-  if (typeof spec.canvas?.background !== "string") push(errors, "canvas.background", "must be a color string");
+  if (typeof spec.canvas?.background !== "string" || spec.canvas.background.length > 64) {
+    push(errors, "canvas.background", "must be a string of at most 64 characters");
+  }
 
   const variables = spec.variables || {};
   if (!variables || typeof variables !== "object" || Array.isArray(variables) || Object.keys(variables).length > 32) {
@@ -284,6 +341,7 @@ export function validateGameSpec(spec) {
       if (!["number", "boolean", "string"].includes(typeof value) || (typeof value === "number" && !Number.isFinite(value))) {
         push(errors, `variables.${name}`, "must be a finite number, boolean, or string");
       }
+      if (typeof value === "string" && value.length > 128) push(errors, `variables.${name}`, "string exceeds 128 characters");
     }
   }
 
@@ -335,7 +393,7 @@ export function validateGameSpec(spec) {
     });
   }
 
-  const rules = spec.rules || [];
+  const rules = spec.rules;
   if (!Array.isArray(rules)) push(errors, "rules", "must be an array");
   else {
     if (rules.length > HARD_LIMITS.maxRules) push(errors, "rules", `max ${HARD_LIMITS.maxRules} rules`);
