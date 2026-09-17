@@ -20,6 +20,7 @@ const EXAMPLES = Object.freeze({
   "garden-catch-v1": "./examples/garden-catch-v1.game.json",
   "pattern-echo-v2": "./examples/pattern-echo-v2.game.json",
   "bus-escape-v3": "./examples/bus-escape-v3.game.json",
+  "sokoban-push-v3": "./examples/sokoban-push-v3.game.json",
 });
 
 const editor = document.querySelector("#specEditor");
