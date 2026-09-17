@@ -22,16 +22,25 @@ import {
   V2_COLLECTION_OPS,
   V2_LIMITS,
 } from "./game-spec-v2.js";
+import {
+  packageProfileV3,
+  RUNTIME_V3_ID,
+  validatePublicationPolicyV3,
+  V3_GRID_ACTIONS,
+  V3_GRID_OPS,
+  V3_LIMITS,
+} from "./game-spec-v3.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
 import { reviewGameSpec } from "./review.js";
 import { reviewGameSpecV1 } from "./review-v1.js";
 import { reviewGameSpecV2 } from "./review-v2.js";
+import { reviewGameSpecV3 } from "./review-v3.js";
 import { HOST_EFFECT_LIMITS } from "./safe-runtime.js";
 import { buildTransportPlan, buildUnsignedPublicationManifest } from "./transport.js";
 
 const ENTITY_KINDS = Object.freeze(["circle", "rect", "text", "sprite"]);
 const BOUNDS_MODES = Object.freeze(["none", "clamp", "bounce", "wrap", "destroy"]);
-const SUPPORTED_RUNTIMES = Object.freeze([RUNTIME_ID, RUNTIME_V1_ID, RUNTIME_V2_ID]);
+const SUPPORTED_RUNTIMES = Object.freeze([RUNTIME_ID, RUNTIME_V1_ID, RUNTIME_V2_ID, RUNTIME_V3_ID]);
 
 function runtimeAdapter(runtime) {
   switch (runtime) {
@@ -56,6 +65,13 @@ function runtimeAdapter(runtime) {
         publication: validatePublicationPolicyV2,
         review: reviewGameSpecV2,
       };
+    case RUNTIME_V3_ID:
+      return {
+        runtime: RUNTIME_V3_ID,
+        profile: packageProfileV3,
+        publication: validatePublicationPolicyV3,
+        review: reviewGameSpecV3,
+      };
     default:
       return null;
   }
@@ -66,6 +82,7 @@ function classifyDiagnostic(message = "") {
   if (lower.includes("unsupported gamespec runtime") || lower.includes("runtime") && lower.includes("must be playloop")) return "UNSUPPORTED_RUNTIME";
   if (lower.includes("unknown field")) return "UNKNOWN_FIELD";
   if (lower.includes("duplicate")) return "DUPLICATE_ID";
+  if (lower.includes("unknown grid") || lower.includes("grid id") || lower.includes("grid move") || lower.includes("overlaps") || lower.includes("grid placement")) return "INVALID_GRID";
   if (lower.includes("unknown collection") || lower.includes("collection id") || lower.includes("collection items")) return "INVALID_COLLECTION";
   if (lower.includes("references unknown asset") || lower.includes("unknown asset")) return "UNKNOWN_ASSET";
   if (lower.includes("references unknown timer") || lower.includes("unknown timer")) return "UNKNOWN_TIMER";
@@ -111,8 +128,9 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
     };
   }
 
-  const hasV1 = runtime === RUNTIME_V1_ID || runtime === RUNTIME_V2_ID;
-  const hasV2 = runtime === RUNTIME_V2_ID;
+  const hasV1 = [RUNTIME_V1_ID, RUNTIME_V2_ID, RUNTIME_V3_ID].includes(runtime);
+  const hasV2 = [RUNTIME_V2_ID, RUNTIME_V3_ID].includes(runtime);
+  const hasV3 = runtime === RUNTIME_V3_ID;
   return {
     ok: true,
     runtime,
@@ -126,6 +144,7 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
       ...ALLOWED_ACTIONS,
       ...(hasV1 ? V1_STATE_ACTIONS : []),
       ...(hasV2 ? V2_COLLECTION_ACTIONS : []),
+      ...(hasV3 ? V3_GRID_ACTIONS : []),
     ],
     expressions: {
       entityReads: hasV1,
@@ -138,6 +157,13 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
       maxCollections: hasV2 ? V2_LIMITS.maxCollections : 0,
       maxItemsPerCollection: hasV2 ? V2_LIMITS.maxItemsPerCollection : 0,
       maxCollectionStringLength: hasV2 ? V2_LIMITS.maxCollectionStringLength : 0,
+      grids: hasV3,
+      gridOps: hasV3 ? [...V3_GRID_OPS] : [],
+      maxGrids: hasV3 ? V3_LIMITS.maxGrids : 0,
+      maxGridColumns: hasV3 ? V3_LIMITS.maxColumns : 0,
+      maxGridRows: hasV3 ? V3_LIMITS.maxRows : 0,
+      maxCellsPerGrid: hasV3 ? V3_LIMITS.maxCellsPerGrid : 0,
+      maxGridSpan: hasV3 ? V3_LIMITS.maxSpan : 0,
     },
     assets: {
       kinds: ["image", "audio"],
