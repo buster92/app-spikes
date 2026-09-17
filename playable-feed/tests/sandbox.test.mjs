@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ASSET_POLICY, decodedImageBytes, validateNormalizedAssetMetadata } from "../src/sandbox/asset-contract.js";
+import { DEMO_ASSET_CATALOG } from "../src/sandbox/demo-asset-catalog.js";
 import { HARD_LIMITS, packageProfile, validateGameSpec } from "../src/sandbox/game-spec.js";
 import { validatePublicationPolicy } from "../src/sandbox/publication-policy.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
@@ -18,16 +21,82 @@ async function example(name = "meteor-dodge") {
   return JSON.parse(await readFile(resolve(root, `examples/${name}.game.json`), "utf8"));
 }
 
+function pngDimensions(buffer) {
+  assert.equal(buffer.subarray(1, 4).toString("ascii"), "PNG");
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
 test("example GameSpecs validate and stay in instant tier", async () => {
-  for (const name of ["meteor-dodge", "tap-bloom"]) {
+  for (const name of ["meteor-dodge", "tap-bloom", "space-dodge"]) {
     const spec = await example(name);
     const profile = packageProfile(spec);
+    const policy = validatePublicationPolicy(spec);
     assert.equal(profile.ok, true, `${name}: ${profile.errors.join("\n")}`);
-    assert.equal(profile.instantEligible, true);
-    assert.equal(profile.zeroAsset, true);
+    assert.equal(profile.instantEligible, true, `${name} should remain instant-tier`);
     assert.ok(profile.metrics.specBytes < HARD_LIMITS.maxSpecBytes);
-    assert.equal(validatePublicationPolicy(spec).ok, true);
+    assert.equal(policy.ok, true, `${name}: ${policy.errors.join("\n")}`);
   }
+});
+
+test("primitive examples remain zero-asset while sprite example has a small bounded package", async () => {
+  for (const name of ["meteor-dodge", "tap-bloom"]) {
+    assert.equal(packageProfile(await example(name)).zeroAsset, true);
+  }
+
+  const spec = await example("space-dodge");
+  const profile = packageProfile(spec);
+  const policy = validatePublicationPolicy(spec);
+  const plan = buildTransportPlan(spec);
+  assert.equal(profile.zeroAsset, false);
+  assert.equal(profile.metrics.declaredAssetBytes, 6761);
+  assert.ok(plan.firstPlayBytes < 32 * 1024, `first play is ${plan.firstPlayBytes} bytes`);
+  assert.equal(policy.metrics.totalDecodedImageBytes, 839168);
+  assert.ok(policy.metrics.totalDecodedImageBytes < ASSET_POLICY.maxTotalDecodedImageBytes);
+});
+
+test("demo asset catalog content hashes, bytes and raster dimensions are truthful", async () => {
+  for (const [ref, metadata] of Object.entries(DEMO_ASSET_CATALOG)) {
+    const relative = metadata.url.replace(/^\.\//, "");
+    const bytes = await readFile(resolve(root, relative));
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    assert.equal(digest, ref, relative);
+    assert.equal(bytes.byteLength, metadata.bytes, relative);
+    if (metadata.kind === "image" && metadata.mime === "image/png") {
+      assert.deepEqual(pngDimensions(bytes), { width: metadata.width, height: metadata.height }, relative);
+    }
+  }
+});
+
+test("normalized asset metadata rejects URLs, malformed hashes and excessive decoded rasters", () => {
+  const valid = {
+    id: "sprite",
+    kind: "image",
+    ref: `sha256:${"a".repeat(64)}`,
+    bytes: 100,
+    mime: "image/png",
+    width: 64,
+    height: 64,
+  };
+  assert.deepEqual(validateNormalizedAssetMetadata(valid), []);
+
+  const malformed = { ...valid, ref: "https://example.com/asset.png" };
+  assert.ok(validateNormalizedAssetMetadata(malformed).some((error) => error.includes("sha256")));
+
+  const tooLargeDecoded = { ...valid, width: 1024, height: 1024, bytes: 100 };
+  assert.equal(decodedImageBytes(tooLargeDecoded), 4 * 1024 * 1024);
+  const overCompressedBudget = { ...valid, bytes: ASSET_POLICY.maxSingleImageBytes + 1 };
+  assert.ok(validateNormalizedAssetMetadata(overCompressedBudget).some((error) => error.includes("per-image")));
+});
+
+test("machine-readable schema includes sprite and interaction safety fields", async () => {
+  const schema = JSON.parse(await readFile(resolve(root, "sandbox/game-spec-v0.schema.json"), "utf8"));
+  assert.equal(schema.$defs.entity.properties.collidable.type, "boolean");
+  assert.equal(schema.$defs.entity.properties.interactive.type, "boolean");
+  assert.ok(schema.$defs.entity.properties.kind.enum.includes("sprite"));
+  assert.equal(schema.$defs.asset.properties.ref.pattern, "^sha256:[0-9a-f]{64}$");
 });
 
 test("sandbox rejects executable/network-shaped content", async () => {
@@ -51,6 +120,14 @@ test("publication policy rejects unknown hidden fields and bad semantic referenc
   assert.ok(policy.errors.some((error) => error.includes("secretUrl")));
   assert.ok(policy.errors.some((error) => error.includes("unknown timer")));
   assert.ok(policy.errors.some((error) => error.includes("unknown template")));
+});
+
+test("publication policy rejects sprite refs to unknown/non-image assets", async () => {
+  const spec = await example("space-dodge");
+  spec.entities.find((entity) => entity.id === "player").asset = "missing";
+  const policy = validatePublicationPolicy(spec);
+  assert.equal(policy.ok, false);
+  assert.ok(policy.errors.some((error) => error.includes("unknown asset")));
 });
 
 test("publication policy keeps semantic emit payloads small and flat", async () => {
@@ -142,6 +219,30 @@ test("safety runtime canonicalizes collision refs to aTag/bTag order", async () 
   assert.equal(runtime.variables.hits, 1);
 });
 
+test("decorative full-screen sprite never participates in collision or pointer targeting", async () => {
+  const spec = await example("space-dodge");
+  const player = spec.entities.find((entity) => entity.id === "player");
+  spec.entities.push({
+    id: "forced-meteor",
+    kind: "sprite",
+    asset: "meteor",
+    tags: ["hazard"],
+    x: player.x,
+    y: player.y,
+    width: 42,
+    height: 42,
+    interactive: false
+  });
+  const runtime = new SafeSandboxRuntime(spec, { seed: 1 });
+  runtime.start();
+  runtime.step(0);
+  assert.equal(runtime.entities.has("background"), true);
+  assert.equal(runtime.entities.get("background").collidable, false);
+  assert.equal(runtime.entities.has("forced-meteor"), false);
+  assert.equal(runtime.variables.hits, 1);
+  assert.equal(runtime.entityAt(10, 10), null);
+});
+
 test("safety runtime terminates creator games at the global runtime ceiling", async () => {
   const spec = await example("tap-bloom");
   spec.timers = [];
@@ -154,25 +255,34 @@ test("safety runtime terminates creator games at the global runtime ceiling", as
   assert.equal(runtime.result.elapsedMs, HARD_LIMITS.maxDurationMs);
 });
 
-test("transport plan keeps the feed descriptor tiny and lazy-loads the game body", async () => {
-  const spec = await example("tap-bloom");
-  const plan = buildTransportPlan(spec);
-  assert.ok(plan.feedDescriptorBytes < 512, `descriptor is ${plan.feedDescriptorBytes} bytes`);
-  assert.ok(plan.firstPlayBytes < HARD_LIMITS.maxSpecBytes);
-  assert.equal(plan.uncachedAssetBytes, 0);
-  assert.equal(plan.profile.instantEligible, true);
-  assert.equal(canonicalJson(spec), canonicalJson(JSON.parse(JSON.stringify(spec))));
+test("transport plan keeps feed metadata tiny and content-addressed assets lazy", async () => {
+  const zeroAsset = buildTransportPlan(await example("tap-bloom"));
+  assert.ok(zeroAsset.feedDescriptorBytes < 512, `descriptor is ${zeroAsset.feedDescriptorBytes} bytes`);
+  assert.ok(zeroAsset.firstPlayBytes < HARD_LIMITS.maxSpecBytes);
+  assert.equal(zeroAsset.uncachedAssetBytes, 0);
+
+  const spriteSpec = await example("space-dodge");
+  const cold = buildTransportPlan(spriteSpec);
+  const allCached = buildTransportPlan(spriteSpec, { cachedAssetRefs: spriteSpec.assets.map((asset) => asset.ref) });
+  assert.ok(cold.feedDescriptorBytes < 512, `sprite descriptor is ${cold.feedDescriptorBytes} bytes`);
+  assert.equal(cold.uncachedAssetBytes, 6761);
+  assert.equal(allCached.uncachedAssetBytes, 0);
+  assert.equal(allCached.firstPlayBytes, allCached.canonicalSpecBytes);
+  assert.equal(cold.firstPlayBytes - allCached.firstPlayBytes, 6761);
+  assert.equal(canonicalJson(spriteSpec), canonicalJson(JSON.parse(JSON.stringify(spriteSpec))));
 });
 
 test("automated review runs multiple deterministic safety probes without crashes", async () => {
-  const spec = await example();
-  const report = reviewGameSpec(spec, { seeds: [3, 11, 29], maxSimulatedMs: 3000 });
-  assert.equal(report.ok, true, report.errors.join("\n"));
-  assert.equal(report.summary.seeds, 3);
-  assert.equal(report.summary.crashes, 0);
-  assert.ok(report.summary.peakEntities <= HARD_LIMITS.maxEntities);
-  assert.ok(report.summary.peakOps <= HARD_LIMITS.maxOpsPerStep);
-  assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
+  for (const name of ["meteor-dodge", "space-dodge"]) {
+    const spec = await example(name);
+    const report = reviewGameSpec(spec, { seeds: [3, 11, 29], maxSimulatedMs: 3000 });
+    assert.equal(report.ok, true, `${name}: ${report.errors.join("\n")}`);
+    assert.equal(report.summary.seeds, 3);
+    assert.equal(report.summary.crashes, 0);
+    assert.ok(report.summary.peakEntities <= HARD_LIMITS.maxEntities);
+    assert.ok(report.summary.peakOps <= HARD_LIMITS.maxOpsPerStep);
+    assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
+  }
 });
 
 test("automated review rejects a statically invalid creator game before simulation", async () => {
