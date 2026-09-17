@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { HARD_LIMITS, packageProfile, validateGameSpec } from "../src/sandbox/game-spec.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
+import { reviewGameSpec } from "../src/sandbox/review.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
@@ -71,4 +72,25 @@ test("collision rules can mutate state", async () => {
   runtime.start();
   runtime.step(16);
   assert.equal(runtime.variables.hits, 1);
+});
+
+test("automated review runs multiple deterministic safety probes without crashes", async () => {
+  const spec = await example();
+  const report = reviewGameSpec(spec, { seeds: [3, 11, 29], maxSimulatedMs: 3000 });
+  assert.equal(report.ok, true, report.errors.join("\n"));
+  assert.equal(report.summary.seeds, 3);
+  assert.equal(report.summary.crashes, 0);
+  assert.ok(report.summary.peakEntities <= HARD_LIMITS.maxEntities);
+  assert.ok(report.summary.peakOps <= HARD_LIMITS.maxOpsPerStep);
+  assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
+});
+
+test("automated review rejects a statically invalid creator game before simulation", async () => {
+  const spec = await example();
+  spec.rules.push({ on: "start", actions: [{ javascript: { source: "while(true){}" } }] });
+  const report = reviewGameSpec(spec);
+  assert.equal(report.ok, false);
+  assert.equal(report.verdict, "reject");
+  assert.equal(report.stage, "static_validation");
+  assert.equal(report.runs.length, 0);
 });
