@@ -1,5 +1,5 @@
 import { HARD_LIMITS } from "./game-spec.js";
-import { SandboxRuntime } from "./runtime-core.js";
+import { SafeSandboxRuntime } from "./safe-runtime.js";
 
 function hasContinuousSimulation(runtime, spec) {
   if ((spec.rules || []).some((rule) => rule.on === "tick")) return true;
@@ -32,7 +32,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
   let last = performance.now();
 
   const effects = [];
-  const runtime = new SandboxRuntime(spec, {
+  const runtime = new SafeSandboxRuntime(spec, {
     seed: options.seed || 1,
     onEvent: options.onEvent || (() => {}),
     onEffect: (effect) => {
@@ -121,8 +121,6 @@ export function mountGameSpec(canvas, spec, options = {}) {
 
     const delay = nextTimerDelay(runtime);
     if (delay === null) return;
-    // Event-driven idle: no animation frame loop for static games. Wake only
-    // for the next timer, then re-evaluate whether the game now has motion.
     timer = setTimeout(() => {
       advanceClock(performance.now());
       render();
@@ -144,8 +142,6 @@ export function mountGameSpec(canvas, spec, options = {}) {
     const point = toGamePoint(event);
     runtime.pointer(type, point.x, point.y);
     if (type === "pointerUp") runtime.pointer("tap", point.x, point.y);
-    // A static game may move entities through pointer rules; a zero-time step
-    // resolves bounds/collisions without advancing the game clock.
     if (runtime.status === "running") runtime.step(0);
     render();
     schedule();
@@ -179,6 +175,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
   document.addEventListener("visibilitychange", visibilityHandler);
 
   runtime.start();
+  if (runtime.status === "running") runtime.step(0);
   render();
   schedule();
 
