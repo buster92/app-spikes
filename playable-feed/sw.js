@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v8";
+const CACHE = "playloop-spike-v9";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./ux-feedback.css",
   "./expansion.css",
   "./playtest-tuning.css",
+  "./playtest-round2.css",
   "./ux-feedback.js",
   "./icons/playloop-icon.svg",
   "./icons/playloop-192.png",
@@ -19,6 +20,7 @@ const ASSETS = [
   "./src/games.js",
   "./src/extra-games-register.js",
   "./src/playtest-tuning.js",
+  "./src/playtest-round2.js",
   "./src/progression.js",
   "./manifest.webmanifest"
 ];
@@ -42,9 +44,6 @@ self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
 
-  // This spike changes frequently during phone playtests. Prefer the latest
-  // GitHub Pages response and keep the cache only as an offline fallback so an
-  // older service-worker snapshot cannot keep serving a fixed-but-stale bug.
   event.respondWith(
     fetch(event.request)
       .then((response) => {
