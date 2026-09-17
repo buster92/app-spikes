@@ -86,3 +86,28 @@ test("v0 executable validator rejects schema-constrained creator fields", () => 
   assert.ok(result.errors.some((error) => error.includes("sourceWidth")));
   assert.ok(result.errors.some((error) => error.includes("sound.volume")));
 });
+
+test("v1 scans only expression-bearing base action fields", () => {
+  const spec = {
+    schemaVersion: 1,
+    runtime: RUNTIME_V1_ID,
+    id: "v1-expression-boundary",
+    title: "V1 expression boundary",
+    canvas: { width: 160, height: 240, background: "#000" },
+    variables: { score: 0 },
+    assets: [],
+    templates: {},
+    entities: [{ id: "player", kind: "circle", x: 20, y: 20, radius: 5 }],
+    timers: [],
+    rules: [{
+      on: "start",
+      actions: [
+        { setVar: { name: "score", value: { entity: { ref: "player", field: "x" } } } },
+        { destroy: { entity: "player" } },
+      ],
+    }],
+  };
+
+  const result = validateGameSpecV1(spec);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
