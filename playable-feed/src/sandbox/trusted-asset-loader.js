@@ -70,6 +70,8 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   const maxDecodedBytes = Number(options.maxDecodedBytes || ASSET_POLICY.maxTotalDecodedImageBytes);
   let decodedBytes = 0;
   let reservedDecodedBytes = 0;
+  let disposed = false;
+  let lifetime = 0;
 
   async function fetchVerified(asset) {
     if (!asset || !isTrustedAssetRef(asset.ref)) throw new Error("Invalid content-addressed asset reference");
@@ -90,6 +92,7 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   }
 
   async function loadImage(asset) {
+    if (disposed) throw new Error("Trusted asset loader has been disposed");
     if (asset.kind !== "image") throw new Error(`${asset.id} is not an image asset`);
     if (decoded.has(asset.ref)) return decoded.get(asset.ref);
     if (!inflight.has(asset.ref)) {
@@ -102,14 +105,22 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
       }
 
       // Reserve the decoded footprint before any async fetch/decode work starts.
-      // Without this, two concurrent image loads can both observe the same free
+      // Without this, concurrent image loads can each observe the same free
       // memory and collectively exceed the active decoded-image budget.
       reservedBytesByRef.set(asset.ref, expectedDecodedBytes);
       reservedDecodedBytes += expectedDecodedBytes;
+      const loadLifetime = lifetime;
 
       const promise = (async () => {
         const verified = await fetchVerified(asset);
         const bitmap = await decodeRaster(new Blob([verified.bytes], { type: verified.mime }), asset);
+
+        // The browser may finish a fetch/decode after pagehide/disposal. Never
+        // let that asynchronous completion recreate decoded resources.
+        if (disposed || loadLifetime !== lifetime) {
+          bitmap?.close?.();
+          throw new Error(`Asset load cancelled for ${asset.id}`);
+        }
 
         if (decoded.has(asset.ref)) {
           bitmap?.close?.();
@@ -131,6 +142,7 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   }
 
   async function preload(spec) {
+    if (disposed) throw new Error("Trusted asset loader has been disposed");
     const byId = new Map((spec.assets || []).map((asset) => [asset.id, asset]));
     const referenced = collectReferencedImageIds(spec);
     const uniqueByRef = new Map();
@@ -173,12 +185,17 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
       totalAccountedDecodedBytes: decodedBytes + reservedDecodedBytes,
       maxDecodedBytes,
       inflight: inflight.size,
+      disposed,
     };
   }
 
   function dispose() {
+    if (disposed) return;
+    disposed = true;
+    lifetime += 1;
     releaseExcept([]);
-    inflight.clear();
+    // In-flight promises cannot always be cancelled at the browser API level,
+    // but the lifetime guard above guarantees their decoded output is closed.
   }
 
   return { preload, loadImage, getImage, releaseExcept, stats, dispose };
