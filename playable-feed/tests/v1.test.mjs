@@ -92,3 +92,57 @@ test("v1 rejects entity reads that escape the current event/entity context", asy
   assert.equal(badEvent.ok, false);
   assert.ok(badEvent.errors.some((error) => error.includes("$target")));
 });
+
+test("v1 state actions require an explicit value", async () => {
+  const spec = await shooter();
+  const collision = spec.rules.find((rule) => rule.on === "collision" && rule.aTag === "player");
+  collision.actions[1] = { addEntityState: { entity: "player", key: "health" } };
+  const result = validateGameSpecV1(spec);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("addEntityState.value: is required")));
+});
+
+test("v1 runtime refuses to grow entity-local state beyond eight keys", async () => {
+  const spec = await shooter();
+  const player = spec.entities.find((entity) => entity.id === "player");
+  player.state = {
+    health: 3,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7
+  };
+  spec.rules.unshift({
+    on: "start",
+    actions: [
+      { setEntityState: { entity: "player", key: "ninth", value: 9 } }
+    ]
+  });
+
+  const runtime = new SafeSandboxRuntimeV1(spec, { seed: 1 });
+  assert.throws(() => runtime.start(), /exceeded 8 state keys/);
+  assert.equal(runtime.status, "failed");
+  assert.equal(runtime.result.reason, "entity_state_budget_exceeded");
+  assert.equal(Object.hasOwn(runtime.entities.get("player").state, "ninth"), false);
+});
+
+test("v1 runtime rejects non-scalar dynamic state writes", async () => {
+  const spec = await shooter();
+  spec.rules.unshift({
+    on: "start",
+    actions: [
+      { setEntityState: { entity: "player", key: "health", value: { entity: { ref: "player", state: "missing" } } } }
+    ]
+  });
+
+  // Missing state reads normalize to null, which is an allowed scalar. Prove a
+  // dynamic non-scalar cannot be smuggled through by mutating runtime state only
+  // after validation; the execution guard remains authoritative.
+  const runtime = new SafeSandboxRuntimeV1(spec, { seed: 1 });
+  runtime.entities.get("player").state.missing = { nested: true };
+  assert.throws(() => runtime.start(), /Invalid scalar state value/);
+  assert.equal(runtime.result.reason, "invalid_entity_state_value");
+});
