@@ -1,6 +1,8 @@
 import { SafeSandboxRuntime } from "./safe-runtime.js";
 import {
+  V1_LIMITS,
   downgradeV1ForV0Validation,
+  isV1ScalarStateValue,
   validateGameSpecV1,
 } from "./game-spec-v1.js";
 
@@ -57,6 +59,27 @@ export class SafeSandboxRuntimeV1 extends SafeSandboxRuntime {
     return super.evaluateExpression(expr, event);
   }
 
+  failState(reason, detail) {
+    this.status = "failed";
+    this.result = {
+      score: Number(this.variables.score || 0),
+      detail,
+      elapsedMs: Math.round(this.elapsedMs),
+      reason,
+    };
+    throw new Error(detail);
+  }
+
+  ensureStateKeyBudget(entity, key) {
+    if (Object.hasOwn(entity.state, key)) return;
+    if (Object.keys(entity.state).length >= V1_LIMITS.maxStateKeysPerEntity) {
+      this.failState(
+        "entity_state_budget_exceeded",
+        `Entity ${entity.id} exceeded ${V1_LIMITS.maxStateKeysPerEntity} state keys`,
+      );
+    }
+  }
+
   executeActions(actions, event) {
     for (const action of actions || []) {
       if (this.status !== "running") return;
@@ -75,26 +98,28 @@ export class SafeSandboxRuntimeV1 extends SafeSandboxRuntime {
       const entity = this.entities.get(id);
       if (!entity) continue;
       if (!isObject(entity.state)) entity.state = {};
+      this.ensureStateKeyBudget(entity, value.key);
 
       const next = this.evaluateExpression(value.value, event);
       if (type === "setEntityState") {
+        if (!isV1ScalarStateValue(next)) {
+          this.failState("invalid_entity_state_value", `Invalid scalar state value for ${id}.${value.key}`);
+        }
+        if (typeof next === "string" && next.length > V1_LIMITS.maxStateStringLength) {
+          this.failState(
+            "entity_state_string_too_long",
+            `Entity state string exceeds ${V1_LIMITS.maxStateStringLength} characters for ${id}.${value.key}`,
+          );
+        }
         entity.state[value.key] = clone(next);
         continue;
       }
 
-      const currentNumber = Number(entity.state[value.key] ?? 0);
-      const delta = Number(next ?? 0);
-      if (!Number.isFinite(currentNumber) || !Number.isFinite(delta)) {
-        this.status = "failed";
-        this.result = {
-          score: Number(this.variables.score || 0),
-          detail: `Non-numeric addEntityState for ${id}.${value.key}`,
-          elapsedMs: Math.round(this.elapsedMs),
-          reason: "invalid_entity_state_math",
-        };
-        throw new Error(this.result.detail);
+      const current = Object.hasOwn(entity.state, value.key) ? entity.state[value.key] : 0;
+      if (typeof current !== "number" || !Number.isFinite(current) || typeof next !== "number" || !Number.isFinite(next)) {
+        this.failState("invalid_entity_state_math", `Non-numeric addEntityState for ${id}.${value.key}`);
       }
-      entity.state[value.key] = currentNumber + delta;
+      entity.state[value.key] = current + next;
     }
   }
 }
