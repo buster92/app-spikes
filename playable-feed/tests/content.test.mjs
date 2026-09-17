@@ -111,6 +111,8 @@ test("app logging covers behavioral outcomes and renderer failures", async () =>
     "game_fail",
     "game_skip",
     "game_retry",
+    "game_reward_granted",
+    "game_reward_suppressed",
     "game_mount_error",
     "game_empty_render",
     "feed_transition_error",
@@ -168,6 +170,17 @@ test("retry/resume attempts do not count as new feed impressions", async () => {
   assert.match(app, /if \(!retry && !resumed\) \{/);
   assert.match(app, /mountCurrent\(\{ retry: true \}\)/);
   assert.match(app, /mountCurrent\(\{ resumed: true \}\)/);
+});
+
+test("a completed feed variant can grant progression only once", async () => {
+  const app = await readFile(resolve(root, "src/app.js"), "utf8");
+  assert.match(app, /rewardedVariantIds: new Set\(\)/);
+  assert.match(app, /state\.rewardedVariantIds\.has\(game\.variantId\)/);
+  assert.match(app, /state\.rewardedVariantIds\.add\(game\.variantId\)/);
+  assert.match(app, /game_reward_suppressed/);
+  assert.match(app, /variant_already_rewarded/);
+  assert.match(app, /els\.resultScore\.textContent = "0 XP"/);
+  assert.match(app, /\["Attempts", summary\.gamesStarted\]/);
 });
 
 test("upward feed gesture is handled in capture phase before game pointer-up", async () => {
