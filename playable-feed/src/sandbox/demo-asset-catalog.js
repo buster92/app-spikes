@@ -15,6 +15,14 @@ export const DEMO_ASSET_CATALOG = Object.freeze({
     height: 64,
     url: "./assets/demo/pixel-meteor.png",
   }),
+  "sha256:523f731761fea9ae7f6e4221a28cef3ca0d526b5a6aaa1463d88b58bbb383ce5": Object.freeze({
+    kind: "image",
+    bytes: 954,
+    mime: "image/png",
+    width: 128,
+    height: 64,
+    url: "./assets/demo/space-atlas.png",
+  }),
   "sha256:fe1dc859f896df3172cf307d032ed72000298ee08b77a88aaa8b7af6b5c64142": Object.freeze({
     kind: "image",
     bytes: 5746,
