@@ -12,6 +12,7 @@ The current implementation proves that games can be loaded as bounded data rathe
 4. [`PUBLISHING-PIPELINE-V0.md`](./PUBLISHING-PIPELINE-V0.md) — draft → automated review → moderation → signed public package.
 5. [`KMP-RUNTIME-CONTRACT-V0.md`](./KMP-RUNTIME-CONTRACT-V0.md) — commonMain/platform split and migration invariants.
 6. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
+7. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable transport-neutral tool manifest.
 
 ## Reference implementation
 
@@ -27,13 +28,29 @@ The web reference lives under `../src/sandbox/` and currently includes:
 - decoded-image memory budgets;
 - visible+next asset residency/eviction policy;
 - lightweight transport planning;
-- deterministic automated review probes.
+- deterministic automated review probes;
+- structured AI-authoring diagnostics/capabilities;
+- a local creator CLI that mirrors the future API/MCP operations for capabilities, validation, simulation and unsigned publication-manifest generation.
+
+## Creator CLI
+
+From `playable-feed/`:
+
+```bash
+npm run creator:capabilities
+npm run creator:validate
+npm run creator:simulate
+npm run creator:manifest
+```
+
+The CLI returns JSON so an external AI or local agent can consume the same authoring feedback without needing Playloop source-code access. It does **not** publish, sign content, upload arbitrary code or grant access to player/social/payment APIs.
 
 ## Examples
 
 - `meteor-dodge.game.json` — zero-asset continuous dodge mechanic.
 - `tap-bloom.game.json` — zero-asset tap/reposition mechanic.
 - `space-dodge.game.json` — visually richer version using a background plus a tiny shared sprite atlas.
+- `creator-star-catch.game.json` — an AI-authored catch/avoid game expressed only as GameSpec and reused reviewed assets; no game-specific JavaScript was added.
 
 Open `../sandbox-demo.html` through a local HTTP server to switch between them.
 
