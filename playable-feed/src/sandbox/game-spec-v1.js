@@ -55,7 +55,8 @@ function sanitizeExpression(value) {
 }
 
 function sanitizeActions(actions) {
-  return (actions || []).map((action) => {
+  if (!Array.isArray(actions)) return actions;
+  return actions.map((action) => {
     if (!isObject(action)) return action;
     if (Object.hasOwn(action, "setEntityState") || Object.hasOwn(action, "addEntityState")) {
       return { setVar: { name: "v1noop", value: 0 } };
@@ -64,8 +65,8 @@ function sanitizeActions(actions) {
       return {
         if: {
           condition: sanitizeExpression(action.if.condition),
-          then: sanitizeActions(action.if.then || []),
-          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else || []) }),
+          then: sanitizeActions(action.if.then),
+          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else) }),
         },
       };
     }
@@ -76,11 +77,18 @@ function sanitizeActions(actions) {
 export function downgradeV1ForV0Validation(spec) {
   const copy = clone(spec) || {};
   copy.runtime = RUNTIME_ID;
-  for (const entity of copy.entities || []) delete entity.state;
-  for (const template of Object.values(copy.templates || {})) delete template.state;
-  for (const rule of copy.rules || []) {
-    if (rule.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
-    rule.actions = sanitizeActions(rule.actions || []);
+  if (Array.isArray(copy.entities)) {
+    for (const entity of copy.entities) if (isObject(entity)) delete entity.state;
+  }
+  if (isObject(copy.templates)) {
+    for (const template of Object.values(copy.templates)) if (isObject(template)) delete template.state;
+  }
+  if (Array.isArray(copy.rules)) {
+    for (const rule of copy.rules) {
+      if (!isObject(rule)) continue;
+      if (rule.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
+      if (rule.actions !== undefined) rule.actions = sanitizeActions(rule.actions);
+    }
   }
   return copy;
 }
@@ -172,8 +180,8 @@ function walkActions(actions, eventName, initialIds, path, errors) {
     }
     if (Object.hasOwn(action, "if") && isObject(action.if)) {
       walkExpressions(action.if.condition, eventName, initialIds, `${actionPath}.if.condition`, errors);
-      walkActions(action.if.then || [], eventName, initialIds, `${actionPath}.if.then`, errors);
-      walkActions(action.if.else || [], eventName, initialIds, `${actionPath}.if.else`, errors);
+      walkActions(action.if.then, eventName, initialIds, `${actionPath}.if.then`, errors);
+      walkActions(action.if.else, eventName, initialIds, `${actionPath}.if.else`, errors);
       return;
     }
     walkExpressions(action, eventName, initialIds, actionPath, errors);
@@ -191,14 +199,17 @@ export function validateGameSpecV1(spec) {
   const base = validateGameSpec(downgraded);
   errors.push(...base.errors.filter((message) => !message.startsWith("spec: JSON is ")));
 
-  const initialIds = new Set((spec.entities || []).map((entity) => entity?.id).filter(Boolean));
-  (spec.entities || []).forEach((entity, index) => validateStateMap(entity?.state, `entities[${index}].state`, errors));
-  for (const [id, template] of Object.entries(spec.templates || {})) validateStateMap(template?.state, `templates.${id}.state`, errors);
+  const entities = Array.isArray(spec.entities) ? spec.entities : [];
+  const templates = isObject(spec.templates) ? spec.templates : {};
+  const rules = Array.isArray(spec.rules) ? spec.rules : [];
+  const initialIds = new Set(entities.map((entity) => entity?.id).filter(Boolean));
+  entities.forEach((entity, index) => validateStateMap(entity?.state, `entities[${index}].state`, errors));
+  for (const [id, template] of Object.entries(templates)) validateStateMap(template?.state, `templates.${id}.state`, errors);
 
-  (spec.rules || []).forEach((rule, index) => {
+  rules.forEach((rule, index) => {
     const eventName = rule?.on;
     if (rule?.condition !== undefined) walkExpressions(rule.condition, eventName, initialIds, `rules[${index}].condition`, errors);
-    walkActions(rule?.actions || [], eventName, initialIds, `rules[${index}].actions`, errors);
+    walkActions(rule?.actions, eventName, initialIds, `rules[${index}].actions`, errors);
   });
 
   return { ok: errors.length === 0, errors };
@@ -223,7 +234,8 @@ export function validatePublicationPolicyV1(spec) {
 export function packageProfileV1(spec) {
   const validation = validateGameSpecV1(spec);
   const specBytes = byteLength(spec);
-  const declaredAssetBytes = (spec?.assets || []).reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
+  const assets = Array.isArray(spec?.assets) ? spec.assets : [];
+  const declaredAssetBytes = assets.reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
   const combinedBytes = specBytes + declaredAssetBytes;
   return {
     ok: validation.ok,
@@ -234,11 +246,11 @@ export function packageProfileV1(spec) {
       specBytes,
       declaredAssetBytes,
       combinedBytes,
-      entities: spec?.entities?.length || 0,
-      templates: Object.keys(spec?.templates || {}).length,
-      rules: spec?.rules?.length || 0,
-      timers: spec?.timers?.length || 0,
-      assets: spec?.assets?.length || 0,
+      entities: Array.isArray(spec?.entities) ? spec.entities.length : 0,
+      templates: isObject(spec?.templates) ? Object.keys(spec.templates).length : 0,
+      rules: Array.isArray(spec?.rules) ? spec.rules.length : 0,
+      timers: Array.isArray(spec?.timers) ? spec.timers.length : 0,
+      assets: assets.length,
     },
   };
 }
