@@ -8,11 +8,12 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 
 ## What is implemented
 
-- 15 distinct microgame mechanics, including the original set plus:
+- 16 distinct microgame mechanics, including the original set plus:
   - Dodge Stream
   - Jump Rush
   - Micro Snake
   - Micro Match
+  - Bus Jam
 - Infinite feed behavior. A complete cycle uses each mechanic once before repeating.
 - Procedural variants across cycles: palette, difficulty, target positions, timings, counts, sequences, layouts and game-specific parameters.
 - Lightweight adaptive difficulty from 1–5 based on recent outcomes.
@@ -37,14 +38,19 @@ The first hands-on phone playtests produced stronger behavioral signal than expe
 - streak/fire feedback and personal-record chasing added motivation without interrupting the loop
 - changing post-game continuation from a prominent **Next** button to swipe-first behavior made the interaction feel closer to the intended `play → swipe → play` loop
 
-Phone playtesting also exposed important tuning issues:
+Phone playtesting exposed several concrete tuning issues:
 
 - Micro Snake controls were too small and level-5 movement was too fast on an iPhone 13
+- the Snake grid row containing the food dot could visually stretch because the glyph affected auto row sizing
 - Micro Match felt frustrating without direct swipe-to-swap interaction or visible clear/drop animation
 - Flash Memory ramped working-memory load too aggressively at higher difficulty
 - a completed easy game could be retried repeatedly to farm unlimited XP/streak progression
+- Tap Rush had a hidden timeout, so failure pressure was invisible
+- Bigger Wins became mechanically repetitive at higher levels
+- Hold Steady became too easy once the player understood the static hold
+- the playtester requested a compact Bus Escape / color-sorting style puzzle after observing strong engagement with that mechanic outside the spike
 
-The current branch tunes those directly: larger Snake controls, a slower 500→360 ms/tick difficulty curve with a 900 ms ready delay, swipe-enabled animated Match-3 resolution, Flash Memory capped to 3→5 inputs instead of the previous 4→8 ramp, and one-time progression rewards per feed variant.
+The current branch addresses those directly: larger/slower Snake controls plus fixed grid rows, animated swipe-enabled Match-3 resolution, Flash Memory capped to 3→5 inputs, one-time progression rewards, a visible Tap Rush countdown, addition/subtraction in Bigger Wins at higher levels, a moving follow-target version of Hold Steady, and a new Bus Jam microgame with passenger/bus color sorting and limited waiting slots.
 
 This is still anecdotal and from a tiny sample, so it is not product validation. It is enough evidence to keep testing the loop rather than expanding into platform infrastructure.
 
@@ -92,7 +98,7 @@ The prototype stores bounded events in `localStorage` and exposes an in-app anal
 - `feed_reach_milestone` for 3 / 5 / 10 / 20 / 50 / 100 feed items
 - `difficulty_changed`
 - `personal_record_broken`
-- game-specific interactions such as hazard dodges/collisions, Jump Rush hits/timeouts, Snake turns/eats/collisions and Match swipes/swaps/clears/cascades
+- game-specific interactions such as hazard dodges/collisions, Jump Rush hits/timeouts, Snake turns/eats/collisions, Match swipes/swaps/clears/cascades, Tap Rush timeout state, arithmetic choices, Hold tracking/loss, and Bus Jam boarding/waiting/departure events
 - visibility/background transitions
 - unexpected runtime errors / unhandled promise rejections for debugging failed or blank game mounts
 
