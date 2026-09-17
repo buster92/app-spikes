@@ -42,6 +42,10 @@ function assertSpriteAssetsReady(spec, assetLoader, assetsById) {
   }
 }
 
+function hasSourceRect(entity) {
+  return ["sourceX", "sourceY", "sourceWidth", "sourceHeight"].every((key) => Number.isFinite(entity?.[key]));
+}
+
 export function mountGameSpec(canvas, spec, options = {}) {
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Canvas 2D rendering is unavailable");
@@ -86,6 +90,20 @@ export function mountGameSpec(canvas, spec, options = {}) {
       return;
     }
     context.imageSmoothingEnabled = options.imageSmoothing !== false;
+    if (hasSourceRect(entity)) {
+      context.drawImage(
+        bitmap,
+        entity.sourceX,
+        entity.sourceY,
+        entity.sourceWidth,
+        entity.sourceHeight,
+        -entity.width / 2,
+        -entity.height / 2,
+        entity.width,
+        entity.height,
+      );
+      return;
+    }
     context.drawImage(bitmap, -entity.width / 2, -entity.height / 2, entity.width, entity.height);
   };
 
