@@ -1,6 +1,4 @@
-import { ASSET_POLICY, isTrustedAssetRef } from "./asset-contract.js";
-
-const encoder = new TextEncoder();
+import { ASSET_POLICY, decodedImageBytes, isTrustedAssetRef } from "./asset-contract.js";
 
 function hex(bytes) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -15,15 +13,49 @@ async function sha256Bytes(bytes) {
 function assertSameOrigin(url) {
   const resolved = new URL(url, globalThis.location?.href || "http://localhost/");
   if (globalThis.location && resolved.origin !== globalThis.location.origin) {
-    throw new Error("Demo trusted asset catalog may only resolve same-origin URLs");
+    throw new Error("Trusted asset catalog may only resolve same-origin URLs");
   }
   return resolved.toString();
 }
 
-export function createTrustedAssetLoader(catalog = {}) {
+function collectReferencedImageIds(spec) {
+  const ids = new Set();
+  for (const entity of spec.entities || []) {
+    if (entity?.kind === "sprite" && typeof entity.asset === "string") ids.add(entity.asset);
+  }
+  for (const template of Object.values(spec.templates || {})) {
+    if (template?.kind === "sprite" && typeof template.asset === "string") ids.add(template.asset);
+  }
+  return ids;
+}
+
+async function decodeRaster(blob, asset) {
+  const decoded = typeof createImageBitmap === "function"
+    ? await createImageBitmap(blob)
+    : await new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      image.onload = () => { URL.revokeObjectURL(objectUrl); resolve(image); };
+      image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error(`Could not decode ${asset.id}`)); };
+      image.src = objectUrl;
+    });
+
+  const width = Number(decoded.width || decoded.naturalWidth || 0);
+  const height = Number(decoded.height || decoded.naturalHeight || 0);
+  if (width !== asset.width || height !== asset.height) {
+    decoded?.close?.();
+    throw new Error(`Decoded dimensions mismatch for ${asset.id}: got ${width}x${height}, expected ${asset.width}x${asset.height}`);
+  }
+  return decoded;
+}
+
+export function createTrustedAssetLoader(catalog = {}, options = {}) {
   const entries = new Map(Object.entries(catalog));
   const inflight = new Map();
   const decoded = new Map();
+  const decodedBytesByRef = new Map();
+  const maxDecodedBytes = Number(options.maxDecodedBytes || ASSET_POLICY.maxTotalDecodedImageBytes);
+  let decodedBytes = 0;
 
   async function fetchVerified(asset) {
     if (!asset || !isTrustedAssetRef(asset.ref)) throw new Error("Invalid content-addressed asset reference");
@@ -51,18 +83,24 @@ export function createTrustedAssetLoader(catalog = {}) {
     if (decoded.has(asset.ref)) return decoded.get(asset.ref);
     if (!inflight.has(asset.ref)) {
       inflight.set(asset.ref, (async () => {
+        const expectedDecodedBytes = decodedImageBytes(asset);
+        if (expectedDecodedBytes <= 0 || expectedDecodedBytes > ASSET_POLICY.maxSingleDecodedImageBytes) {
+          throw new Error(`Decoded image budget invalid for ${asset.id}`);
+        }
+        if (decodedBytes + expectedDecodedBytes > maxDecodedBytes) {
+          throw new Error(`Decoded image working set would exceed ${maxDecodedBytes} bytes`);
+        }
+
         const verified = await fetchVerified(asset);
-        const blob = new Blob([verified.bytes], { type: verified.mime });
-        const bitmap = typeof createImageBitmap === "function"
-          ? await createImageBitmap(blob)
-          : await new Promise((resolve, reject) => {
-            const objectUrl = URL.createObjectURL(blob);
-            const image = new Image();
-            image.onload = () => { URL.revokeObjectURL(objectUrl); resolve(image); };
-            image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error(`Could not decode ${asset.id}`)); };
-            image.src = objectUrl;
-          });
+        const bitmap = await decodeRaster(new Blob([verified.bytes], { type: verified.mime }), asset);
+
+        if (decoded.has(asset.ref)) {
+          bitmap?.close?.();
+          return decoded.get(asset.ref);
+        }
         decoded.set(asset.ref, bitmap);
+        decodedBytesByRef.set(asset.ref, expectedDecodedBytes);
+        decodedBytes += expectedDecodedBytes;
         return bitmap;
       })().finally(() => inflight.delete(asset.ref)));
     }
@@ -70,7 +108,11 @@ export function createTrustedAssetLoader(catalog = {}) {
   }
 
   async function preload(spec) {
-    const imageAssets = (spec.assets || []).filter((asset) => asset.kind === "image");
+    const byId = new Map((spec.assets || []).map((asset) => [asset.id, asset]));
+    const referenced = collectReferencedImageIds(spec);
+    const imageAssets = [...referenced].map((id) => byId.get(id)).filter((asset) => asset?.kind === "image");
+    const projected = imageAssets.reduce((sum, asset) => sum + decodedImageBytes(asset), 0);
+    if (projected > maxDecodedBytes) throw new Error(`Game image working set ${projected} exceeds ${maxDecodedBytes} bytes`);
     await Promise.all(imageAssets.map(loadImage));
     return imageAssets.length;
   }
@@ -79,18 +121,35 @@ export function createTrustedAssetLoader(catalog = {}) {
     return decoded.get(ref) || null;
   }
 
+  function releaseExcept(refs = []) {
+    const keep = new Set(refs);
+    for (const [ref, value] of decoded.entries()) {
+      if (keep.has(ref)) continue;
+      value?.close?.();
+      decoded.delete(ref);
+      decodedBytes -= decodedBytesByRef.get(ref) || 0;
+      decodedBytesByRef.delete(ref);
+    }
+    decodedBytes = Math.max(0, decodedBytes);
+  }
+
+  function stats() {
+    return {
+      decodedAssets: decoded.size,
+      decodedBytes,
+      maxDecodedBytes,
+      inflight: inflight.size,
+    };
+  }
+
   function dispose() {
-    for (const value of decoded.values()) value?.close?.();
-    decoded.clear();
+    releaseExcept([]);
     inflight.clear();
   }
 
-  return { preload, loadImage, getImage, dispose };
+  return { preload, loadImage, getImage, releaseExcept, stats, dispose };
 }
 
 export function estimateDecodedImageBytes(asset) {
-  if (asset?.kind !== "image") return 0;
-  const width = Math.min(ASSET_POLICY.maxRasterDimension, Number(asset.width || 0));
-  const height = Math.min(ASSET_POLICY.maxRasterDimension, Number(asset.height || 0));
-  return Math.max(0, width * height * 4);
+  return decodedImageBytes(asset);
 }
