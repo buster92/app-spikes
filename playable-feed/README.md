@@ -1,14 +1,25 @@
 # Playable Feed Spike
 
-## Validation question
+## Two validation tracks
+
+The repository now contains two related but distinct experiments:
+
+1. the original **consumer loop** — does `play → swipe → play` create voluntary continuation?;
+2. the newer **Playloop creator-runtime** — can creators/AIs publish genuinely varied, lightweight playable posts without shipping arbitrary executable code?
+
+The handcrafted PWA remains useful evidence about feed behavior and fatigue. The creator-runtime work under `sandbox/` is the foundation for the broader product direction: a social platform where posts can combine video/passive media with bounded playable experiences that followers can play, challenge and remix.
+
+Accounts, comments, follows, ranking, payments and other social capabilities belong to the trusted Playloop shell/backend. They are deliberately **not** capabilities exposed to creator GameSpec content.
+
+## Original consumer validation question
 
 > After finishing or failing one tiny game, will a person voluntarily swipe into another, and keep doing it?
 
-This is a validation spike, not a platform. The first job is to test the behavioral loop `play → swipe → play` before building accounts, backend, recommendations, creator tooling, or monetization.
+The current mobile-first PWA has one active game surface at a time and a shared polished shell. It is still a useful consumer-behavior spike rather than evidence that the full social product is validated.
 
-## What is implemented
+## What is implemented in the handcrafted feed
 
-Playloop is a mobile-first PWA with one active game surface at a time and a shared polished shell. The feed currently has 16 mechanics:
+The feed currently has 16 mechanics:
 
 1. Tap Rush — tap targets before a visible timer expires.
 2. Perfect Stop — stop a moving marker inside the target zone.
@@ -40,7 +51,7 @@ The current spike includes:
 - retry after completion as practice only: once a feed variant has awarded progression, later retries award 0 XP and cannot grow streak/difficulty
 - short sound/haptic cues where the browser/device supports them
 
-The goal is enough reinforcement to test continuation without turning the spike into a currency/inventory/meta-game system.
+The goal is enough reinforcement to test continuation without turning the handcrafted spike into a currency/inventory/meta-game system.
 
 ## Navigation and mobile behavior
 
@@ -72,7 +83,7 @@ Game-specific telemetry records things such as Snake turns/eats/collisions, Matc
 
 The Stats sheet currently summarizes Seen, Attempts, Completed, Failed, Skipped, Retries, Avg active and Session, plus local personal records.
 
-## First metrics to inspect
+## First consumer metrics to inspect
 
 - games seen per session
 - reach 3 / 5 / 10 / 20
@@ -84,7 +95,7 @@ The Stats sheet currently summarizes Seen, Attempts, Completed, Failed, Skipped,
 - likes by mechanic
 - repeat sessions
 
-If people consistently stop after 1–2 games, adding dozens more mechanics is not the right response. The core continuation loop needs to change first.
+If people consistently stop after 1–2 games, adding dozens more handcrafted mechanics is not the right response. The continuation/content mix needs to change first.
 
 ## Run locally
 
@@ -102,7 +113,7 @@ npm test
 npm run check
 ```
 
-GitHub Actions is intentionally disabled for this spike to avoid spending hosted CI quota. These checks remain available locally.
+GitHub Actions is intentionally disabled for this spike to avoid spending hosted CI quota. These checks remain available locally and should be run from a real checkout before merging creator-runtime changes.
 
 ## First playtest protocol
 
@@ -133,42 +144,63 @@ Detailed notes are in [`PLAYTEST-2026-09-17.md`](./PLAYTEST-2026-09-17.md).
 
 ## Creator/social-network hypothesis
 
-A later observation is that the current feed is almost entirely high-attention content. Even when the games remain fun, continuous reaction, memory, timing and puzzle input can become tiring after roughly 15 minutes.
+The handcrafted feed is almost entirely high-attention content. Even when the games remain fun, continuous reaction, memory, timing and puzzle input can become tiring after a longer session.
 
-A longer-term hypothesis is therefore a social feed where the post itself is a playable experience: creators or influencers describe/remix games with AI, users can passively watch a short autoplay/ghost preview or another player's run, then choose when to jump into play.
-
-The first creator framework should be constrained and declarative. AI should generate a safe `GameSpec` over supported mechanics rather than arbitrary JavaScript. That keeps lifecycle, analytics, security and moderation under the runtime's control.
+The broader product hypothesis is therefore a social feed where creators/influencers can use AI to make lightweight playable posts, pair them with video/passive content, and let followers choose when to watch versus play. Challenges/remixes/social interactions belong around the playable rather than inside an untrusted creator runtime.
 
 The full hypothesis and proposed validation order are documented in [`CREATOR-NETWORK-HYPOTHESIS.md`](./CREATOR-NETWORK-HYPOTHESIS.md).
 
-## GameSpec sandbox v0
+## Versioned GameSpec creator runtime
 
-A first portable sandbox now exists on the `feature/gamespec-sandbox-v0` workstream. It deliberately separates game content from application code so the same model can later move into Kotlin Multiplatform.
+The `feature/gamespec-sandbox-v0` workstream now goes well beyond the original v0 proof. Its architecture is still intentionally small and declarative: creator games are bounded JSON data plus reviewed content-addressed assets, never arbitrary JavaScript/WASM/native code.
 
-The prototype includes:
+Current runtime ladder:
 
-- a machine-readable [`GameSpec v0 JSON Schema`](./sandbox/game-spec-v0.schema.json)
-- bounded runtime validation and package-size profiling
-- a DOM-free rules/runtime core with deterministic random, timers, entity movement, collisions and input events
-- a thin Canvas adapter for web
-- a zero-asset example game loaded from JSON at runtime
-- a standalone [`sandbox-demo.html`](./sandbox-demo.html) proving a game can execute without being compiled into the existing 16-game registry
-- local tests for validation, deterministic execution, completion and collision behavior
+```text
+playloop-2d-v0
+  primitives + sprites + timers + collisions + scalar globals
 
-The current instant tier caps a GameSpec at 16 KB and declared assets at 256 KB, with a 300 KB combined instant-play threshold. Games cannot execute arbitrary JavaScript, access the network/DOM/storage, or invoke social/payment APIs. Assets are designed to use trusted content-addressed references and the social shell remains responsible for likes, comments, follows, challenges and tips.
+playloop-2d-v1 (experimental)
+  + bounded entity reads and entity-local scalar state
 
-The sandbox contract, moderation path, lightweight package strategy and KMP mapping are documented in [`sandbox/GAMESPEC-V0.md`](./sandbox/GAMESPEC-V0.md).
+playloop-2d-v2 (experimental)
+  + bounded scalar collections for sequences/queues/hands
 
-## Expansion gate
+playloop-2d-v3 (experimental)
+  + bounded grids, occupancy/path queries and deterministic grid movement
+```
 
-Do **not** immediately build 20+ additional mechanics, accounts, publishing infrastructure, global leaderboards, remote analytics, ranking/personalization, downloadable content or a creator backend.
+The workstream includes:
 
-The next gates are:
+- machine-readable GameSpec authoring contracts;
+- bounded executable validation plus stricter publication-policy validation;
+- deterministic DOM-free runtime and operation/time/entity ceilings;
+- host-side effect throttling and failure reporting;
+- reviewed SHA-256 asset contracts, atlas support, decoded-memory reservations and residency controls;
+- content-addressed transport/publication manifests with tiny social-feed descriptors;
+- deterministic automated review and replay fixtures;
+- AI-facing creator capabilities/diagnostics and JSON CLIs;
+- Creator Lab for paste/validate/simulate/run without evaluating creator code;
+- KMP contracts for commonMain logical semantics and platform host adapters;
+- v1 `Pocket Shooter` / `Garden Catch`, v2 `Pattern Echo`, and v3 `Bus Escape` reference games.
 
-1. external users show the same continuation signal seen in the builder's sessions
-2. repeat sessions appear, not just one long novelty session
-3. likes/telemetry reveal which mechanics actually carry the feed
-4. a cheap passive-preview experiment shows lower-fatigue consumption can extend sessions
-5. use the GameSpec sandbox to have an external AI generate several genuinely different games without touching Playloop source code
+v3 is wired through the same versioned transport, publication, creator-tooling, review and replay paths as earlier runtimes. It remains experimental until creator-pressure and JS↔KMP parity work justify freezing its wire semantics.
 
-Only after those signals should the spike become a platform.
+Current instant-tier targets remain 16 KB GameSpec, 256 KB declared assets and 300 KB combined first-play package. Creator content has no direct network, DOM, filesystem, account, social, payment or unrestricted device authority.
+
+Start with [`sandbox/README.md`](./sandbox/README.md) and [`sandbox/NEXT-CHAT-HANDOFF.md`](./sandbox/NEXT-CHAT-HANDOFF.md) for the current creator-runtime state.
+
+## Next validation gates
+
+Do not respond to the platform ambition by immediately building every social feature or by adding a general scripting language.
+
+The next evidence gates are:
+
+1. run the complete local creator-runtime test/check suite from an actual checkout;
+2. give external AIs only the public v3 authoring materials and measure validity/repair iterations;
+3. pressure-test at least one additional grid genre so v3 is not justified only by Bus Escape;
+4. implement validator/runtime/replay parity in KMP `commonMain` and compare golden snapshots;
+5. continue testing the mixed passive/playable feed hypothesis with real users;
+6. add the next runtime capability only when repeated creator pressure identifies a bounded primitive worth standardizing.
+
+Only after those signals should the spike expand into full creator publishing, recommendations, accounts and monetization infrastructure.
