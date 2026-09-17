@@ -233,8 +233,20 @@ function validateEntity(entity, path, errors, template = false) {
     if (!Array.isArray(entity.tags) || entity.tags.length > 8) push(errors, `${path}.tags`, "must be an array of at most 8 tags");
     else entity.tags.forEach((tag, index) => validateId(tag, `${path}.tags[${index}]`, errors));
   }
-  for (const key of ["x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity"]) {
+  for (const key of ["x", "y", "vx", "vy", "rotation"]) {
     if (entity[key] !== undefined && !isFiniteNumber(entity[key])) push(errors, `${path}.${key}`, "must be a finite number");
+  }
+  if (entity.width !== undefined && (!isFiniteNumber(entity.width) || entity.width <= 0)) {
+    push(errors, `${path}.width`, "must be a positive finite number");
+  }
+  if (entity.height !== undefined && (!isFiniteNumber(entity.height) || entity.height <= 0)) {
+    push(errors, `${path}.height`, "must be a positive finite number");
+  }
+  if (entity.radius !== undefined && (!isFiniteNumber(entity.radius) || entity.radius < 0)) {
+    push(errors, `${path}.radius`, "must be a non-negative finite number");
+  }
+  if (entity.opacity !== undefined && (!isFiniteNumber(entity.opacity) || entity.opacity < 0 || entity.opacity > 1)) {
+    push(errors, `${path}.opacity`, "must be a finite number from 0-1");
   }
   if (entity.kind === "sprite") {
     validateId(entity.asset, `${path}.asset`, errors);
