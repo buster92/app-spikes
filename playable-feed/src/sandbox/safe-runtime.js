@@ -8,6 +8,22 @@ export const HOST_EFFECT_LIMITS = Object.freeze({
   spawn: 128,
 });
 
+function isObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function collectFixedSpawnIds(actions, output = new Set()) {
+  for (const action of actions || []) {
+    if (!isObject(action)) continue;
+    if (isObject(action.spawn) && typeof action.spawn.id === "string") output.add(action.spawn.id);
+    if (isObject(action.if)) {
+      collectFixedSpawnIds(action.if.then, output);
+      collectFixedSpawnIds(action.if.else, output);
+    }
+  }
+  return output;
+}
+
 function overlaps(a, b) {
   if (!a || !b) return false;
   if (a.kind === "circle" && b.kind === "circle") {
@@ -39,6 +55,8 @@ export class SafeSandboxRuntime extends SandboxRuntime {
     this.effectWindowStartedAtMs = 0;
     this.effectWindowCounts = new Map();
     this.suppressedHostEffects = 0;
+    this.reservedFixedSpawnIds = new Set();
+    for (const rule of spec.rules || []) collectFixedSpawnIds(rule?.actions, this.reservedFixedSpawnIds);
     this.onEffect = (effect) => this.forwardHostEffect(effect);
   }
 
@@ -75,6 +93,17 @@ export class SafeSandboxRuntime extends SandboxRuntime {
       effectWindowStartedAtMs: this.effectWindowStartedAtMs,
       effectWindowCounts: Object.fromEntries(this.effectWindowCounts),
     };
+  }
+
+  failSandbox(reason, detail) {
+    this.status = "failed";
+    this.result = {
+      score: Number(this.variables.score || 0),
+      detail,
+      elapsedMs: Math.round(this.elapsedMs),
+      reason,
+    };
+    throw new Error(detail);
   }
 
   normalizeEntity(entity) {
@@ -116,6 +145,33 @@ export class SafeSandboxRuntime extends SandboxRuntime {
       }
     }
     this.lastCollisions = current;
+  }
+
+  executeActions(actions, event) {
+    for (const action of actions || []) {
+      if (this.status !== "running") return;
+      if (!isObject(action) || !isObject(action.spawn)) {
+        super.executeActions([action], event);
+        continue;
+      }
+
+      const explicitId = action.spawn.id;
+      if (explicitId !== undefined) {
+        if (this.entities.has(explicitId)) {
+          this.failSandbox("spawn_id_collision", `Spawn id '${explicitId}' is already in use`);
+        }
+        super.executeActions([action], event);
+        continue;
+      }
+
+      while (
+        this.entities.has(`spawn-${this.nextEntityId}`)
+        || this.reservedFixedSpawnIds.has(`spawn-${this.nextEntityId}`)
+      ) {
+        this.nextEntityId += 1;
+      }
+      super.executeActions([action], event);
+    }
   }
 
   step(deltaMs) {
