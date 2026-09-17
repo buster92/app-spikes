@@ -409,12 +409,13 @@ export function validateGameSpec(spec) {
     });
   }
 
+  const metricAssets = Array.isArray(spec.assets) ? spec.assets : [];
   return {
     ok: errors.length === 0,
     errors,
     metrics: {
       specBytes,
-      declaredAssetBytes: (spec.assets || []).reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0),
+      declaredAssetBytes: metricAssets.reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0),
       startingEntities: Array.isArray(spec.entities) ? spec.entities.length : 0,
       rules: Array.isArray(spec.rules) ? spec.rules.length : 0,
       timers: Array.isArray(spec.timers) ? spec.timers.length : 0,
