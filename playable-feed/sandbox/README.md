@@ -11,8 +11,9 @@ The current implementation proves that games can be loaded as bounded data rathe
 3. [`ASSET-PIPELINE-V0.md`](./ASSET-PIPELINE-V0.md) — normalized media, hashes, atlases, caching and memory/network budgets.
 4. [`PUBLISHING-PIPELINE-V0.md`](./PUBLISHING-PIPELINE-V0.md) — draft → automated review → moderation → signed public package.
 5. [`KMP-RUNTIME-CONTRACT-V0.md`](./KMP-RUNTIME-CONTRACT-V0.md) — commonMain/platform split and migration invariants.
-6. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
-7. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable transport-neutral tool manifest.
+6. [`REPLAY-CONTRACT-V0.md`](./REPLAY-CONTRACT-V0.md) — deterministic input/snapshot format for JS↔KMP parity and future ghosts/challenges.
+7. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
+8. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable transport-neutral tool manifest.
 
 ## Reference implementation
 
@@ -30,6 +31,7 @@ The web reference lives under `../src/sandbox/` and currently includes:
 - lightweight transport planning;
 - deterministic automated review probes;
 - structured AI-authoring diagnostics/capabilities;
+- deterministic replay traces for future KMP parity;
 - a local creator CLI that mirrors the future API/MCP operations for capabilities, validation, simulation and unsigned publication-manifest generation.
 
 ## Creator CLI
@@ -41,6 +43,7 @@ npm run creator:capabilities
 npm run creator:validate
 npm run creator:simulate
 npm run creator:manifest
+npm run replay:space
 ```
 
 The CLI returns JSON so an external AI or local agent can consume the same authoring feedback without needing Playloop source-code access. It does **not** publish, sign content, upload arbitrary code or grant access to player/social/payment APIs.
@@ -51,8 +54,9 @@ The CLI returns JSON so an external AI or local agent can consume the same autho
 - `tap-bloom.game.json` — zero-asset tap/reposition mechanic.
 - `space-dodge.game.json` — visually richer version using a background plus a tiny shared sprite atlas.
 - `creator-star-catch.game.json` — an AI-authored catch/avoid game expressed only as GameSpec and reused reviewed assets; no game-specific JavaScript was added.
+- `replays/space-dodge-3s.replay.json` — bounded deterministic input trace for runtime parity.
 
-Open `../sandbox-demo.html` through a local HTTP server to switch between them.
+Open `../sandbox-demo.html` through a local HTTP server to switch between the playable examples.
 
 ## Architectural rule
 
