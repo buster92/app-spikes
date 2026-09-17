@@ -15,46 +15,30 @@ The original v0 pressure test clustered around a surprisingly small set of missi
 5. declarative animation/tween polish;
 6. reviewed high-level physics much later.
 
-We are implementing that sequence rather than inventing a general scripting language.
+The first four now have experimental runtime tiers. That is evidence that the sequence can expand mechanical range without introducing a creator scripting language.
 
 ## Current version ladder
 
 ### `playloop-2d-v0`
 
-The base runtime supports:
+The base runtime supports circles/rectangles/text/sprites, sprite atlases, seeded randomness, bounded movement, timers, pointer input, collisions, scalar variables, conditions/math, spawn/destruction and host-controlled sound/haptic/semantic effects.
 
-- circles, rectangles, text and sprites;
-- sprite atlases/source rectangles;
-- seeded randomness;
-- movement/velocity;
-- bounds behavior;
-- timers;
-- pointer/tap events;
-- collision events;
-- global scalar variables;
-- conditions and bounded math;
-- spawning/destruction;
-- score/results;
-- semantic events, sound and haptic host requests.
-
-This already covers dodge/survival, catch/avoid, moving targets, reaction/timing and simple chase patterns.
+This covers dodge/survival, catch/avoid, moving targets, reaction/timing and simple chase patterns.
 
 ### `playloop-2d-v1` — experimental
 
-v1 answers the first repeated pressure with only:
+v1 adds only:
 
 - bounded reads of whitelisted entity fields;
 - reads of entity-local state;
 - <=8 scalar state keys per entity;
 - `setEntityState` / `addEntityState`.
 
-It enables mechanics such as a projectile spawning from the player's current position and individual enemies/cards/resources carrying small local state.
-
-`Pocket Shooter` and `Garden Catch` are the current reference examples.
+`Pocket Shooter` and `Garden Catch` are the reference examples.
 
 ### `playloop-2d-v2` — experimental
 
-v2 answers the next repeated pressure with only:
+v2 adds only:
 
 - <=8 named scalar collections;
 - <=16 items per collection;
@@ -63,7 +47,30 @@ v2 answers the next repeated pressure with only:
 
 There are still no loops/filter/map/reduce callbacks and no arbitrary arrays of objects.
 
-`Pattern Echo` demonstrates a sequence-memory game driven by a deterministically shuffled collection and v1 entity-local pad state.
+`Pattern Echo` demonstrates sequence memory driven by a deterministically shuffled collection and v1 entity-local pad state.
+
+### `playloop-2d-v3` — experimental
+
+v3 addresses repeated traffic/board-puzzle pressure with only:
+
+- <=4 named grids;
+- <=10 columns / <=10 rows and <=64 cells per grid;
+- initial non-overlapping multi-cell placements with max span 4x4;
+- reads: `isCellFree`, `column`, `row`, `canMoveBy`, `pathClearToEdge`;
+- actions: `moveGridEntity`, `moveGridBy`;
+- deterministic bounded occupancy construction that counts against the interpreter operation budget.
+
+`Bus Escape` composes v1 direction state + v2 queues + v3 path/occupancy without game-specific JavaScript.
+
+Important semantics are intentionally explicit:
+
+- grid placement owns a grid entity's logical position;
+- legacy x/y/velocity movement is not allowed for grid pieces;
+- `canMoveBy` / move actions check destination occupancy only;
+- `pathClearToEdge` is the explicit swept-lane query;
+- no arbitrary pathfinding, flood fill or creator-defined grid loop exists.
+
+See `GAMESPEC-V3-DRAFT.md` for the exact wire/runtime contract.
 
 ## Design rule for every new capability
 
@@ -80,50 +87,21 @@ A capability is eligible for the creator language only if we can answer all of t
 
 If not, it belongs in the host app or a later explicit capability tier.
 
-## Next mechanical candidate: grid / occupancy
+## v3 validation program before another mechanical tier
 
-Collections make sequences, hands and queues practical, but they do not make Bus Jam, Match-3, block puzzles or traffic puzzles pleasant to author.
+Do not immediately turn the next wishlist item into v4.
 
-Those genres repeatedly need spatial questions such as:
+First use the now-integrated v3 contract to answer whether bounded grids are actually enough for more than one handcrafted example:
 
-- which cell contains this piece?;
-- is the next cell free?;
-- which cells are occupied by this multi-cell object?;
-- can this piece move N cells in its direction?;
-- which adjacent cells match?;
-- did this row/column form a bounded match?;
-- is there a path to the board edge under a known movement rule?
+- give external AIs only `GAMESPEC-V3-DRAFT.md`, the AI tool manifest and capability response;
+- ask for traffic, parking/block and simple board-puzzle variants;
+- measure first-pass validity and repair iterations;
+- compare spec size/rule count with equivalent low-level approaches;
+- keep automated review and replay deterministic;
+- implement the same occupancy/path semantics in KMP common code;
+- compare the Bus Escape replay between JS and KMP.
 
-Encoding those as dozens/hundreds of low-level rules would make AI authoring brittle and automated review less semantic.
-
-A future grid capability should therefore be **high level and bounded**, for example:
-
-```json
-{
-  "grid": {
-    "id": "board",
-    "columns": 6,
-    "rows": 8,
-    "cellWidth": 48,
-    "cellHeight": 48
-  }
-}
-```
-
-Potential reviewed operations:
-
-```text
-isCellFree(grid, column, row)
-cellOccupant(grid, column, row)
-moveGridEntity(entity, column, row)
-cellsAhead(entity, maxDistance)
-neighbors(grid, column, row)
-matchLine(grid, column, row, maxLength)
-```
-
-Every operation needs a strict board-size/search ceiling. No creator-defined pathfinding loop.
-
-A useful acceptance test is whether a compact Bus Jam-like puzzle and a compact Match-3-like puzzle can both be expressed without special-case JavaScript.
+If a repeated missing operation appears, prefer one known-complexity primitive over a general query language. For example, a Match-3 pressure test might justify a bounded `neighbors` or `matchLine`; it would not justify arbitrary predicates or creator loops.
 
 ## Parallel visual-quality track
 
@@ -139,7 +117,7 @@ The current reviewed asset path already provides an important base:
 
 `Space Dodge` vs `Garden Catch` proves the same runtime can already support visually unrelated themes with only a few KB of raster assets.
 
-The next visual primitives should remain declarative.
+After v3 survives creator/KMP pressure, the strongest next candidate may be declarative visual polish rather than more mechanics.
 
 ### Declarative frame animation
 
@@ -156,7 +134,7 @@ The next visual primitives should remain declarative.
 }
 ```
 
-Hard limits: frame count, minimum frame duration and atlas bounds.
+Hard limits would include frame count, minimum frame duration and atlas bounds.
 
 ### Tweens
 
@@ -174,7 +152,7 @@ Hard limits: frame count, minimum frame duration and atlas bounds.
 
 The runtime owns tween count/timing. No callbacks.
 
-This is especially important for comprehension: boarding, departure, swapping, rewards and puzzle movement should visibly happen rather than state teleporting.
+For v3 specifically, a future grid-aware tween should animate **presentation between two already-approved logical placements**; it must not create a second source of truth for occupancy.
 
 ### Particles
 
@@ -199,12 +177,13 @@ After grids and visual polish, two bounded ideas may increase variety substantia
 
 ### Safe aggregate queries
 
-Examples:
+Potential examples:
 
 - count by tag;
 - any/existence by tag;
 - distance between two refs;
-- nearest entity by tag with a strict candidate cap.
+- nearest entity by tag with a strict candidate cap;
+- bounded grid neighbors/match-line only if creator pressure proves they repeat.
 
 No arbitrary predicate lambdas.
 
@@ -265,7 +244,8 @@ Never silently expand old runtime semantics.
 v0  primitive state/events/assets
 v1  + entity reads/local scalar state
 v2  + bounded scalar collections
-v3? + bounded grid/occupancy, only if pressure validates it
+v3  + bounded grid/occupancy semantics
+v4? only after repeated post-v3 creator pressure identifies one bounded need
 ```
 
 Old games keep their original semantics. New creator tooling can target a newer runtime. Remixing may later offer an explicit migration/upgrade operation.
