@@ -6,10 +6,28 @@ import { SafeSandboxRuntimeV1 } from "./runtime-v1.js";
 import { createTrustedAssetLoader } from "./trusted-asset-loader.js";
 import { mountGameSpec } from "./web-canvas-host.js";
 
-const source = "./examples/pocket-shooter-v1.game.json";
+const GAMES = Object.freeze({
+  shooter: Object.freeze({
+    source: "./examples/pocket-shooter-v1.game.json",
+    label: "Pocket Shooter",
+    stateSummary(runtime) {
+      return `health ${runtime.entities.get("player")?.state?.health ?? "—"}`;
+    },
+  }),
+  garden: Object.freeze({
+    source: "./examples/garden-catch-v1.game.json",
+    label: "Garden Catch",
+    stateSummary(runtime) {
+      const state = runtime.entities.get("player")?.state || {};
+      return `health ${state.health ?? "—"} · berries ${state.berries ?? 0}`;
+    },
+  }),
+});
+
 const canvas = document.querySelector("#v1Canvas");
 const output = document.querySelector("#v1Output");
 const restart = document.querySelector("#restartV1");
+const gamePicker = document.querySelector("#v1Game");
 const assetLoader = createTrustedAssetLoader(DEMO_ASSET_CATALOG);
 const residency = createAssetResidencyController(assetLoader, { maxPrefetchGames: 0 });
 let controller = null;
@@ -27,13 +45,14 @@ function show(text) {
 
 async function load() {
   const token = ++generation;
+  const selected = GAMES[gamePicker.value] || GAMES.shooter;
   residency.cancelPending();
   controller?.destroy?.();
   controller = null;
-  show("Loading v1 GameSpec…");
+  show(`Loading ${selected.label}…`);
 
-  const response = await fetch(source, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Failed to load Pocket Shooter: HTTP ${response.status}`);
+  const response = await fetch(selected.source, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Failed to load ${selected.label}: HTTP ${response.status}`);
   const spec = await response.json();
   if (token !== generation) return;
 
@@ -55,7 +74,7 @@ async function load() {
 
   const firstPlay = profile.metrics.specBytes + profile.metrics.declaredAssetBytes;
   show(
-    `Pocket Shooter · v1 draft · spec ${formatBytes(profile.metrics.specBytes)} · cold first play ${formatBytes(firstPlay)} · automated probes ${review.summary.crashes} crashes / ${review.summary.seeds} seeds`,
+    `${selected.label} · v1 draft · spec ${formatBytes(profile.metrics.specBytes)} · cold first play ${formatBytes(firstPlay)} · ${profile.metrics.assets} assets · automated probes ${review.summary.crashes} crashes / ${review.summary.seeds} seeds`,
   );
 
   controller = mountGameSpec(canvas, spec, {
@@ -65,8 +84,7 @@ async function load() {
     imageSmoothing: false,
     onEffect: (effect) => {
       if (["complete", "fail"].includes(effect.type)) {
-        const health = controller?.runtime?.entities.get("player")?.state?.health;
-        show(`${effect.type.toUpperCase()} · score ${effect.score} · health ${health ?? "—"} · ${effect.detail}`);
+        show(`${effect.type.toUpperCase()} · score ${effect.score} · ${selected.stateSummary(controller.runtime)} · ${effect.detail}`);
       }
     },
   });
@@ -77,6 +95,7 @@ function runLoad() {
 }
 
 restart.addEventListener("click", runLoad);
+gamePicker.addEventListener("change", runLoad);
 window.addEventListener("pagehide", () => {
   generation += 1;
   controller?.destroy?.();
