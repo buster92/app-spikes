@@ -16,17 +16,20 @@
     select { width: 100%; padding: 0 12px; background: #171a29; color: white; border: 1px solid rgba(255,255,255,.1); }
     button { padding: 0 16px; background: #fff; color: #111; }
     canvas { width: 100%; aspect-ratio: 360 / 560; border: 1px solid rgba(255,255,255,.1); border-radius: 22px; touch-action: none; background: #0c1020; }
-    pre { min-height: 42px; white-space: pre-wrap; color: #93a0c5; font-size: 11px; }
+    pre { min-height: 42px; white-space: pre-wrap; color: #93a0c5; font-size: 11px; line-height: 1.4; }
+    .badge { display: inline-block; margin-top: 4px; padding: 4px 8px; border-radius: 999px; background: #171a29; color: #c9d2f3; font-size: 11px; font-weight: 700; }
   </style>
 </head>
 <body>
   <main>
     <h1>GameSpec v0</h1>
-    <p>These games are loaded from declarative JSON and executed by the same sandbox runtime. Neither mechanic has game-specific JavaScript.</p>
+    <p>Each game below is declarative JSON executed by the same sandbox runtime. The sprite example also proves verified, content-addressed art can change the visual identity without giving creator code access to the browser.</p>
+    <span class="badge">JSON rules · trusted assets · no game JavaScript</span>
     <div class="controls">
       <select id="sandboxGame" aria-label="Choose GameSpec example">
-        <option value="meteor-dodge">Meteor Dodge · drag</option>
-        <option value="tap-bloom">Tap Bloom · tap</option>
+        <option value="meteor-dodge">Meteor Dodge · primitive drag</option>
+        <option value="tap-bloom">Tap Bloom · primitive tap</option>
+        <option value="space-dodge">Space Dodge · sprite assets</option>
       </select>
       <button id="restartSandbox" type="button">Restart</button>
     </div>
