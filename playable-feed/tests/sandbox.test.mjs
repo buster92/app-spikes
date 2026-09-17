@@ -8,21 +8,25 @@ import { HARD_LIMITS, packageProfile, validateGameSpec } from "../src/sandbox/ga
 import { validatePublicationPolicy } from "../src/sandbox/publication-policy.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
 import { reviewGameSpec } from "../src/sandbox/review.js";
+import { buildTransportPlan, canonicalJson } from "../src/sandbox/transport.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 
-async function example() {
-  return JSON.parse(await readFile(resolve(root, "examples/meteor-dodge.game.json"), "utf8"));
+async function example(name = "meteor-dodge") {
+  return JSON.parse(await readFile(resolve(root, `examples/${name}.game.json`), "utf8"));
 }
 
-test("example GameSpec validates and stays in instant tier", async () => {
-  const spec = await example();
-  const profile = packageProfile(spec);
-  assert.equal(profile.ok, true, profile.errors.join("\n"));
-  assert.equal(profile.instantEligible, true);
-  assert.equal(profile.zeroAsset, true);
-  assert.ok(profile.metrics.specBytes < HARD_LIMITS.maxSpecBytes);
+test("example GameSpecs validate and stay in instant tier", async () => {
+  for (const name of ["meteor-dodge", "tap-bloom"]) {
+    const spec = await example(name);
+    const profile = packageProfile(spec);
+    assert.equal(profile.ok, true, `${name}: ${profile.errors.join("\n")}`);
+    assert.equal(profile.instantEligible, true);
+    assert.equal(profile.zeroAsset, true);
+    assert.ok(profile.metrics.specBytes < HARD_LIMITS.maxSpecBytes);
+    assert.equal(validatePublicationPolicy(spec).ok, true);
+  }
 });
 
 test("sandbox rejects executable/network-shaped content", async () => {
@@ -71,7 +75,7 @@ test("runtime is deterministic for the same seed", async () => {
   assert.notDeepEqual(run(123), run(456));
 });
 
-test("runtime can complete the example without game-specific JavaScript", async () => {
+test("runtime can complete the dodge example without game-specific JavaScript", async () => {
   const spec = await example();
   const runtime = new SandboxRuntime(spec, { seed: 7 });
   runtime.start();
@@ -82,6 +86,20 @@ test("runtime can complete the example without game-specific JavaScript", async 
   assert.equal(runtime.status, "complete");
   assert.ok(runtime.result.score >= 500);
   assert.equal(runtime.result.detail, "Survived 12 seconds");
+});
+
+test("the same runtime can execute a distinct tap mechanic from data", async () => {
+  const spec = await example("tap-bloom");
+  const runtime = new SandboxRuntime(spec, { seed: 21 });
+  runtime.start();
+  for (let i = 0; i < 10 && runtime.status === "running"; i += 1) {
+    const target = runtime.entities.get("target");
+    runtime.pointer("tap", target.x, target.y);
+    if (runtime.status === "running") runtime.step(0);
+  }
+  assert.equal(runtime.status, "complete");
+  assert.equal(runtime.variables.taps, 10);
+  assert.equal(runtime.result.detail, "Ten blooms");
 });
 
 test("collision rules can mutate state", async () => {
@@ -99,6 +117,16 @@ test("collision rules can mutate state", async () => {
   runtime.start();
   runtime.step(16);
   assert.equal(runtime.variables.hits, 1);
+});
+
+test("transport plan keeps the feed descriptor tiny and lazy-loads the game body", async () => {
+  const spec = await example("tap-bloom");
+  const plan = buildTransportPlan(spec);
+  assert.ok(plan.feedDescriptorBytes < 512, `descriptor is ${plan.feedDescriptorBytes} bytes`);
+  assert.ok(plan.firstPlayBytes < HARD_LIMITS.maxSpecBytes);
+  assert.equal(plan.uncachedAssetBytes, 0);
+  assert.equal(plan.profile.instantEligible, true);
+  assert.equal(canonicalJson(spec), canonicalJson(JSON.parse(JSON.stringify(spec))));
 });
 
 test("automated review runs multiple deterministic safety probes without crashes", async () => {
