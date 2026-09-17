@@ -45,6 +45,12 @@ function validRefForEvent(ref, eventName, initialIds) {
   return eventName === "collision";
 }
 
+function validateIntegerLiteralExpression(value, path, errors) {
+  if (!isObject(value) && !Number.isInteger(value)) {
+    errors.push(`${path}: literal grid coordinate/delta must be an integer or a supported numeric expression`);
+  }
+}
+
 function sanitizeExpression(value) {
   if (Array.isArray(value)) return value.map(sanitizeExpression);
   if (!isObject(value)) return value;
@@ -279,15 +285,19 @@ function validateGridRead(expression, eventName, initialIds, gridEntityIds, grid
   }
   if (read.op === "isCellFree") {
     if (read.grid === undefined) errors.push(`${path}.grid.grid: is required`);
-    if (read.column === undefined) errors.push(`${path}.grid.column: is required`);
-    if (read.row === undefined) errors.push(`${path}.grid.row: is required`);
+    for (const key of ["column", "row"]) {
+      if (read[key] === undefined) errors.push(`${path}.grid.${key}: is required`);
+      else validateIntegerLiteralExpression(read[key], `${path}.grid.${key}`, errors);
+    }
   }
   if (["canMoveBy", "pathClearToEdge", "column", "row"].includes(read.op) && read.entity === undefined) {
     errors.push(`${path}.grid.entity: is required`);
   }
   if (read.op === "canMoveBy") {
-    if (read.dx === undefined) errors.push(`${path}.grid.dx: is required`);
-    if (read.dy === undefined) errors.push(`${path}.grid.dy: is required`);
+    for (const key of ["dx", "dy"]) {
+      if (read[key] === undefined) errors.push(`${path}.grid.${key}: is required`);
+      else validateIntegerLiteralExpression(read[key], `${path}.grid.${key}`, errors);
+    }
   }
   if (read.op === "pathClearToEdge") {
     if (read.direction === undefined) errors.push(`${path}.grid.direction: is required`);
@@ -356,7 +366,10 @@ function validateGridAction(action, type, eventName, initialIds, gridEntityIds, 
   }
   for (const key of type === "moveGridEntity" ? ["column", "row"] : ["dx", "dy"]) {
     if (payload[key] === undefined) errors.push(`${path}.${type}.${key}: is required`);
-    else walkExpressions(payload[key], eventName, initialIds, gridEntityIds, gridsById, `${path}.${type}.${key}`, errors);
+    else {
+      validateIntegerLiteralExpression(payload[key], `${path}.${type}.${key}`, errors);
+      walkExpressions(payload[key], eventName, initialIds, gridEntityIds, gridsById, `${path}.${type}.${key}`, errors);
+    }
   }
 }
 
