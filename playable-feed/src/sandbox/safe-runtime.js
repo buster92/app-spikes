@@ -5,6 +5,29 @@ function hasTag(entity, tag) {
   return Boolean(tag) && entity?.tags?.includes(tag);
 }
 
+function overlaps(a, b) {
+  if (!a || !b) return false;
+  if (a.kind === "circle" && b.kind === "circle") {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return dx * dx + dy * dy <= (a.radius + b.radius) ** 2;
+  }
+  const box = (entity) => {
+    if (entity.kind === "circle") {
+      return { left: entity.x - entity.radius, right: entity.x + entity.radius, top: entity.y - entity.radius, bottom: entity.y + entity.radius };
+    }
+    return {
+      left: entity.x - (entity.width || 0) / 2,
+      right: entity.x + (entity.width || 0) / 2,
+      top: entity.y - (entity.height || 0) / 2,
+      bottom: entity.y + (entity.height || 0) / 2,
+    };
+  };
+  const aa = box(a);
+  const bb = box(b);
+  return aa.left <= bb.right && aa.right >= bb.left && aa.top <= bb.bottom && aa.bottom >= bb.top;
+}
+
 export class SafeSandboxRuntime extends SandboxRuntime {
   normalizeEntity(entity) {
     const normalized = super.normalizeEntity(entity);
@@ -12,7 +35,36 @@ export class SafeSandboxRuntime extends SandboxRuntime {
       normalized.asset = entity.asset;
       normalized.kind = "sprite";
     }
+    normalized.collidable = entity?.collidable !== false;
+    normalized.interactive = entity?.interactive !== false;
     return normalized;
+  }
+
+  entityAt(x, y) {
+    const entities = [...this.entities.values()].reverse();
+    return entities.find((entity) => {
+      if (entity.interactive === false) return false;
+      if (entity.kind === "circle") return (x - entity.x) ** 2 + (y - entity.y) ** 2 <= entity.radius ** 2;
+      const halfW = (entity.width || 0) / 2;
+      const halfH = (entity.height || 0) / 2;
+      return x >= entity.x - halfW && x <= entity.x + halfW && y >= entity.y - halfH && y <= entity.y + halfH;
+    }) || null;
+  }
+
+  detectCollisions() {
+    const entities = [...this.entities.values()].filter((entity) => entity.collidable !== false);
+    const current = new Set();
+    for (let i = 0; i < entities.length; i += 1) {
+      for (let j = i + 1; j < entities.length; j += 1) {
+        const a = entities[i];
+        const b = entities[j];
+        if (!overlaps(a, b)) continue;
+        const key = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
+        current.add(key);
+        if (!this.lastCollisions.has(key)) this.dispatch("collision", { a: a.id, b: b.id });
+      }
+    }
+    this.lastCollisions = current;
   }
 
   normalizeRuleEvent(rule, type, event) {
