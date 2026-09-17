@@ -8,9 +8,9 @@ This file exists so a fresh conversation can continue the Playloop creator-runti
 
 - Repository: `buster92/app-spikes`
 - Branch: `feature/gamespec-sandbox-v0`
-- Pull request: **#3 — Add portable GameSpec sandbox v0**
+- Pull request: **#3 — Add portable Playloop GameSpec sandbox and creator runtime**
 - Base: `main`
-- Known head immediately before this handoff rewrite: `6f5b1c4d98a40b466282176624e3a12ea1fec847`
+- Known head when this file was refreshed: `cdccba097505f00dc4f338985fe8b016f2158a46`
 - PR was open and mergeable.
 - Do not work directly on `main` for this milestone.
 - GitHub Actions are intentionally disabled; do not enable hosted CI unless the user explicitly changes that decision.
@@ -35,28 +35,9 @@ The production mobile runtime is expected to migrate toward Kotlin Multiplatform
 
 Creator content is **bounded declarative data**, never downloaded application code.
 
-Do not add arbitrary:
+Do not add arbitrary JavaScript/eval, WASM, Lua/general scripting, native binaries, DOM access, network clients/arbitrary URLs, filesystem/storage/database handles, account/session tokens, social graph APIs, payment APIs, or unrestricted camera/microphone/sensor/device identity APIs.
 
-- JavaScript / `eval`;
-- WASM;
-- Lua/general scripting;
-- native binaries;
-- DOM access;
-- network clients or arbitrary URLs;
-- filesystem/storage/database handles;
-- account/session tokens;
-- social graph APIs;
-- payment APIs;
-- unrestricted camera/microphone/sensor/device identity APIs.
-
-The GameSpec runtime must stay:
-
-- bounded in CPU/memory/assets;
-- statically reviewable;
-- deterministic enough for automated review and JS↔KMP parity;
-- content-addressed for public packages/assets;
-- fully suspendable off-screen;
-- versioned so published content does not silently change semantics.
+The runtime must remain bounded, statically reviewable, deterministic enough for automated review and JS↔KMP parity, content-addressed for public packages/assets, fully suspendable off-screen, and versioned so published content does not silently change semantics.
 
 ## Resource model
 
@@ -83,45 +64,21 @@ Static/puzzle games should sleep between input/timer deadlines rather than burn 
 
 ### `playloop-2d-v0`
 
-Reference foundation:
-
-- primitive shapes/text/sprites;
-- content-addressed reviewed assets and sprite atlases;
-- movement/velocity/bounds;
-- pointer/tap input;
-- timers;
-- collision events;
-- scalar globals;
-- bounded expressions/math;
-- spawn/destroy;
-- host-controlled emit/sound/haptic;
-- complete/fail;
-- deterministic seeded RNG;
-- hard operation/entity/time limits.
+Reference foundation: shapes/text/sprites, reviewed content-addressed assets, movement/bounds, pointer input, timers, collisions, scalar variables, bounded expressions/actions, spawn/destroy, host-controlled effects, deterministic RNG, and hard operation/entity/time limits.
 
 ### `playloop-2d-v1` — experimental
 
-Adds only:
-
-- bounded reads of whitelisted entity fields;
-- <=8 scalar entity-local state keys;
-- `setEntityState` / `addEntityState`.
+Adds bounded entity reads plus <=8 scalar entity-local state keys and `setEntityState` / `addEntityState`.
 
 Reference examples: `Pocket Shooter v1`, `Garden Catch v1`.
 
 ### `playloop-2d-v2` — experimental
 
-Adds only bounded scalar collections:
-
-- <=8 collections;
-- <=16 scalar values each;
-- reads `length`, `at`, `first`, `last`;
-- push/set/remove/clear;
-- deterministic Fisher-Yates shuffle using runtime RNG.
+Adds <=8 bounded scalar collections with <=16 values each, indexed/first/last reads, bounded mutation, and deterministic shuffle.
 
 Reference example: `Pattern Echo v2`.
 
-### `playloop-2d-v3` — experimental, now integrated
+### `playloop-2d-v3` — experimental, integrated
 
 Adds bounded grid/occupancy mechanics without scripting:
 
@@ -136,7 +93,7 @@ Adds bounded grid/occupancy mechanics without scripting:
 
 Reference example/replay: `Bus Escape v3`.
 
-v3 is integrated through validation, publication policy, transport/manifests, Creator Lab, creator tools/CLI, automated review and deterministic replay. It is **not** a frozen public compatibility promise yet.
+v3 is wired through validation, publication policy, transport/manifests, Creator Lab, creator tools/CLI, automated review and deterministic replay. It is **not** a frozen public compatibility promise yet.
 
 Read `GAMESPEC-V3-DRAFT.md` and `KMP-VERSIONED-EXTENSIONS-DRAFT.md` before changing grid semantics.
 
@@ -144,14 +101,14 @@ Read `GAMESPEC-V3-DRAFT.md` and `KMP-VERSIONED-EXTENSIONS-DRAFT.md` before chang
 
 - Grid dimensions/coordinates use real JSON integers where the contract says integer; numeric strings are rejected.
 - The entire grid rectangle must fit inside the canvas.
-- Initial grid placements must fit and not overlap.
-- Grid placement is the logical source of truth for grid entity position; wire `x/y` are rejected for grid entities.
+- Initial placements must fit and not overlap.
+- Grid placement owns logical grid-entity position; wire `x/y` are rejected for grid entities.
 - Grid entities cannot carry nonzero velocity.
 - Occupancy is rebuilt from **currently live** grid entities instead of maintained as a second mutable creator table.
 - Destroyed entities free occupancy immediately.
-- Occupancy iteration: runtime entity insertion order, then cells row-major.
+- Occupancy iteration is runtime entity insertion order, then cells row-major.
 - `canMoveBy` and grid move actions validate only the destination placement.
-- `pathClearToEdge` is the explicit swept-lane operation; it probes every lane covered by the piece span in documented order.
+- `pathClearToEdge` is the explicit swept-lane operation and probes every lane covered by the piece span in documented order.
 - Direct known non-grid refs are rejected statically; event-resolved misuse is guarded at runtime.
 - Dynamic coordinates/deltas must resolve to integers.
 - Grid work contributes to `maxOpsPerStep`.
@@ -159,28 +116,17 @@ Read `GAMESPEC-V3-DRAFT.md` and `KMP-VERSIONED-EXTENSIONS-DRAFT.md` before chang
 
 ## Transport/publication state
 
-The old v3 transport gap is fixed.
-
-`transport.js` dispatches through a versioned adapter for v0/v1/v2/v3. v3 therefore uses the same:
-
-- profile/budget gate;
-- publication-policy gate;
-- canonical JSON;
-- SHA-256 GameSpec refs;
-- unsigned publication manifest;
-- content-addressed manifest ref;
-- tiny social-feed descriptor;
-- lazy asset accounting.
+The old v3 transport gap is fixed. `transport.js` uses one versioned adapter for v0/v1/v2/v3, so v3 shares profile/budget validation, publication policy, canonical JSON, SHA-256 GameSpec refs, unsigned manifests, content-addressed manifest refs, tiny feed descriptors and lazy asset accounting.
 
 Do not introduce a v3-only transport bypass.
 
 ## Creator tooling state
 
-`creator-tools.js` supports v0-v3 and exposes exact v3 grid limits/directions while keeping all host authority false.
+`creator-tools.js` supports v0-v3 and exposes exact v3 grid limits/directions while keeping creator host authority false.
 
-Creator Lab has `Bus Escape v3` and selects `SafeSandboxRuntimeV3` through the trusted runtime path.
+Creator Lab includes `Bus Escape v3` and selects `SafeSandboxRuntimeV3` through the trusted runtime path.
 
-Package scripts include v3:
+Package scripts include:
 
 ```bash
 npm run creator:capabilities:v3
@@ -191,96 +137,86 @@ npm run review:v3
 npm run replay:v3
 ```
 
-`npm run check` syntax-checks the v3 validator/runtime/review/replay/CLI modules along with the earlier sandbox code.
+`npm run check` syntax-checks the v3 validator/runtime/review/replay/CLI modules with the rest of the sandbox.
 
-AI-facing materials include:
+AI-facing materials include `GAMESPEC-V3-DRAFT.md`, `ai-tools-v3-draft.json`, and the v3 KMP mapping in `KMP-VERSIONED-EXTENSIONS-DRAFT.md`.
 
-- `GAMESPEC-V3-DRAFT.md`;
-- `ai-tools-v3-draft.json`;
-- versioned KMP mapping in `KMP-VERSIONED-EXTENSIONS-DRAFT.md`.
-
-## Core correctness hardening completed during v3 review
-
-The complete PR was reviewed, not only v3. Several older issues were found and fixed:
+## Core correctness hardening completed during the whole-PR review
 
 ### Collision semantic roles
 
-Physical collision insertion order no longer determines `$a` / `$b` when a rule declares `aTag` / `bTag`.
-
-`SandboxRuntime` now canonicalizes the event to declared tag roles before matching/executing the rule. The duplicate implementation that existed in `SafeSandboxRuntime` was removed so there is one semantic source of truth.
+Physical collision insertion order no longer determines `$a` / `$b` when a rule declares `aTag` / `bTag`. `SandboxRuntime` canonicalizes the event to declared tag roles before matching/executing the rule. The duplicate implementation was removed from `SafeSandboxRuntime`.
 
 ### Geometry/schema alignment
 
-Runtime validation now rejects negative radius and constrains initial entity geometry/opacity consistently with the published schema:
+Executable v0 validation was aligned with the published authoring schema on important runtime-visible fields:
 
 - width/height > 0 if present;
 - radius >= 0 if present;
 - opacity 0..1;
-- explicit zero radius remains valid and is preserved by nullish runtime defaults.
+- source rectangle shape/integer constraints;
+- `collidable` / `interactive` booleans;
+- text/color/string limits;
+- sound volume 0..1;
+- bounded finish detail and emit payloads;
+- required rules/action structures.
+
+Explicit zero radius remains valid and is preserved by nullish runtime defaults.
 
 ### Host reporting of deterministic runtime failures
 
-Operation-budget and similar runtime failures no longer escape the Canvas animation/timer/input loop and leave the host frozen.
-
-If a runtime operation throws **after the runtime has entered a terminal status**, the host routes the error through optional `onRuntimeError` and the normal `onFinish(snapshot)` path. Unexpected host/programming errors while the runtime is still running/idle still propagate.
+Operation-budget and similar runtime failures no longer escape the Canvas animation/timer/input loop and leave the host frozen. If an operation throws after the runtime has entered a terminal status, the host routes it through optional `onRuntimeError` and normal `onFinish(snapshot)`. Unexpected host/programming errors while still running/idle propagate.
 
 ### Spawn identity
 
-The safe/public runtime no longer allows a spawn to silently replace a live entity in the runtime map.
+The safe/public runtime no longer allows a spawn to silently replace a live entity in the runtime map:
 
-- Explicit fixed spawn id already live → deterministic `spawn_id_collision` failure.
-- Fixed id becomes reusable after the prior entity is destroyed.
-- Auto-generated `spawn-N` ids increase monotonically and skip both live ids and fixed spawn ids reserved anywhere in the GameSpec rules.
+- explicit fixed id already live → deterministic `spawn_id_collision`;
+- fixed id can be reused after its previous entity is destroyed;
+- generated `spawn-N` ids increase monotonically and skip live ids plus fixed ids reserved anywhere in rules.
 
-This behavior is documented in `KMP-RUNTIME-CONTRACT-V0.md` because entity identity is replay-visible and must match in `commonMain`.
+The KMP contract records this because entity identity is replay-visible.
 
-## Tests added for this hardening
+### Malformed creator input
 
-`tests/core-correctness.test.mjs` covers:
+The executable validators/package profilers for v0/v1/v2/v3 were hardened so malformed container shapes (for example object-valued `entities`, `rules`, `assets`, or array-valued maps) are rejected as diagnostics rather than causing `.map()`, `.forEach()`, `.entries()` or `.reduce()` exceptions inside the validator itself.
 
-- geometry/opacity validation;
-- valid zero radius preservation;
-- raw-runtime collision role canonicalization;
-- generated spawn-id collision/reservation handling;
-- explicit live spawn-id failure;
-- Canvas host delivery of operation-budget failure through `onFinish`.
+`tests/validator-robustness.test.mjs` exercises that behavior across all four runtime ids.
 
-v3-specific tests include:
+## Tests added for hardening
 
-- `tests/v3.test.mjs`;
-- `tests/v3-edge.test.mjs`;
-- `tests/v3-integration.test.mjs`;
-- `tests/v3-replay.test.mjs`.
+`tests/core-correctness.test.mjs` covers geometry/opacity validation, zero-radius preservation, collision role canonicalization, generated/fixed spawn-id handling, explicit live spawn-id failure, and Canvas host operation-budget failure delivery.
 
-They cover grid validation/occupancy/path behavior, replay determinism, creator-tool routing, transport/manifests, automated review, Creator Lab/package dispatch and KMP-sensitive edge cases.
+v3 tests include `v3.test.mjs`, `v3-edge.test.mjs`, `v3-integration.test.mjs`, and `v3-replay.test.mjs`, covering grid validation/occupancy/path semantics, replay determinism, creator tools, transport/manifests, automated review, Creator Lab/package dispatch and KMP-sensitive cases.
+
+`tests/validator-robustness.test.mjs` covers malformed container shapes across v0-v3 and executable-v0/schema alignment cases.
 
 ## PR review status
 
-At the last review pass, all four existing inline review threads were resolved after code fixes and regression coverage:
+At the last review pass, all four existing inline review threads were resolved after fixes and regression coverage:
 
 - collision `aTag`/`bTag` role normalization;
 - negative-radius validation;
 - operation-budget failure reporting from the Canvas host;
 - zero/default entity-dimension handling.
 
-Re-fetch review threads in a future session in case new comments have appeared.
+Re-fetch review threads in a future session in case new comments appear.
+
+The changed-file list contains no `.github/workflows` entries. Hosted CI remains disabled as requested.
 
 ## Verification status — be precise
 
-GitHub Actions remain intentionally disabled.
+A complete current `npm test` and `npm run check` has **not** been executed from a full checkout in the assistant environment because the local shell could not resolve `github.com` and the GitHub connector does not expose a mounted repository checkout.
 
-A complete current `npm test` and `npm run check` has **not** been executed from a full checkout in the assistant environment because the local shell could not resolve `github.com` and the connector does not expose a mounted checkout.
+What was actually executed earlier in a reconstructed text-only core slice:
 
-What was actually executed locally in a reconstructed text-only core slice before the later spawn-id addition:
+- `node --check` for the then-current core validator/runtime/safe-runtime/web-host modules — passed;
+- `tests/core-correctness.test.mjs` at that stage — **4/4 passed**, including a valid 64-overlapping-entity collision storm exhausting the 2,000-op budget and reaching `onFinish` as a failed runtime;
+- trusted asset-loader concurrency/disposal slice — **3/3 passing**.
 
-- `node --check` for the changed core validator/runtime/safe-runtime/web-host modules — passed;
-- `tests/core-correctness.test.mjs` at that stage — **4/4 passed**, including a real valid 64-overlapping-entity collision storm exhausting the 2,000-op budget and reaching `onFinish` as a failed runtime.
+Later spawn-id, schema-alignment, malformed-input, and full v3 integration changes were added after those targeted runs. Do **not** claim the complete latest suite is green.
 
-The later spawn-id tests were added after that reconstructed run and have **not** been executed in a complete repository checkout yet.
-
-Earlier in the workstream, the trusted asset-loader concurrency/disposal slice was independently reproduced as **3/3 passing**. Do not turn either targeted result into a claim that the complete current suite is green.
-
-The first merge gate in a real checkout should therefore be:
+The first merge gate in a real checkout is therefore:
 
 ```bash
 cd playable-feed
@@ -288,11 +224,11 @@ npm test
 npm run check
 ```
 
-Do not claim merge readiness if either fails.
+Do not call the PR merge-ready if either fails.
 
 ## Important files
 
-Start here:
+Start with:
 
 - `playable-feed/sandbox/README.md`
 - `playable-feed/sandbox/GAMESPEC-V0.md`
@@ -332,29 +268,27 @@ Reference content:
 
 Do **not** add another unrelated runtime capability yet.
 
-Recommended next sequence:
+Recommended sequence:
 
 1. re-fetch PR/head/review threads;
 2. run the full local suite from a real repository checkout if the environment permits it;
-3. fix any regressions revealed by that suite;
-4. perform one more diff-level PR audit for accidental duplication/stale docs/security/resource issues;
-5. pressure-test v3 with an external AI that only receives public authoring materials;
+3. fix any regression revealed by that suite;
+4. perform one last diff-level audit for accidental duplication/stale docs/security/resource issues;
+5. pressure-test v3 with an external AI receiving only public authoring materials;
 6. build at least one additional grid genre to test whether v3 generalizes beyond Bus Escape;
-7. implement the validator/runtime/replay core in KMP `commonMain` and compare JS↔Kotlin golden snapshots;
-8. only after those gates consider freezing v3 or adding the next bounded capability.
+7. implement validator/runtime/replay core in KMP `commonMain` and compare JS↔Kotlin golden snapshots;
+8. only then consider freezing v3 or adding another bounded capability.
 
-Likely later capability candidates such as declarative tweens/animation or a bounded match-line helper must be justified by repeated creator pressure. Do not use general scripting as the shortcut.
+Likely later candidates such as declarative tweens/animation or a bounded match-line helper must be justified by repeated creator pressure. Do not use general scripting as the shortcut.
 
 ## Merge-readiness rule
 
-PR #3 should be judged as the creator-runtime foundation, not as “Bus Escape works.”
-
-Before calling it ready:
+PR #3 should be judged as the creator-runtime foundation, not as “Bus Escape works.” Before calling it ready:
 
 - current full tests/checks pass in a real checkout;
 - no unresolved review threads remain;
-- PR description and docs reflect the actual branch state;
-- no hosted CI was enabled against the user’s request;
+- PR description/docs reflect actual branch state;
+- no hosted CI was enabled;
 - versioned transport/publication remains shared;
 - no creator-controlled host authority slipped into any runtime tier;
 - deterministic/KMP semantics are explicit for replay-visible behavior.
