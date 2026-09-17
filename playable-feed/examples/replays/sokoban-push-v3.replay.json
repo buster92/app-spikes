@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v3",
+  "gameId": "sokoban-push-v3",
+  "seed": 17,
+  "durationMs": 2200,
+  "inputs": [
+    { "atMs": 250, "type": "tap", "x": 240, "y": 466 },
+    { "atMs": 500, "type": "tap", "x": 240, "y": 466 },
+    { "atMs": 750, "type": "tap", "x": 180, "y": 466 },
+    { "atMs": 1000, "type": "tap", "x": 240, "y": 466 },
+    { "atMs": 1250, "type": "tap", "x": 180, "y": 410 },
+    { "atMs": 1500, "type": "tap", "x": 180, "y": 410 }
+  ],
+  "captureAtMs": [0, 250, 500, 750, 1000, 1250, 1500, 1550]
+}

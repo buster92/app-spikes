@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v3",
+  "id": "sokoban-push-v3",
+  "title": "Crate Push",
+  "canvas": { "width": 360, "height": 560, "background": "#0f172a" },
+  "variables": {
+    "moves": 0,
+    "pushes": 0
+  },
+  "collections": {},
+  "grids": {
+    "board": {
+      "columns": 5,
+      "rows": 5,
+      "originX": 45,
+      "originY": 90,
+      "cellWidth": 54,
+      "cellHeight": 54
+    }
+  },
+  "entities": [
+    {
+      "id": "title",
+      "kind": "text",
+      "x": 180,
+      "y": 44,
+      "height": 18,
+      "text": "PUSH THE CRATE ONTO THE GOAL",
+      "color": "#e2e8f0",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "goal",
+      "kind": "rect",
+      "x": 234,
+      "y": 171,
+      "width": 46,
+      "height": 46,
+      "color": "#14532d",
+      "opacity": 0.8,
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "goal-label",
+      "kind": "text",
+      "x": 234,
+      "y": 171,
+      "height": 12,
+      "text": "GOAL",
+      "color": "#86efac",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "wall-a",
+      "kind": "rect",
+      "tags": ["wall"],
+      "grid": { "grid": "board", "column": 0, "row": 1 },
+      "width": 50,
+      "height": 50,
+      "color": "#334155",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "wall-b",
+      "kind": "rect",
+      "tags": ["wall"],
+      "grid": { "grid": "board", "column": 1, "row": 1 },
+      "width": 50,
+      "height": 50,
+      "color": "#334155",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "wall-c",
+      "kind": "rect",
+      "tags": ["wall"],
+      "grid": { "grid": "board", "column": 1, "row": 2 },
+      "width": 50,
+      "height": 50,
+      "color": "#334155",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "player",
+      "kind": "text",
+      "tags": ["player"],
+      "grid": { "grid": "board", "column": 0, "row": 3 },
+      "width": 48,
+      "height": 48,
+      "text": "●",
+      "color": "#38bdf8",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "crate",
+      "kind": "text",
+      "tags": ["crate"],
+      "grid": { "grid": "board", "column": 1, "row": 3 },
+      "width": 48,
+      "height": 48,
+      "text": "■",
+      "color": "#f59e0b",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "up",
+      "kind": "text",
+      "tags": ["move-button"],
+      "state": { "dx": 0, "dy": -1 },
+      "x": 180,
+      "y": 410,
+      "width": 54,
+      "height": 46,
+      "text": "↑",
+      "color": "#f8fafc",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "left",
+      "kind": "text",
+      "tags": ["move-button"],
+      "state": { "dx": -1, "dy": 0 },
+      "x": 120,
+      "y": 466,
+      "width": 54,
+      "height": 46,
+      "text": "←",
+      "color": "#f8fafc",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "down",
+      "kind": "text",
+      "tags": ["move-button"],
+      "state": { "dx": 0, "dy": 1 },
+      "x": 180,
+      "y": 466,
+      "width": 54,
+      "height": 46,
+      "text": "↓",
+      "color": "#f8fafc",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "right",
+      "kind": "text",
+      "tags": ["move-button"],
+      "state": { "dx": 1, "dy": 0 },
+      "x": 240,
+      "y": 466,
+      "width": 54,
+      "height": 46,
+      "text": "→",
+      "color": "#f8fafc",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 526,
+      "height": 12,
+      "text": "Blue moves. Orange pushes. Walls block occupancy.",
+      "color": "#94a3b8",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "timeout", "afterMs": 60000 }
+  ],
+  "rules": [
+    {
+      "on": "tap",
+      "targetTag": "move-button",
+      "actions": [
+        {
+          "if": {
+            "condition": {
+              "all": [
+                {
+                  "left": {
+                    "add": [
+                      { "grid": { "op": "column", "entity": "player" } },
+                      { "entity": { "ref": "$target", "state": "dx" } }
+                    ]
+                  },
+                  "op": "==",
+                  "right": { "grid": { "op": "column", "entity": "crate" } }
+                },
+                {
+                  "left": {
+                    "add": [
+                      { "grid": { "op": "row", "entity": "player" } },
+                      { "entity": { "ref": "$target", "state": "dy" } }
+                    ]
+                  },
+                  "op": "==",
+                  "right": { "grid": { "op": "row", "entity": "crate" } }
+                }
+              ]
+            },
+            "then": [
+              {
+                "if": {
+                  "condition": {
+                    "left": {
+                      "grid": {
+                        "op": "canMoveBy",
+                        "entity": "crate",
+                        "dx": { "entity": { "ref": "$target", "state": "dx" } },
+                        "dy": { "entity": { "ref": "$target", "state": "dy" } }
+                      }
+                    },
+                    "op": "==",
+                    "right": true
+                  },
+                  "then": [
+                    {
+                      "moveGridBy": {
+                        "entity": "crate",
+                        "dx": { "entity": { "ref": "$target", "state": "dx" } },
+                        "dy": { "entity": { "ref": "$target", "state": "dy" } }
+                      }
+                    },
+                    {
+                      "moveGridBy": {
+                        "entity": "player",
+                        "dx": { "entity": { "ref": "$target", "state": "dx" } },
+                        "dy": { "entity": { "ref": "$target", "state": "dy" } }
+                      }
+                    },
+                    { "addVar": { "name": "moves", "value": 1 } },
+                    { "addVar": { "name": "pushes", "value": 1 } },
+                    { "haptic": { "pattern": [7, 18, 7] } }
+                  ],
+                  "else": [
+                    { "haptic": { "pattern": [16] } },
+                    { "emit": { "name": "move_blocked", "data": { "reason": "crate_blocked" } } }
+                  ]
+                }
+              }
+            ],
+            "else": [
+              {
+                "if": {
+                  "condition": {
+                    "left": {
+                      "grid": {
+                        "op": "canMoveBy",
+                        "entity": "player",
+                        "dx": { "entity": { "ref": "$target", "state": "dx" } },
+                        "dy": { "entity": { "ref": "$target", "state": "dy" } }
+                      }
+                    },
+                    "op": "==",
+                    "right": true
+                  },
+                  "then": [
+                    {
+                      "moveGridBy": {
+                        "entity": "player",
+                        "dx": { "entity": { "ref": "$target", "state": "dx" } },
+                        "dy": { "entity": { "ref": "$target", "state": "dy" } }
+                      }
+                    },
+                    { "addVar": { "name": "moves", "value": 1 } },
+                    { "haptic": { "pattern": [4] } }
+                  ],
+                  "else": [
+                    { "haptic": { "pattern": [16] } },
+                    { "emit": { "name": "move_blocked", "data": { "reason": "wall_or_edge" } } }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "tick",
+      "condition": {
+        "all": [
+          {
+            "left": { "grid": { "op": "column", "entity": "crate" } },
+            "op": "==",
+            "right": 3
+          },
+          {
+            "left": { "grid": { "op": "row", "entity": "crate" } },
+            "op": "==",
+            "right": 1
+          }
+        ]
+      },
+      "actions": [
+        {
+          "complete": {
+            "score": {
+              "sub": [1000, { "mul": [{ "var": "moves" }, 10] }]
+            },
+            "detail": "Crate delivered"
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "timeout",
+      "actions": [
+        {
+          "fail": {
+            "score": 0,
+            "detail": "Crate not delivered in time"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -106,14 +106,20 @@ test("Creator Lab and package scripts explicitly dispatch v3", async () => {
   assert.match(lab, /RUNTIME_V3_ID/);
   assert.match(lab, /SafeSandboxRuntimeV3/);
   assert.match(lab, /bus-escape-v3/);
+  assert.match(lab, /sokoban-push-v3/);
   assert.match(html, /GameSpec v3 draft/);
   assert.match(html, /value="bus-escape-v3"/);
+  assert.match(html, /value="sokoban-push-v3"/);
+  assert.match(html, /window\.location\.protocol === "file:"/);
+  assert.match(html, /npm run serve/);
 
+  assert.match(pkg.scripts.serve, /dev-server\.mjs/);
   assert.match(pkg.scripts["review:v3"], /review-v3-cli/);
   assert.match(pkg.scripts["replay:v3"], /replay-v3-cli/);
   assert.match(pkg.scripts["creator:validate:v3"], /bus-escape-v3/);
   assert.match(pkg.scripts["creator:simulate:v3"], /bus-escape-v3/);
   assert.match(pkg.scripts["creator:manifest:v3"], /bus-escape-v3/);
+  assert.match(pkg.scripts.check, /dev-server\.mjs/);
   assert.match(pkg.scripts.check, /game-spec-v3\.js/);
   assert.match(pkg.scripts.check, /runtime-v3\.js/);
   assert.match(pkg.scripts.check, /review-v3-cli\.mjs/);

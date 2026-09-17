@@ -12,6 +12,9 @@
     h1 { margin: 0; font-size: clamp(28px, 5vw, 46px); }
     .lead { max-width: 760px; color: #aab3cf; line-height: 1.5; }
     .badge { display: inline-block; margin: 4px 0 16px; padding: 5px 9px; border-radius: 999px; background: #171a29; color: #cbd4f5; font-size: 12px; font-weight: 750; }
+    .protocol-warning { display: none; margin: 0 0 16px; padding: 12px 14px; border: 1px solid #7c5d13; border-radius: 14px; background: #2a210d; color: #f8df9a; line-height: 1.45; }
+    .protocol-warning.visible { display: block; }
+    .protocol-warning code { color: #fff3cb; font-weight: 750; }
     .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
     .panel { background: #11131e; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 14px; }
     .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -19,6 +22,7 @@
     select { flex: 1 1 220px; padding: 0 10px; background: #1b1e2e; color: white; border: 1px solid rgba(255,255,255,.08); }
     button { padding: 0 13px; background: white; color: #11131e; }
     button.secondary { background: #24283a; color: #eef1ff; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
     textarea { width: 100%; min-height: 640px; resize: vertical; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: #080a11; color: #dce5ff; padding: 12px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; }
     canvas { width: 100%; aspect-ratio: 360 / 560; display: block; border-radius: 18px; background: #0c1020; border: 1px solid rgba(255,255,255,.09); touch-action: none; }
     pre { margin: 12px 0 0; min-height: 130px; max-height: 320px; overflow: auto; white-space: pre-wrap; color: #aeb9dc; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -35,6 +39,7 @@
     <h1>Creator Lab</h1>
     <p class="lead">Paste a GameSpec produced by an AI, validate it against the same sandbox contract used for publication, run deterministic safety probes, and execute it in the trusted web runtime. The editor never evaluates creator JavaScript.</p>
     <span class="badge">AI authoring loop · v0 + experimental v1/v2/v3 · JSON only · reviewed assets only</span>
+    <div id="protocolWarning" class="protocol-warning" role="alert"></div>
 
     <div class="grid">
       <section class="panel">
@@ -56,6 +61,7 @@
             </optgroup>
             <optgroup label="GameSpec v3 draft">
               <option value="bus-escape-v3">Bus Escape</option>
+              <option value="sokoban-push-v3">Crate Push</option>
             </optgroup>
           </select>
           <button id="loadExample" type="button" class="secondary">Load</button>
@@ -73,6 +79,23 @@
       </section>
     </div>
   </main>
-  <script type="module" src="./src/sandbox/creator-lab.js"></script>
+  <script>
+    (() => {
+      if (window.location.protocol === "file:") {
+        const warning = document.querySelector("#protocolWarning");
+        const output = document.querySelector("#creatorOutput");
+        warning.classList.add("visible");
+        warning.innerHTML = "Creator Lab cannot run from a <code>file://</code> URL because browsers block its ES modules and JSON fetches. From the <code>playable-feed</code> directory run <code>npm run serve</code>, then open <code>http://localhost:8080/creator-lab.html</code>.";
+        output.textContent = "Local HTTP is required. Run `npm run serve` and reopen Creator Lab at http://localhost:8080/creator-lab.html.";
+        document.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+        return;
+      }
+
+      const module = document.createElement("script");
+      module.type = "module";
+      module.src = "./src/sandbox/creator-lab.js";
+      document.body.appendChild(module);
+    })();
+  </script>
 </body>
 </html>
