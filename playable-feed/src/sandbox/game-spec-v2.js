@@ -37,6 +37,10 @@ function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function isCollectionRead(value) {
   return isObject(value)
     && Object.keys(value).length === 1
@@ -53,7 +57,7 @@ function sanitizeExpression(value) {
 }
 
 function sanitizeActions(actions) {
-  return (actions || []).map((action) => {
+  return asArray(actions).map((action) => {
     if (!isObject(action)) return action;
     const keys = Object.keys(action);
     if (keys.length === 1 && COLLECTION_ACTION_SET.has(keys[0])) {
@@ -63,8 +67,8 @@ function sanitizeActions(actions) {
       return {
         if: {
           condition: sanitizeExpression(action.if.condition),
-          then: sanitizeActions(action.if.then || []),
-          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else || []) }),
+          then: sanitizeActions(action.if.then),
+          ...(action.if.else === undefined ? {} : { else: sanitizeActions(action.if.else) }),
         },
       };
     }
@@ -76,9 +80,9 @@ export function downgradeV2ForV1Validation(spec) {
   const copy = clone(spec) || {};
   copy.runtime = RUNTIME_V1_ID;
   delete copy.collections;
-  for (const rule of copy.rules || []) {
-    if (rule.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
-    rule.actions = sanitizeActions(rule.actions || []);
+  for (const rule of asArray(copy.rules)) {
+    if (rule?.condition !== undefined) rule.condition = sanitizeExpression(rule.condition);
+    if (isObject(rule)) rule.actions = sanitizeActions(rule.actions);
   }
   return copy;
 }
@@ -214,8 +218,8 @@ function walkActions(actions, collectionNames, path, errors) {
     }
     if (Object.hasOwn(action, "if") && isObject(action.if)) {
       walkExpressions(action.if.condition, collectionNames, `${actionPath}.if.condition`, errors);
-      walkActions(action.if.then || [], collectionNames, `${actionPath}.if.then`, errors);
-      walkActions(action.if.else || [], collectionNames, `${actionPath}.if.else`, errors);
+      walkActions(action.if.then, collectionNames, `${actionPath}.if.then`, errors);
+      walkActions(action.if.else, collectionNames, `${actionPath}.if.else`, errors);
       return;
     }
     walkExpressions(action, collectionNames, actionPath, errors);
@@ -234,9 +238,9 @@ export function validateGameSpecV2(spec) {
   errors.push(...base.errors.filter((message) => !message.startsWith("spec: JSON is ")));
 
   const collectionNames = validateCollections(spec.collections, errors);
-  (spec.rules || []).forEach((rule, index) => {
+  asArray(spec.rules).forEach((rule, index) => {
     if (rule?.condition !== undefined) walkExpressions(rule.condition, collectionNames, `rules[${index}].condition`, errors);
-    walkActions(rule?.actions || [], collectionNames, `rules[${index}].actions`, errors);
+    walkActions(rule?.actions, collectionNames, `rules[${index}].actions`, errors);
   });
 
   return { ok: errors.length === 0, errors };
@@ -246,6 +250,7 @@ export function validatePublicationPolicyV2(spec) {
   const validation = validateGameSpecV2(spec);
   if (!validation.ok) return { ok: false, errors: [...validation.errors], warnings: [] };
   const base = validatePublicationPolicyV1(downgradeV2ForV1Validation(spec));
+  const collections = isObject(spec.collections) ? spec.collections : {};
   return {
     ok: base.ok,
     errors: [...base.errors],
@@ -254,8 +259,8 @@ export function validatePublicationPolicyV2(spec) {
       ...(base.metrics || {}),
       runtime: RUNTIME_V2_ID,
       specBytes: byteLength(spec),
-      collections: Object.keys(spec.collections || {}).length,
-      collectionItems: Object.values(spec.collections || {}).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0),
+      collections: Object.keys(collections).length,
+      collectionItems: Object.values(collections).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0),
     },
   };
 }
@@ -263,9 +268,11 @@ export function validatePublicationPolicyV2(spec) {
 export function packageProfileV2(spec) {
   const validation = validateGameSpecV2(spec);
   const specBytes = byteLength(spec);
-  const declaredAssetBytes = (spec?.assets || []).reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
+  const assets = asArray(spec?.assets);
+  const collections = isObject(spec?.collections) ? spec.collections : {};
+  const declaredAssetBytes = assets.reduce((sum, asset) => sum + Number(asset?.bytes || 0), 0);
   const combinedBytes = specBytes + declaredAssetBytes;
-  const collectionItems = Object.values(spec?.collections || {}).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+  const collectionItems = Object.values(collections).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
   return {
     ok: validation.ok,
     errors: validation.errors,
@@ -275,12 +282,12 @@ export function packageProfileV2(spec) {
       specBytes,
       declaredAssetBytes,
       combinedBytes,
-      entities: spec?.entities?.length || 0,
-      templates: Object.keys(spec?.templates || {}).length,
-      rules: spec?.rules?.length || 0,
-      timers: spec?.timers?.length || 0,
-      assets: spec?.assets?.length || 0,
-      collections: Object.keys(spec?.collections || {}).length,
+      entities: asArray(spec?.entities).length,
+      templates: isObject(spec?.templates) ? Object.keys(spec.templates).length : 0,
+      rules: asArray(spec?.rules).length,
+      timers: asArray(spec?.timers).length,
+      assets: assets.length,
+      collections: Object.keys(collections).length,
       collectionItems,
     },
   };
