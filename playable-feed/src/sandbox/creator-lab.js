@@ -3,8 +3,10 @@ import { validateForAuthoring, simulateForAuthoring } from "./creator-tools.js";
 import { DEMO_ASSET_CATALOG } from "./demo-asset-catalog.js";
 import { RUNTIME_V1_ID } from "./game-spec-v1.js";
 import { RUNTIME_V2_ID } from "./game-spec-v2.js";
+import { RUNTIME_V3_ID } from "./game-spec-v3.js";
 import { SafeSandboxRuntimeV1 } from "./runtime-v1.js";
 import { SafeSandboxRuntimeV2 } from "./runtime-v2.js";
+import { SafeSandboxRuntimeV3 } from "./runtime-v3.js";
 import { createTrustedAssetLoader } from "./trusted-asset-loader.js";
 import { mountGameSpec } from "./web-canvas-host.js";
 
@@ -17,6 +19,7 @@ const EXAMPLES = Object.freeze({
   "pocket-shooter-v1": "./examples/pocket-shooter-v1.game.json",
   "garden-catch-v1": "./examples/garden-catch-v1.game.json",
   "pattern-echo-v2": "./examples/pattern-echo-v2.game.json",
+  "bus-escape-v3": "./examples/bus-escape-v3.game.json",
 });
 
 const editor = document.querySelector("#specEditor");
@@ -42,6 +45,7 @@ function formatBytes(bytes) {
 function runtimeClassFor(runtime) {
   if (runtime === RUNTIME_V1_ID) return SafeSandboxRuntimeV1;
   if (runtime === RUNTIME_V2_ID) return SafeSandboxRuntimeV2;
+  if (runtime === RUNTIME_V3_ID) return SafeSandboxRuntimeV3;
   return undefined;
 }
 
