@@ -6,6 +6,15 @@ function hasTag(entity, tag) {
 }
 
 export class SafeSandboxRuntime extends SandboxRuntime {
+  normalizeEntity(entity) {
+    const normalized = super.normalizeEntity(entity);
+    if (entity?.kind === "sprite") {
+      normalized.asset = entity.asset;
+      normalized.kind = "sprite";
+    }
+    return normalized;
+  }
+
   normalizeRuleEvent(rule, type, event) {
     if (type !== "collision" || !rule?.aTag || !rule?.bTag) return event;
     const a = this.entities.get(event.a);
@@ -24,9 +33,6 @@ export class SafeSandboxRuntime extends SandboxRuntime {
       if (this.status !== "running") return;
       const normalizedEvent = this.normalizeRuleEvent(rule, type, event);
 
-      // Keep the safety envelope compatible with the small v0 runtime core as
-      // its matcher is refactored. Public semantics stay the same: aTag/bTag
-      // define $a/$b roles, regardless of entity insertion order.
       if (typeof this.matchEventForRule === "function") {
         const matchedEvent = this.matchEventForRule(rule, type, normalizedEvent);
         if (!matchedEvent) continue;
