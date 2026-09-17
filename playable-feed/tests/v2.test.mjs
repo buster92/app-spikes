@@ -63,7 +63,7 @@ test("collection indexing plus entity-local state can drive a memory game", asyn
   }
 
   assert.equal(runtime.status, "complete");
-  assert.equal(runtime.variables.inputIndex, 4);
+  assert.equal(runtime.variables.input_index, 4);
   assert.equal(runtime.variables.score, 1000);
   assert.equal(runtime.result.score, 1500);
   assert.equal(runtime.result.detail, "Pattern repeated");
