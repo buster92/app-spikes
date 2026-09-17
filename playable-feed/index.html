@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./ux-feedback.css">
   <link rel="stylesheet" href="./expansion.css">
   <link rel="stylesheet" href="./playtest-tuning.css">
+  <link rel="stylesheet" href="./playtest-round2.css">
   <title>Playloop — playable feed spike</title>
   <script>
     (() => {
@@ -83,14 +84,14 @@
       <article id="gameCard" class="game-card">
         <div class="game-meta-row">
           <span id="gameCategory" class="category-pill">REACTION</span>
-          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/15</span></div>
+          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/16</span></div>
         </div>
 
         <div id="gameHost" class="game-host" aria-live="polite"></div>
 
         <div class="game-copy">
           <div class="title-row"><h1 id="gameTitle">Tap Rush</h1><span id="cycleLabel">SET 1</span></div>
-          <p id="gameInstruction">Hit every target before time runs out</p>
+          <p id="gameInstruction">Hit every target before the visible timer runs out</p>
         </div>
 
         <div id="resultOverlay" class="result-overlay" hidden>
@@ -120,7 +121,7 @@
         <p class="eyebrow">PLAYABLE FEED SPIKE</p>
         <h2>Swipe. Play. Repeat.</h2>
         <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
-        <div class="onboarding-chips"><span>15 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
+        <div class="onboarding-chips"><span>16 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
         <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
         <small>Event logs can be exported or cleared. Personal records stay on this device.</small>
       </div>
