@@ -41,7 +41,7 @@ test("example GameSpecs validate and stay in instant tier", async () => {
   }
 });
 
-test("primitive examples remain zero-asset while sprite example has a small bounded package", async () => {
+test("primitive examples remain zero-asset while atlas example has a small bounded package", async () => {
   for (const name of ["meteor-dodge", "tap-bloom"]) {
     assert.equal(packageProfile(await example(name)).zeroAsset, true);
   }
@@ -51,7 +51,8 @@ test("primitive examples remain zero-asset while sprite example has a small boun
   const policy = validatePublicationPolicy(spec);
   const plan = buildTransportPlan(spec);
   assert.equal(profile.zeroAsset, false);
-  assert.equal(profile.metrics.declaredAssetBytes, 6761);
+  assert.equal(profile.metrics.declaredAssetBytes, 6700);
+  assert.equal(spec.assets.length, 2);
   assert.ok(plan.firstPlayBytes < 32 * 1024, `first play is ${plan.firstPlayBytes} bytes`);
   assert.equal(policy.metrics.totalDecodedImageBytes, 839168);
   assert.ok(policy.metrics.totalDecodedImageBytes < ASSET_POLICY.maxTotalDecodedImageBytes);
@@ -91,10 +92,13 @@ test("normalized asset metadata rejects URLs, malformed hashes and excessive dec
   assert.ok(validateNormalizedAssetMetadata(overCompressedBudget).some((error) => error.includes("per-image")));
 });
 
-test("machine-readable schema includes sprite and interaction safety fields", async () => {
+test("machine-readable schema includes sprite, atlas and interaction safety fields", async () => {
   const schema = JSON.parse(await readFile(resolve(root, "sandbox/game-spec-v0.schema.json"), "utf8"));
   assert.equal(schema.$defs.entity.properties.collidable.type, "boolean");
   assert.equal(schema.$defs.entity.properties.interactive.type, "boolean");
+  assert.equal(schema.$defs.entity.properties.sourceX.type, "integer");
+  assert.equal(schema.$defs.entity.properties.sourceWidth.minimum, 1);
+  assert.ok(schema.$defs.entity.dependentRequired.sourceX.includes("sourceHeight"));
   assert.ok(schema.$defs.entity.properties.kind.enum.includes("sprite"));
   assert.equal(schema.$defs.asset.properties.ref.pattern, "^sha256:[0-9a-f]{64}$");
 });
@@ -122,12 +126,27 @@ test("publication policy rejects unknown hidden fields and bad semantic referenc
   assert.ok(policy.errors.some((error) => error.includes("unknown template")));
 });
 
-test("publication policy rejects sprite refs to unknown/non-image assets", async () => {
-  const spec = await example("space-dodge");
-  spec.entities.find((entity) => entity.id === "player").asset = "missing";
-  const policy = validatePublicationPolicy(spec);
-  assert.equal(policy.ok, false);
-  assert.ok(policy.errors.some((error) => error.includes("unknown asset")));
+test("publication policy rejects sprite refs and atlas frames outside trusted assets", async () => {
+  const missing = await example("space-dodge");
+  missing.entities.find((entity) => entity.id === "player").asset = "missing";
+  const missingPolicy = validatePublicationPolicy(missing);
+  assert.equal(missingPolicy.ok, false);
+  assert.ok(missingPolicy.errors.some((error) => error.includes("unknown asset")));
+
+  const outside = await example("space-dodge");
+  const player = outside.entities.find((entity) => entity.id === "player");
+  player.sourceX = 96;
+  player.sourceWidth = 64;
+  const outsidePolicy = validatePublicationPolicy(outside);
+  assert.equal(outsidePolicy.ok, false);
+  assert.ok(outsidePolicy.errors.some((error) => error.includes("source rectangle exceeds")));
+
+  const incomplete = await example("space-dodge");
+  const meteor = incomplete.templates.meteor;
+  delete meteor.sourceHeight;
+  const incompletePolicy = validatePublicationPolicy(incomplete);
+  assert.equal(incompletePolicy.ok, false);
+  assert.ok(incompletePolicy.errors.some((error) => error.includes("requires integer")));
 });
 
 test("publication policy keeps semantic emit payloads small and flat", async () => {
@@ -219,13 +238,17 @@ test("safety runtime canonicalizes collision refs to aTag/bTag order", async () 
   assert.equal(runtime.variables.hits, 1);
 });
 
-test("decorative full-screen sprite never participates in collision or pointer targeting", async () => {
+test("decorative sprites are ignored by physics/targeting and atlas frames survive normalization", async () => {
   const spec = await example("space-dodge");
   const player = spec.entities.find((entity) => entity.id === "player");
   spec.entities.push({
     id: "forced-meteor",
     kind: "sprite",
-    asset: "meteor",
+    asset: "space-atlas",
+    sourceX: 64,
+    sourceY: 0,
+    sourceWidth: 64,
+    sourceHeight: 64,
     tags: ["hazard"],
     x: player.x,
     y: player.y,
@@ -241,6 +264,10 @@ test("decorative full-screen sprite never participates in collision or pointer t
   assert.equal(runtime.entities.has("forced-meteor"), false);
   assert.equal(runtime.variables.hits, 1);
   assert.equal(runtime.entityAt(10, 10), null);
+  const normalizedPlayer = runtime.entities.get("player");
+  assert.equal(normalizedPlayer.asset, "space-atlas");
+  assert.equal(normalizedPlayer.sourceX, 0);
+  assert.equal(normalizedPlayer.sourceWidth, 64);
 });
 
 test("safety runtime terminates creator games at the global runtime ceiling", async () => {
@@ -265,10 +292,10 @@ test("transport plan keeps feed metadata tiny and content-addressed assets lazy"
   const cold = buildTransportPlan(spriteSpec);
   const allCached = buildTransportPlan(spriteSpec, { cachedAssetRefs: spriteSpec.assets.map((asset) => asset.ref) });
   assert.ok(cold.feedDescriptorBytes < 512, `sprite descriptor is ${cold.feedDescriptorBytes} bytes`);
-  assert.equal(cold.uncachedAssetBytes, 6761);
+  assert.equal(cold.uncachedAssetBytes, 6700);
   assert.equal(allCached.uncachedAssetBytes, 0);
   assert.equal(allCached.firstPlayBytes, allCached.canonicalSpecBytes);
-  assert.equal(cold.firstPlayBytes - allCached.firstPlayBytes, 6761);
+  assert.equal(cold.firstPlayBytes - allCached.firstPlayBytes, 6700);
   assert.equal(canonicalJson(spriteSpec), canonicalJson(JSON.parse(JSON.stringify(spriteSpec))));
 });
 
