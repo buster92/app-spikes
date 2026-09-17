@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { RUNTIME_ID, validateGameSpec } from "../src/sandbox/game-spec.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
+import { SafeSandboxRuntime } from "../src/sandbox/safe-runtime.js";
 import { mountGameSpec } from "../src/sandbox/web-canvas-host.js";
 
 function baseSpec() {
@@ -103,6 +104,43 @@ test("raw runtime canonicalizes collision refs to aTag/bTag order", () => {
   assert.equal(runtime.entities.has("player"), true);
   assert.equal(runtime.entities.has("hazard"), false);
   assert.equal(runtime.variables.score, 1);
+});
+
+test("generated spawn ids skip live and fixed reserved ids", () => {
+  const spec = baseSpec();
+  spec.templates.dot = { kind: "circle", radius: 1 };
+  spec.entities.push({ id: "spawn-1", kind: "circle", radius: 1 });
+  spec.rules = [{
+    on: "start",
+    actions: [
+      { spawn: { template: "dot" } },
+      { spawn: { template: "dot", id: "spawn-2" } },
+    ],
+  }];
+
+  const runtime = new SafeSandboxRuntime(spec);
+  runtime.start();
+
+  assert.equal(runtime.entities.has("spawn-1"), true);
+  assert.equal(runtime.entities.has("spawn-2"), true);
+  assert.equal(runtime.entities.has("spawn-3"), true);
+  assert.equal(runtime.entities.size, 3);
+});
+
+test("explicit spawn ids cannot overwrite a live runtime entity", () => {
+  const spec = baseSpec();
+  spec.templates.dot = { kind: "circle", radius: 1 };
+  spec.entities.push({ id: "existing", kind: "circle", radius: 1 });
+  spec.rules = [{
+    on: "start",
+    actions: [{ spawn: { template: "dot", id: "existing" } }],
+  }];
+
+  const runtime = new SafeSandboxRuntime(spec);
+  assert.throws(() => runtime.start(), /already in use/);
+  assert.equal(runtime.status, "failed");
+  assert.equal(runtime.result.reason, "spawn_id_collision");
+  assert.equal(runtime.entities.get("existing").kind, "circle");
 });
 
 test("Canvas host reports operation-budget runtime failures through onFinish", () => {
