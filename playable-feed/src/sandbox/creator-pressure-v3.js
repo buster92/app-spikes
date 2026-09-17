@@ -168,12 +168,12 @@ export function summarizeCreatorPressure(results, pressureCases = []) {
   const runtimeCounts = {};
 
   for (const result of safeResults) {
+    for (const diagnostic of result?.diagnostics || []) increment(diagnosticCounts, diagnostic.code || "VALIDATION_ERROR");
+    for (const blocker of result?.blockers || []) increment(blockerCounts, blocker);
+    if (result?.runtime) increment(runtimeCounts, result.runtime);
     if (!result?.caseId) continue;
     if (!byCase.has(result.caseId)) byCase.set(result.caseId, []);
     byCase.get(result.caseId).push(result);
-    for (const diagnostic of result.diagnostics || []) increment(diagnosticCounts, diagnostic.code || "VALIDATION_ERROR");
-    for (const blocker of result.blockers || []) increment(blockerCounts, blocker);
-    if (result.runtime) increment(runtimeCounts, result.runtime);
   }
 
   const cases = [];
