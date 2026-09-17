@@ -29,6 +29,18 @@ function collectReferencedImageIds(spec) {
   return ids;
 }
 
+function assertCatalogMetadata(asset, catalogEntry) {
+  if (!catalogEntry) throw new Error(`Asset ${asset.ref} is not present in the host-controlled catalog`);
+  if (catalogEntry.kind !== asset.kind) throw new Error(`Asset kind mismatch for ${asset.id}`);
+  if (Number(catalogEntry.bytes) !== Number(asset.bytes)) throw new Error(`Declared byte size mismatch for ${asset.id}`);
+  if (catalogEntry.mime !== asset.mime) throw new Error(`Declared MIME mismatch for ${asset.id}`);
+  if (asset.kind === "image") {
+    if (Number(catalogEntry.width) !== Number(asset.width) || Number(catalogEntry.height) !== Number(asset.height)) {
+      throw new Error(`Declared dimensions mismatch trusted catalog for ${asset.id}`);
+    }
+  }
+}
+
 async function decodeRaster(blob, asset) {
   const decoded = typeof createImageBitmap === "function"
     ? await createImageBitmap(blob)
@@ -60,10 +72,7 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   async function fetchVerified(asset) {
     if (!asset || !isTrustedAssetRef(asset.ref)) throw new Error("Invalid content-addressed asset reference");
     const catalogEntry = entries.get(asset.ref);
-    if (!catalogEntry) throw new Error(`Asset ${asset.ref} is not present in the host-controlled catalog`);
-    if (catalogEntry.kind !== asset.kind) throw new Error(`Asset kind mismatch for ${asset.id}`);
-    if (Number(catalogEntry.bytes) !== Number(asset.bytes)) throw new Error(`Declared byte size mismatch for ${asset.id}`);
-    if (catalogEntry.mime !== asset.mime) throw new Error(`Declared MIME mismatch for ${asset.id}`);
+    assertCatalogMetadata(asset, catalogEntry);
 
     const response = await fetch(assertSameOrigin(catalogEntry.url), {
       cache: "force-cache",
@@ -110,11 +119,20 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   async function preload(spec) {
     const byId = new Map((spec.assets || []).map((asset) => [asset.id, asset]));
     const referenced = collectReferencedImageIds(spec);
-    const imageAssets = [...referenced].map((id) => byId.get(id)).filter((asset) => asset?.kind === "image");
+    const uniqueByRef = new Map();
+    for (const id of referenced) {
+      const asset = byId.get(id);
+      if (asset?.kind === "image" && !uniqueByRef.has(asset.ref)) uniqueByRef.set(asset.ref, asset);
+    }
+    const imageAssets = [...uniqueByRef.values()];
     const projected = imageAssets.reduce((sum, asset) => sum + decodedImageBytes(asset), 0);
     if (projected > maxDecodedBytes) throw new Error(`Game image working set ${projected} exceeds ${maxDecodedBytes} bytes`);
     await Promise.all(imageAssets.map(loadImage));
-    return imageAssets.length;
+    return {
+      referencedImages: referenced.size,
+      uniqueImages: imageAssets.length,
+      decodedBytes: projected,
+    };
   }
 
   function getImage(ref) {
