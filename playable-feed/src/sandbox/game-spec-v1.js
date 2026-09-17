@@ -28,7 +28,7 @@ function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function scalarStateValue(value) {
+export function isV1ScalarStateValue(value) {
   return value === null
     || typeof value === "boolean"
     || typeof value === "string"
@@ -97,7 +97,7 @@ function validateStateMap(state, path, errors) {
   }
   for (const [key, value] of entries) {
     if (!SAFE_ID.test(key)) errors.push(`${path}.${key}: invalid state key`);
-    if (!scalarStateValue(value)) errors.push(`${path}.${key}: state values must be scalar`);
+    if (!isV1ScalarStateValue(value)) errors.push(`${path}.${key}: state values must be scalar`);
     if (typeof value === "string" && value.length > V1_LIMITS.maxStateStringLength) {
       errors.push(`${path}.${key}: string exceeds ${V1_LIMITS.maxStateStringLength} characters`);
     }
@@ -153,6 +153,10 @@ function validateStateAction(action, eventName, initialIds, path, errors) {
     errors.push(`${path}.${type}.entity: '${payload.entity}' is not available for '${eventName}'`);
   }
   if (typeof payload.key !== "string" || !SAFE_ID.test(payload.key)) errors.push(`${path}.${type}.key: invalid state key`);
+  if (!Object.hasOwn(payload, "value")) {
+    errors.push(`${path}.${type}.value: is required`);
+    return;
+  }
   walkExpressions(payload.value, eventName, initialIds, `${path}.${type}.value`, errors);
 }
 
