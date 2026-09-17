@@ -22,6 +22,31 @@ test("v3 grid dimensions require actual JSON integers rather than coercible stri
   assert.ok(result.errors.some((error) => error.includes("grids.yard.columns")));
 });
 
+test("v3 rejects obviously invalid literal grid coordinate and delta expressions", async () => {
+  const readSpec = await busEscape();
+  readSpec.rules.push({
+    on: "tick",
+    condition: {
+      left: { grid: { op: "isCellFree", grid: "yard", column: "1", row: 0 } },
+      op: "==",
+      right: true,
+    },
+    actions: [],
+  });
+  const readResult = validateGameSpecV3(readSpec);
+  assert.equal(readResult.ok, false);
+  assert.ok(readResult.errors.some((error) => error.includes("literal grid coordinate/delta must be an integer")));
+
+  const actionSpec = await busEscape();
+  actionSpec.rules.push({
+    on: "start",
+    actions: [{ moveGridBy: { entity: "green-bus", dx: 0.5, dy: 0 } }],
+  });
+  const actionResult = validateGameSpecV3(actionSpec);
+  assert.equal(actionResult.ok, false);
+  assert.ok(actionResult.errors.some((error) => error.includes("literal grid coordinate/delta must be an integer")));
+});
+
 test("v3 rejects initial placements outside board bounds", async () => {
   const spec = await busEscape();
   spec.entities.find((entity) => entity.id === "gold-bus").grid.row = 4;
