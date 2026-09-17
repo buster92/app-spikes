@@ -14,15 +14,24 @@ import {
   V1_LIMITS,
   V1_STATE_ACTIONS,
 } from "./game-spec-v1.js";
+import {
+  packageProfileV2,
+  RUNTIME_V2_ID,
+  validatePublicationPolicyV2,
+  V2_COLLECTION_ACTIONS,
+  V2_COLLECTION_OPS,
+  V2_LIMITS,
+} from "./game-spec-v2.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
 import { reviewGameSpec } from "./review.js";
 import { reviewGameSpecV1 } from "./review-v1.js";
+import { reviewGameSpecV2 } from "./review-v2.js";
 import { HOST_EFFECT_LIMITS } from "./safe-runtime.js";
 import { buildTransportPlan, buildUnsignedPublicationManifest } from "./transport.js";
 
 const ENTITY_KINDS = Object.freeze(["circle", "rect", "text", "sprite"]);
 const BOUNDS_MODES = Object.freeze(["none", "clamp", "bounce", "wrap", "destroy"]);
-const SUPPORTED_RUNTIMES = Object.freeze([RUNTIME_ID, RUNTIME_V1_ID]);
+const SUPPORTED_RUNTIMES = Object.freeze([RUNTIME_ID, RUNTIME_V1_ID, RUNTIME_V2_ID]);
 
 function runtimeAdapter(runtime) {
   switch (runtime) {
@@ -40,6 +49,13 @@ function runtimeAdapter(runtime) {
         publication: validatePublicationPolicyV1,
         review: reviewGameSpecV1,
       };
+    case RUNTIME_V2_ID:
+      return {
+        runtime: RUNTIME_V2_ID,
+        profile: packageProfileV2,
+        publication: validatePublicationPolicyV2,
+        review: reviewGameSpecV2,
+      };
     default:
       return null;
   }
@@ -50,6 +66,7 @@ function classifyDiagnostic(message = "") {
   if (lower.includes("unsupported gamespec runtime") || lower.includes("runtime") && lower.includes("must be playloop")) return "UNSUPPORTED_RUNTIME";
   if (lower.includes("unknown field")) return "UNKNOWN_FIELD";
   if (lower.includes("duplicate")) return "DUPLICATE_ID";
+  if (lower.includes("unknown collection") || lower.includes("collection id") || lower.includes("collection items")) return "INVALID_COLLECTION";
   if (lower.includes("references unknown asset") || lower.includes("unknown asset")) return "UNKNOWN_ASSET";
   if (lower.includes("references unknown timer") || lower.includes("unknown timer")) return "UNKNOWN_TIMER";
   if (lower.includes("references unknown template") || lower.includes("unknown template")) return "UNKNOWN_TEMPLATE";
@@ -94,7 +111,8 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
     };
   }
 
-  const isV1 = runtime === RUNTIME_V1_ID;
+  const hasV1 = runtime === RUNTIME_V1_ID || runtime === RUNTIME_V2_ID;
+  const hasV2 = runtime === RUNTIME_V2_ID;
   return {
     ok: true,
     runtime,
@@ -104,16 +122,22 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
     entityKinds: [...ENTITY_KINDS],
     boundsModes: [...BOUNDS_MODES],
     events: [...ALLOWED_EVENTS],
-    actions: isV1 ? [...ALLOWED_ACTIONS, ...V1_STATE_ACTIONS] : [...ALLOWED_ACTIONS],
-    expressions: isV1 ? {
-      entityReads: true,
-      entityFields: [...V1_ENTITY_FIELDS],
-      entityLocalState: true,
-      maxStateKeysPerEntity: V1_LIMITS.maxStateKeysPerEntity,
-      maxStateStringLength: V1_LIMITS.maxStateStringLength,
-    } : {
-      entityReads: false,
-      entityLocalState: false,
+    actions: [
+      ...ALLOWED_ACTIONS,
+      ...(hasV1 ? V1_STATE_ACTIONS : []),
+      ...(hasV2 ? V2_COLLECTION_ACTIONS : []),
+    ],
+    expressions: {
+      entityReads: hasV1,
+      entityFields: hasV1 ? [...V1_ENTITY_FIELDS] : [],
+      entityLocalState: hasV1,
+      maxStateKeysPerEntity: hasV1 ? V1_LIMITS.maxStateKeysPerEntity : 0,
+      maxStateStringLength: hasV1 ? V1_LIMITS.maxStateStringLength : 0,
+      collections: hasV2,
+      collectionOps: hasV2 ? [...V2_COLLECTION_OPS] : [],
+      maxCollections: hasV2 ? V2_LIMITS.maxCollections : 0,
+      maxItemsPerCollection: hasV2 ? V2_LIMITS.maxItemsPerCollection : 0,
+      maxCollectionStringLength: hasV2 ? V2_LIMITS.maxCollectionStringLength : 0,
     },
     assets: {
       kinds: ["image", "audio"],
