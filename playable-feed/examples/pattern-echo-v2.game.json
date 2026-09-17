@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v2",
+  "id": "pattern-echo-v2",
+  "title": "Pattern Echo",
+  "canvas": { "width": 360, "height": 560, "background": "#0c1020" },
+  "variables": {
+    "score": 0,
+    "showIndex": 0,
+    "inputIndex": 0,
+    "accepting": false
+  },
+  "collections": {
+    "pattern": [0, 1, 2, 3]
+  },
+  "entities": [
+    {
+      "id": "title",
+      "kind": "text",
+      "x": 180,
+      "y": 78,
+      "height": 22,
+      "text": "WATCH · THEN REPEAT",
+      "color": "#eef2ff",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "pad0",
+      "kind": "circle",
+      "tags": ["pad"],
+      "state": { "slot": 0 },
+      "x": 105,
+      "y": 220,
+      "radius": 52,
+      "color": "#ff6577",
+      "opacity": 0.28,
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "pad1",
+      "kind": "circle",
+      "tags": ["pad"],
+      "state": { "slot": 1 },
+      "x": 255,
+      "y": 220,
+      "radius": 52,
+      "color": "#ffd25f",
+      "opacity": 0.28,
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "pad2",
+      "kind": "circle",
+      "tags": ["pad"],
+      "state": { "slot": 2 },
+      "x": 105,
+      "y": 370,
+      "radius": 52,
+      "color": "#63e6a8",
+      "opacity": 0.28,
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "pad3",
+      "kind": "circle",
+      "tags": ["pad"],
+      "state": { "slot": 3 },
+      "x": 255,
+      "y": 370,
+      "radius": 52,
+      "color": "#6f8cff",
+      "opacity": 0.28,
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 505,
+      "height": 15,
+      "text": "Four lights · one shuffled pattern",
+      "color": "#9ba8cc",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "flash", "afterMs": 450, "everyMs": 520 },
+    { "id": "unlock", "afterMs": 2700 },
+    { "id": "timeout", "afterMs": 9000 }
+  ],
+  "rules": [
+    {
+      "on": "start",
+      "actions": [
+        { "shuffleCollection": { "name": "pattern" } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "flash",
+      "condition": {
+        "left": { "var": "showIndex" },
+        "op": "<",
+        "right": { "collection": { "name": "pattern", "op": "length" } }
+      },
+      "actions": [
+        { "setEntity": { "entity": "pad0", "opacity": 0.28 } },
+        { "setEntity": { "entity": "pad1", "opacity": 0.28 } },
+        { "setEntity": { "entity": "pad2", "opacity": 0.28 } },
+        { "setEntity": { "entity": "pad3", "opacity": 0.28 } },
+        {
+          "if": {
+            "condition": {
+              "left": {
+                "collection": {
+                  "name": "pattern",
+                  "op": "at",
+                  "index": { "var": "showIndex" }
+                }
+              },
+              "op": "==",
+              "right": 0
+            },
+            "then": [
+              { "setEntity": { "entity": "pad0", "opacity": 1 } }
+            ],
+            "else": [
+              {
+                "if": {
+                  "condition": {
+                    "left": {
+                      "collection": {
+                        "name": "pattern",
+                        "op": "at",
+                        "index": { "var": "showIndex" }
+                      }
+                    },
+                    "op": "==",
+                    "right": 1
+                  },
+                  "then": [
+                    { "setEntity": { "entity": "pad1", "opacity": 1 } }
+                  ],
+                  "else": [
+                    {
+                      "if": {
+                        "condition": {
+                          "left": {
+                            "collection": {
+                              "name": "pattern",
+                              "op": "at",
+                              "index": { "var": "showIndex" }
+                            }
+                          },
+                          "op": "==",
+                          "right": 2
+                        },
+                        "then": [
+                          { "setEntity": { "entity": "pad2", "opacity": 1 } }
+                        ],
+                        "else": [
+                          { "setEntity": { "entity": "pad3", "opacity": 1 } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        { "addVar": { "name": "showIndex", "value": 1 } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "unlock",
+      "actions": [
+        { "setEntity": { "entity": "pad0", "opacity": 0.92 } },
+        { "setEntity": { "entity": "pad1", "opacity": 0.92 } },
+        { "setEntity": { "entity": "pad2", "opacity": 0.92 } },
+        { "setEntity": { "entity": "pad3", "opacity": 0.92 } },
+        { "setVar": { "name": "accepting", "value": true } },
+        { "haptic": { "pattern": [8] } }
+      ]
+    },
+    {
+      "on": "tap",
+      "targetTag": "pad",
+      "condition": { "left": { "var": "accepting" }, "op": "==", "right": true },
+      "actions": [
+        {
+          "if": {
+            "condition": {
+              "left": { "entity": { "ref": "$target", "state": "slot" } },
+              "op": "==",
+              "right": {
+                "collection": {
+                  "name": "pattern",
+                  "op": "at",
+                  "index": { "var": "inputIndex" }
+                }
+              }
+            },
+            "then": [
+              { "addVar": { "name": "score", "value": 250 } },
+              { "addVar": { "name": "inputIndex", "value": 1 } },
+              { "setEntity": { "entity": "$target", "opacity": 0.48 } },
+              { "haptic": { "pattern": [7] } },
+              {
+                "if": {
+                  "condition": {
+                    "left": { "var": "inputIndex" },
+                    "op": ">=",
+                    "right": { "collection": { "name": "pattern", "op": "length" } }
+                  },
+                  "then": [
+                    {
+                      "complete": {
+                        "score": { "add": [{ "var": "score" }, 500] },
+                        "detail": "Pattern repeated"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "else": [
+              { "haptic": { "pattern": [20, 25, 20] } },
+              { "fail": { "score": { "var": "score" }, "detail": "Wrong pad" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "timeout",
+      "actions": [
+        { "fail": { "score": { "var": "score" }, "detail": "Pattern timed out" } }
+      ]
+    }
+  ]
+}
