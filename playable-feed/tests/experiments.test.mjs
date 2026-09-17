@@ -77,3 +77,54 @@ test("override parser accepts repeated and comma-separated experiment overrides"
   const overrides = parseExperimentOverrides("?exp=alpha:one,beta:two&exp=gamma:three");
   assert.deepEqual(Object.fromEntries(overrides), { alpha: "one", beta: "two", gamma: "three" });
 });
+
+
+test("caller metadata cannot override canonical exposure attribution", () => {
+  const registry = new ExperimentRegistry({
+    identity: "anon_alpha",
+    search: "?exp=onboarding_value_prop_v1:instant_play",
+  });
+  const emitted = [];
+
+  registry.expose(
+    "onboarding_value_prop_v1",
+    (name, properties) => emitted.push({ name, properties }),
+    {
+      surface: "onboarding",
+      name: "not_an_exposure",
+      experiment_id: "wrong_experiment",
+      variant_id: "control",
+      forced: false,
+      allocation_bucket: 123,
+      variant_bucket: 456,
+      session_id: "wrong_session",
+      event_id: "wrong_event",
+      experiment_context: { wrong: "value" },
+    },
+  );
+
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].name, "experiment_exposure");
+  assert.equal(emitted[0].properties.surface, "onboarding");
+  assert.equal(emitted[0].properties.experiment_id, "onboarding_value_prop_v1");
+  assert.equal(emitted[0].properties.variant_id, "instant_play");
+  assert.equal(emitted[0].properties.forced, true);
+  assert.equal(emitted[0].properties.allocation_bucket, null);
+  assert.equal(emitted[0].properties.variant_bucket, null);
+  assert.equal("name" in emitted[0].properties, false);
+  assert.equal("session_id" in emitted[0].properties, false);
+  assert.equal("event_id" in emitted[0].properties, false);
+  assert.equal("experiment_context" in emitted[0].properties, false);
+});
+
+test("experiment context becomes active only after the exposure event is emitted", () => {
+  const registry = new ExperimentRegistry({ identity: "anon_alpha" });
+  let contextDuringEmit = null;
+
+  registry.expose("onboarding_value_prop_v1", () => {
+    contextDuringEmit = registry.context();
+  });
+
+  assert.deepEqual(contextDuringEmit, {});
+  assert.notDeepEqual(registry.context(), {});
+});
