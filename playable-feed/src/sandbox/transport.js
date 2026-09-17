@@ -1,4 +1,9 @@
-import { packageProfile } from "./game-spec.js";
+import { packageProfile, RUNTIME_ID } from "./game-spec.js";
+import {
+  packageProfileV1,
+  RUNTIME_V1_ID,
+  validatePublicationPolicyV1,
+} from "./game-spec-v1.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
 
 const encoder = new TextEncoder();
@@ -11,6 +16,23 @@ function canonicalize(value) {
   return output;
 }
 
+function runtimeAdapter(spec) {
+  switch (spec?.runtime) {
+    case RUNTIME_ID:
+      return {
+        profile: packageProfile,
+        publication: validatePublicationPolicy,
+      };
+    case RUNTIME_V1_ID:
+      return {
+        profile: packageProfileV1,
+        publication: validatePublicationPolicyV1,
+      };
+    default:
+      throw new Error(`Unsupported GameSpec runtime '${spec?.runtime ?? "<missing>"}'`);
+  }
+}
+
 export function canonicalJson(value) {
   return JSON.stringify(canonicalize(value));
 }
@@ -20,9 +42,10 @@ export function utf8Bytes(value) {
 }
 
 export function buildTransportPlan(spec, { cachedAssetRefs = [] } = {}) {
-  const profile = packageProfile(spec);
+  const adapter = runtimeAdapter(spec);
+  const profile = adapter.profile(spec);
   if (!profile.ok) throw new Error(`Invalid GameSpec:\n${profile.errors.join("\n")}`);
-  const publication = validatePublicationPolicy(spec);
+  const publication = adapter.publication(spec);
   if (!publication.ok) throw new Error(`GameSpec violates publication policy:\n${publication.errors.join("\n")}`);
 
   const cached = new Set(cachedAssetRefs);
