@@ -48,46 +48,100 @@
     "asset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "ref", "bytes"],
+      "required": ["id", "kind", "ref", "bytes", "mime"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "kind": { "enum": ["image", "audio"] },
-        "ref": { "type": "string", "pattern": "^sha256:" },
-        "bytes": { "type": "integer", "minimum": 0, "maximum": 262144 }
+        "ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 262144 },
+        "mime": { "type": "string", "maxLength": 64 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 1024 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "image" } }, "required": ["kind"] },
+          "then": {
+            "required": ["width", "height"],
+            "properties": { "mime": { "enum": ["image/png", "image/webp", "image/avif"] } }
+          },
+          "else": {
+            "properties": { "mime": { "enum": ["audio/ogg", "audio/webm", "audio/mp4"] } }
+          }
+        }
+      ]
+    },
+    "entityVisual": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["circle", "rect", "text", "sprite"] },
+        "tags": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
+        "x": { "type": "number" }, "y": { "type": "number" },
+        "vx": { "type": "number" }, "vy": { "type": "number" },
+        "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 },
+        "radius": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "type": "string", "maxLength": 64 }, "text": { "type": "string", "maxLength": 256 },
+        "bounds": { "enum": ["none", "clamp", "bounce", "wrap", "destroy"] },
+        "asset": { "$ref": "#/$defs/id" }
       }
     },
     "entityTemplate": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind"],
-      "properties": {
-        "kind": { "enum": ["circle", "rect", "text"] },
-        "tags": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
-        "x": { "type": "number" }, "y": { "type": "number" },
-        "vx": { "type": "number" }, "vy": { "type": "number" },
-        "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 },
-        "radius": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "color": { "type": "string", "maxLength": 64 }, "text": { "type": "string", "maxLength": 256 },
-        "bounds": { "enum": ["none", "clamp", "bounce", "wrap", "destroy"] }
-      }
+      "allOf": [
+        { "$ref": "#/$defs/entityVisual" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["circle", "rect", "text", "sprite"] },
+            "tags": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "vx": { "type": "number" }, "vy": { "type": "number" },
+            "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 },
+            "radius": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+            "color": { "type": "string", "maxLength": 64 }, "text": { "type": "string", "maxLength": 256 },
+            "bounds": { "enum": ["none", "clamp", "bounce", "wrap", "destroy"] },
+            "asset": { "$ref": "#/$defs/id" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "kind": { "const": "sprite" } }, "required": ["kind"] },
+              "then": { "required": ["asset", "width", "height"] }
+            }
+          ]
+        }
+      ]
     },
     "entity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "kind"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "kind": { "enum": ["circle", "rect", "text"] },
-        "tags": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
-        "x": { "type": "number" }, "y": { "type": "number" },
-        "vx": { "type": "number" }, "vy": { "type": "number" },
-        "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 },
-        "radius": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "color": { "type": "string", "maxLength": 64 }, "text": { "type": "string", "maxLength": 256 },
-        "bounds": { "enum": ["none", "clamp", "bounce", "wrap", "destroy"] }
-      }
+      "allOf": [
+        { "$ref": "#/$defs/entityVisual" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "kind": { "enum": ["circle", "rect", "text", "sprite"] },
+            "tags": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "vx": { "type": "number" }, "vy": { "type": "number" },
+            "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 },
+            "radius": { "type": "number", "minimum": 0 }, "rotation": { "type": "number" },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+            "color": { "type": "string", "maxLength": 64 }, "text": { "type": "string", "maxLength": 256 },
+            "bounds": { "enum": ["none", "clamp", "bounce", "wrap", "destroy"] },
+            "asset": { "$ref": "#/$defs/id" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "kind": { "const": "sprite" } }, "required": ["kind"] },
+              "then": { "required": ["asset", "width", "height"] }
+            }
+          ]
+        }
+      ]
     },
     "timer": {
       "type": "object",
