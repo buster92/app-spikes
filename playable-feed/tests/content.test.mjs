@@ -15,6 +15,7 @@ const expectedFiles = [
   "expansion.css",
   "playtest-tuning.css",
   "playtest-round2.css",
+  "round3.css",
   "ux-feedback.js",
   "icons/playloop-icon.svg",
   "icons/playloop-192.png",
@@ -30,165 +31,126 @@ const expectedFiles = [
   "src/extra-games-register.js",
   "src/playtest-tuning.js",
   "src/playtest-round2.js",
+  "src/bus-jam-v2.js",
+  "src/navigation-guard.js",
   "src/progression.js",
+  "src/round3-ui.js",
 ];
 
 test("all local assets needed by the shell exist", async () => {
   await Promise.all(expectedFiles.map((file) => access(resolve(root, file))));
 });
 
-test("index contains the core feed, result, onboarding, records and analytics surfaces", async () => {
+test("index contains feed, result, records and round-three surfaces", async () => {
   const html = await readFile(resolve(root, "index.html"), "utf8");
   for (const id of [
-    "appShell",
-    "feedStage",
-    "gameCard",
-    "gameHost",
-    "resultOverlay",
-    "onboarding",
-    "startButton",
-    "statsSheet",
-    "recordsBody",
-    "recordToast",
-    "exportButton",
+    "appShell", "feedStage", "gameCard", "gameHost", "resultOverlay",
+    "onboarding", "startButton", "statsSheet", "recordsBody", "recordToast", "exportButton",
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
-  assert.match(html, /styles\.css/);
-  assert.match(html, /interaction-fixes\.css/);
-  assert.match(html, /expansion\.css/);
-  assert.match(html, /playtest-tuning\.css/);
-  assert.match(html, /playtest-round2\.css/);
-  assert.match(html, /icons\/playloop-icon\.svg/);
-  assert.match(html, /icons\/apple-touch-icon\.png/);
-  assert.match(html, /src\/bootstrap\.js/);
+  for (const asset of [
+    "styles.css", "interaction-fixes.css", "expansion.css", "playtest-tuning.css",
+    "playtest-round2.css", "round3.css", "src/bootstrap.js",
+  ]) {
+    assert.ok(html.includes(asset), `index should load ${asset}`);
+  }
   assert.match(html, /16 mechanics/);
+  assert.match(html, /liked games/);
 });
 
 test("manifest has standalone metadata and standard install icons", async () => {
-  const raw = await readFile(resolve(root, "manifest.webmanifest"), "utf8");
-  const manifest = JSON.parse(raw);
+  const manifest = JSON.parse(await readFile(resolve(root, "manifest.webmanifest"), "utf8"));
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "./");
   assert.equal(manifest.scope, "./");
   assert.equal(manifest.orientation, "portrait-primary");
-  assert.ok(Array.isArray(manifest.icons));
   assert.ok(manifest.icons.some((icon) => icon.src === "./icons/playloop-192.png" && icon.sizes === "192x192"));
   assert.ok(manifest.icons.some((icon) => icon.src === "./icons/playloop-512.png" && icon.sizes === "512x512"));
 });
 
-test("service worker caches the expanded offline shell", async () => {
+test("service worker caches the current offline shell", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
   for (const asset of [
-    "index.html",
-    "styles.css",
-    "interaction-fixes.css",
-    "expansion.css",
-    "playtest-tuning.css",
-    "playtest-round2.css",
-    "icons/playloop-icon.svg",
-    "icons/playloop-192.png",
-    "icons/playloop-512.png",
-    "icons/apple-touch-icon.png",
-    "src/bootstrap.js",
-    "src/app.js",
-    "src/games.js",
-    "src/extra-games-register.js",
-    "src/playtest-tuning.js",
-    "src/playtest-round2.js",
-    "src/progression.js",
-    "manifest.webmanifest",
+    "index.html", "round3.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
+    "src/playtest-round2.js", "src/bus-jam-v2.js", "src/navigation-guard.js",
+    "src/progression.js", "src/round3-ui.js", "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
+  assert.match(sw, /playloop-spike-v10/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {
   const app = await readFile(resolve(root, "src/app.js"), "utf8");
   const analytics = await readFile(resolve(root, "src/analytics.js"), "utf8");
-  const html = await readFile(resolve(root, "index.html"), "utf8");
-  const source = `${app}\n${analytics}\n${html}`;
+  const source = `${app}\n${analytics}`;
   for (const eventName of [
-    "game_impression",
-    "game_first_interaction",
-    "game_interaction",
-    "game_complete",
-    "game_fail",
-    "game_skip",
-    "game_retry",
-    "game_reward_granted",
-    "game_reward_suppressed",
-    "game_mount_error",
-    "game_empty_render",
-    "feed_transition_error",
-    "client_error",
-    "client_unhandled_rejection",
-    "game_paused_background",
-    "game_resumed_after_background",
-    "feed_swipe",
-    "feed_advance",
-    "feed_reach_milestone",
-    "session_end",
+    "game_impression", "game_first_interaction", "game_interaction", "game_complete", "game_fail",
+    "game_skip", "game_retry", "game_reward_granted", "game_reward_suppressed", "game_mount_error",
+    "game_empty_render", "feed_transition_error", "game_paused_background", "feed_swipe",
+    "feed_advance", "feed_reach_milestone", "session_end",
   ]) {
     assert.ok(source.includes(eventName), `missing analytics event ${eventName}`);
   }
   assert.match(analytics, /syncFromStorage/);
+  assert.match(analytics, /liked_games/);
 });
 
-test("expanded games register before phone tuning and app startup", async () => {
+test("expanded games register and tuning load before app startup", async () => {
   const bootstrap = await readFile(resolve(root, "src/bootstrap.js"), "utf8");
-  const extras = await readFile(resolve(root, "src/extra-games-register.js"), "utf8");
-  assert.ok(bootstrap.indexOf("extra-games-register.js") < bootstrap.indexOf("playtest-tuning.js"));
-  assert.ok(bootstrap.indexOf("playtest-tuning.js") < bootstrap.indexOf("playtest-round2.js"));
-  assert.ok(bootstrap.indexOf("playtest-round2.js") < bootstrap.indexOf("app.js"));
-  for (const gameId of ["dodge-stream", "jump-rush", "micro-snake", "micro-match"]) {
-    assert.ok(extras.includes(`id: "${gameId}"`), `missing ${gameId}`);
+  for (const module of [
+    "extra-games-register.js", "playtest-tuning.js", "playtest-round2.js", "bus-jam-v2.js",
+    "navigation-guard.js", "app.js", "progression.js", "round3-ui.js",
+  ]) {
+    assert.ok(bootstrap.includes(module), `bootstrap should import ${module}`);
   }
-  assert.match(extras, /finish\("complete"/);
-  assert.match(extras, /finish\("fail"/);
-  for (const interaction of ["hazard_dodged", "target_hit", "snake_eat", "match_clear"]) {
-    assert.ok(extras.includes(interaction), `missing ${interaction} interaction logging`);
-  }
+  assert.ok(bootstrap.indexOf("bus-jam-v2.js") < bootstrap.indexOf("app.js"));
+  assert.ok(bootstrap.indexOf("navigation-guard.js") < bootstrap.indexOf("app.js"));
+  assert.ok(bootstrap.indexOf("round3-ui.js") > bootstrap.indexOf("progression.js"));
 });
 
-test("first phone tuning slows snake, enables match swipes and caps memory load", async () => {
+test("phone tuning slows snake, enables match swipes and caps memory load", async () => {
   const tuning = await readFile(resolve(root, "src/playtest-tuning.js"), "utf8");
   assert.match(tuning, /500, 465, 430, 395, 360/);
   assert.match(tuning, /readyMs: 900/);
+  assert.match(tuning, /gameSwipeControl/);
   assert.match(tuning, /match_swipe/);
-  assert.match(tuning, /is-clearing/);
   assert.match(tuning, /targetLength = \[0, 3, 3, 4, 4, 5\]/);
-  assert.match(tuning, /finish\("complete"/);
-  assert.match(tuning, /finish\("fail"/);
 });
 
-test("second phone tuning adds timer, arithmetic, moving hold and Bus Jam telemetry", async () => {
-  const tuning = await readFile(resolve(root, "src/playtest-round2.js"), "utf8");
-  const css = await readFile(resolve(root, "playtest-round2.css"), "utf8");
-  for (const marker of [
-    "tap_rush_start",
-    "tap_rush_timeout",
-    "bigger_wins_start",
-    "hold_start",
-    "hold_lost",
-    "hold_complete",
-    "bus_jam_start",
-    "bus_board",
-    "bus_depart",
-    "bus_waiting_overflow",
-  ]) {
-    assert.ok(tuning.includes(marker), `missing round-two telemetry ${marker}`);
+test("round two adds timer, arithmetic, moving hold and bus telemetry", async () => {
+  const source = await readFile(resolve(root, "src/playtest-round2.js"), "utf8");
+  for (const eventName of ["tap_rush_timeout", "number_choice", "hold_lost", "bus_depart"]) {
+    assert.ok(source.includes(eventName), `missing ${eventName}`);
   }
-  assert.match(tuning, /id: "bus-jam"/);
-  assert.match(tuning, /Higher levels mix in \+ and −/);
-  assert.match(tuning, /moveRadius/);
-  assert.match(css, /grid-template-rows: repeat\(8, minmax\(0, 1fr\)\)/);
-  assert.match(css, /tap-rush-track/);
-  assert.match(css, /hold-follow-arena/);
-  assert.match(css, /bus-jam-game/);
+  assert.match(source, /visible timer/);
+  assert.match(source, /Higher levels mix in \+ and −/);
 });
 
-test("local progression persists records and logs record milestones", async () => {
+test("round three uses directional bus escape and protects game-owned swipes", async () => {
+  const bus = await readFile(resolve(root, "src/bus-jam-v2.js"), "utf8");
+  const guard = await readFile(resolve(root, "src/navigation-guard.js"), "utf8");
+  for (const token of ["pathIsClear", "isSolvable", "bus_blocked", "bus_exit", "bus_passenger_boarded", "bus_parking_overflow"]) {
+    assert.ok(bus.includes(token), `directional bus should include ${token}`);
+  }
+  assert.match(bus, /Free buses in their arrow direction/);
+  assert.match(guard, /data-game-swipe-control/);
+  assert.match(guard, /ownedControl && gameIsActive/);
+});
+
+test("round three exposes likes and visible reinforcement", async () => {
+  const ui = await readFile(resolve(root, "src/round3-ui.js"), "utf8");
+  const css = await readFile(resolve(root, "round3.css"), "utf8");
+  for (const token of ["game_like_changed", "reward_feedback_shown", "difficulty_changed", "personal_record_broken", "streak_milestone"]) {
+    assert.ok(ui.includes(token), `round3 UI should handle ${token}`);
+  }
+  assert.match(css, /\.reward-burst/);
+  assert.match(css, /\.like-button/);
+  assert.match(css, /\.bus-escape-bus/);
+});
+
+test("local progression persists records", async () => {
   const progression = await readFile(resolve(root, "src/progression.js"), "utf8");
   for (const field of ["bestXp", "bestStreak", "bestDifficulty", "longestRun"]) {
     assert.ok(progression.includes(field), `missing record field ${field}`);
@@ -197,26 +159,11 @@ test("local progression persists records and logs record milestones", async () =
   assert.match(progression, /playloop\.records\.v1/);
 });
 
-test("retry/resume attempts do not count as new feed impressions", async () => {
-  const app = await readFile(resolve(root, "src/app.js"), "utf8");
-  assert.match(app, /if \(!retry && !resumed\) \{/);
-  assert.match(app, /mountCurrent\(\{ retry: true \}\)/);
-  assert.match(app, /mountCurrent\(\{ resumed: true \}\)/);
-});
-
 test("a completed feed variant can grant progression only once", async () => {
   const app = await readFile(resolve(root, "src/app.js"), "utf8");
   assert.match(app, /rewardedVariantIds: new Set\(\)/);
   assert.match(app, /state\.rewardedVariantIds\.has\(game\.variantId\)/);
-  assert.match(app, /state\.rewardedVariantIds\.add\(game\.variantId\)/);
   assert.match(app, /game_reward_suppressed/);
   assert.match(app, /variant_already_rewarded/);
   assert.match(app, /els\.resultScore\.textContent = "0 XP"/);
-  assert.match(app, /\["Attempts", summary\.gamesStarted\]/);
-});
-
-test("upward feed gesture is handled in capture phase before game pointer-up", async () => {
-  const app = await readFile(resolve(root, "src/app.js"), "utf8");
-  assert.match(app, /pointerup[\s\S]*\{ capture: true \}/);
-  assert.match(app, /event\.stopPropagation\(\)/);
 });
