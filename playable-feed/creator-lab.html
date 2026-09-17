@@ -34,17 +34,23 @@
   <main>
     <h1>Creator Lab</h1>
     <p class="lead">Paste a GameSpec produced by an AI, validate it against the same sandbox contract used for publication, run deterministic safety probes, and execute it in the trusted web runtime. The editor never evaluates creator JavaScript.</p>
-    <span class="badge">AI authoring loop · JSON only · reviewed assets only</span>
+    <span class="badge">AI authoring loop · v0 + experimental v1 · JSON only · reviewed assets only</span>
 
     <div class="grid">
       <section class="panel">
         <div class="toolbar">
           <select id="examplePicker" aria-label="Load example GameSpec">
-            <option value="meteor-dodge">Meteor Dodge</option>
-            <option value="tap-bloom">Tap Bloom</option>
-            <option value="space-dodge">Space Dodge</option>
-            <option value="creator-star-catch">Star Catch</option>
-            <option value="whack-orb">Whack Orb</option>
+            <optgroup label="GameSpec v0">
+              <option value="meteor-dodge">Meteor Dodge</option>
+              <option value="tap-bloom">Tap Bloom</option>
+              <option value="space-dodge">Space Dodge</option>
+              <option value="creator-star-catch">Star Catch</option>
+              <option value="whack-orb">Whack Orb</option>
+            </optgroup>
+            <optgroup label="GameSpec v1 draft">
+              <option value="pocket-shooter-v1">Pocket Shooter</option>
+              <option value="garden-catch-v1">Garden Catch</option>
+            </optgroup>
           </select>
           <button id="loadExample" type="button" class="secondary">Load</button>
           <button id="validateSpec" type="button">Validate</button>
@@ -56,7 +62,7 @@
 
       <section class="panel">
         <canvas id="creatorCanvas" aria-label="Creator GameSpec preview"></canvas>
-        <p class="hint">Only content-addressed assets already present in the host-controlled demo catalog can render here. New uploaded/generated media must go through normalization and review before it receives a public SHA-256 reference.</p>
+        <p class="hint">Only content-addressed assets already present in the host-controlled demo catalog can render here. New uploaded/generated media must go through normalization and review before it receives a public SHA-256 reference. GameSpec v1 is still experimental and is intentionally versioned separately from v0.</p>
         <pre id="creatorOutput">Load an example or paste GameSpec JSON.</pre>
       </section>
     </div>
