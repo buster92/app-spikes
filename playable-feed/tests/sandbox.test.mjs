@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { HARD_LIMITS, packageProfile, validateGameSpec } from "../src/sandbox/game-spec.js";
 import { validatePublicationPolicy } from "../src/sandbox/publication-policy.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
+import { SafeSandboxRuntime } from "../src/sandbox/safe-runtime.js";
 import { reviewGameSpec } from "../src/sandbox/review.js";
 import { buildTransportPlan, canonicalJson } from "../src/sandbox/transport.js";
 
@@ -117,6 +118,40 @@ test("collision rules can mutate state", async () => {
   runtime.start();
   runtime.step(16);
   assert.equal(runtime.variables.hits, 1);
+});
+
+test("safety runtime canonicalizes collision refs to aTag/bTag order", async () => {
+  const spec = await example();
+  const player = spec.entities.find((entity) => entity.id === "player");
+  const hint = spec.entities.find((entity) => entity.id === "hint");
+  const hazard = {
+    id: "forced-hazard",
+    kind: "circle",
+    tags: ["hazard"],
+    x: player.x,
+    y: player.y,
+    radius: 15,
+    color: "#f00"
+  };
+  spec.entities = [hazard, player, hint];
+  const runtime = new SafeSandboxRuntime(spec, { seed: 1 });
+  runtime.start();
+  runtime.step(0);
+  assert.equal(runtime.entities.has("player"), true);
+  assert.equal(runtime.entities.has("forced-hazard"), false);
+  assert.equal(runtime.variables.hits, 1);
+});
+
+test("safety runtime terminates creator games at the global runtime ceiling", async () => {
+  const spec = await example("tap-bloom");
+  spec.timers = [];
+  spec.rules = spec.rules.filter((rule) => rule.on !== "timer");
+  const runtime = new SafeSandboxRuntime(spec, { seed: 1 });
+  runtime.start();
+  for (let i = 0; i < 1300 && runtime.status === "running"; i += 1) runtime.step(50);
+  assert.equal(runtime.status, "fail");
+  assert.equal(runtime.result.reason, "runtime_time_limit");
+  assert.equal(runtime.result.elapsedMs, HARD_LIMITS.maxDurationMs);
 });
 
 test("transport plan keeps the feed descriptor tiny and lazy-loads the game body", async () => {
