@@ -1,6 +1,7 @@
 const EVENTS_KEY = "playloop.events.v1";
 const USER_KEY = "playloop.anon.v1";
 const RECORDS_KEY = "playloop.records.v1";
+const LIKES_KEY = "playloop.likes.v1";
 const MAX_EVENTS = 2500;
 
 function id(prefix) {
@@ -48,9 +49,6 @@ export class Analytics {
     const stored = readJson(EVENTS_KEY, []);
     if (!Array.isArray(stored)) return;
 
-    // Runtime error capture and local-progression helpers can write directly to
-    // the shared bounded event log. Re-sync before every analytics operation so
-    // a later normal event never overwrites those externally captured records.
     const byId = new Map();
     for (const event of [...this.events, ...stored]) {
       const key = event?.event_id || `${event?.name}:${event?.ts}:${byId.size}`;
@@ -111,6 +109,7 @@ export class Analytics {
       skipped: count("game_skip"),
       retries: count("game_retry"),
       swipes: count("feed_swipe"),
+      likes: events.filter((event) => event.name === "game_like_changed" && event.liked === true).length,
       averageActiveMs: activeDurations.length
         ? Math.round(activeDurations.reduce((sum, value) => sum + value, 0) / activeDurations.length)
         : 0,
@@ -126,6 +125,7 @@ export class Analytics {
       product: "playable-feed-spike",
       summary: this.summary(),
       personal_records: readJson(RECORDS_KEY, null),
+      liked_games: readJson(LIKES_KEY, {}),
       events: this.events,
     };
   }
