@@ -1,3 +1,4 @@
+import { createAssetResidencyController } from "./asset-residency.js";
 import { DEMO_ASSET_CATALOG } from "./demo-asset-catalog.js";
 import { packageProfile } from "./game-spec.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
@@ -16,6 +17,7 @@ const output = document.querySelector("#sandboxOutput");
 const restart = document.querySelector("#restartSandbox");
 const gamePicker = document.querySelector("#sandboxGame");
 const assetLoader = createTrustedAssetLoader(DEMO_ASSET_CATALOG);
+const residency = createAssetResidencyController(assetLoader, { maxPrefetchGames: 1 });
 let controller = null;
 let loadGeneration = 0;
 
@@ -26,6 +28,7 @@ function formatBytes(bytes) {
 
 async function load() {
   const generation = ++loadGeneration;
+  residency.cancelPending();
   controller?.destroy?.();
   controller = null;
   output.textContent = "Loading GameSpec…";
@@ -45,10 +48,11 @@ async function load() {
   }
 
   const plan = buildTransportPlan(spec);
-  const preload = await assetLoader.preload(spec);
-  if (generation !== loadGeneration) return;
+  const resident = await residency.activate(spec);
+  if (generation !== loadGeneration || resident.stale) return;
 
   const stats = assetLoader.stats();
+  const preload = resident.current;
   const assetNote = preload.uniqueImages
     ? ` · images ${preload.uniqueImages} · decoded ${formatBytes(preload.decodedBytes)}`
     : " · zero-asset";
@@ -60,7 +64,7 @@ async function load() {
     imageSmoothing: false,
     onEffect: (effect) => {
       if (["complete", "fail"].includes(effect.type)) {
-        output.textContent = `${effect.type.toUpperCase()} · ${effect.score} · ${effect.detail} · cache ${formatBytes(stats.decodedBytes)}`;
+        output.textContent = `${effect.type.toUpperCase()} · ${effect.score} · ${effect.detail} · cache ${formatBytes(assetLoader.stats().decodedBytes)}`;
       }
     },
   });
@@ -74,6 +78,7 @@ restart.addEventListener("click", runLoad);
 gamePicker?.addEventListener("change", runLoad);
 window.addEventListener("pagehide", () => {
   controller?.destroy?.();
+  residency.releaseAll();
   assetLoader.dispose();
 }, { once: true });
 runLoad();
