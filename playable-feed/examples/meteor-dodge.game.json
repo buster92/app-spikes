@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "id": "meteor-dodge",
+  "title": "Meteor Dodge",
+  "canvas": { "width": 360, "height": 560, "background": "#0c1020" },
+  "variables": { "score": 0, "hits": 0 },
+  "assets": [],
+  "templates": {
+    "meteor": {
+      "kind": "circle",
+      "tags": ["hazard"],
+      "radius": 15,
+      "color": "#ff6b6b",
+      "vy": 190,
+      "bounds": "destroy"
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "circle",
+      "tags": ["player"],
+      "x": 180,
+      "y": 490,
+      "radius": 22,
+      "color": "#58e6b0",
+      "bounds": "clamp"
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 515,
+      "height": 15,
+      "text": "Drag anywhere to move",
+      "color": "#b9c2df"
+    }
+  ],
+  "timers": [
+    { "id": "spawn", "afterMs": 300, "everyMs": 550 },
+    { "id": "score", "afterMs": 1000, "everyMs": 1000 },
+    { "id": "finish", "afterMs": 12000 }
+  ],
+  "rules": [
+    {
+      "on": "pointerMove",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": { "event": "y" } } }
+      ]
+    },
+    {
+      "on": "pointerDown",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": { "event": "y" } } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn",
+      "actions": [
+        {
+          "spawn": {
+            "template": "meteor",
+            "x": { "random": [20, 340] },
+            "y": -20,
+            "vy": { "random": [170, 270] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "score",
+      "actions": [
+        { "addVar": { "name": "score", "value": 100 } },
+        { "haptic": { "pattern": [4] } }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "hazard",
+      "actions": [
+        { "addVar": { "name": "hits", "value": 1 } },
+        { "destroy": { "entity": "$b" } },
+        { "haptic": { "pattern": [20, 30, 20] } },
+        {
+          "if": {
+            "condition": { "left": { "var": "hits" }, "op": ">=", "right": 3 },
+            "then": [
+              { "fail": { "score": { "var": "score" }, "detail": "Three hits" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "complete": { "score": { "add": [{ "var": "score" }, 500] }, "detail": "Survived 12 seconds" } }
+      ]
+    }
+  ]
+}
