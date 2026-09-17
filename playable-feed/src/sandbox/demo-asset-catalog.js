@@ -39,7 +39,7 @@ export const DEMO_ASSET_CATALOG = Object.freeze({
     height: 64,
     url: "./assets/demo/garden-atlas.png",
   }),
-  "sha256:f470be529e414e51e6be1796a053a230dca73cfa13b1f1eb63628b2830ccd123": Object.freeze({
+  "sha256:4076a5129c60c97f12b236115f368be700fb01dbd7fae5a8370a092d99473c43": Object.freeze({
     kind: "image",
     bytes: 4199,
     mime: "image/png",
