@@ -42,7 +42,7 @@ Phone playtesting also exposed important tuning issues:
 - Micro Match felt frustrating without direct swipe-to-swap interaction or visible clear/drop animation
 - Flash Memory ramped working-memory load too aggressively at higher difficulty
 
-The current branch tunes those directly: larger Snake controls, a slower 500→360 ms/tick difficulty curve with a short ready delay, swipe-enabled animated Match-3 resolution, and Flash Memory capped to 3→5 inputs instead of the previous 4→8 ramp.
+The current branch tunes those directly: larger Snake controls, a slower 500→360 ms/tick difficulty curve with a 900 ms ready delay, swipe-enabled animated Match-3 resolution, and Flash Memory capped to 3→5 inputs instead of the previous 4→8 ramp.
 
 This is still anecdotal and from a tiny sample, so it is not product validation. It is enough evidence to keep testing the loop rather than expanding into platform infrastructure.
 
