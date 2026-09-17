@@ -34,6 +34,9 @@ export class SafeSandboxRuntime extends SandboxRuntime {
     if (entity?.kind === "sprite") {
       normalized.asset = entity.asset;
       normalized.kind = "sprite";
+      for (const key of ["sourceX", "sourceY", "sourceWidth", "sourceHeight"]) {
+        if (entity[key] !== undefined) normalized[key] = Number(entity[key]);
+      }
     }
     normalized.collidable = entity?.collidable !== false;
     normalized.interactive = entity?.interactive !== false;
