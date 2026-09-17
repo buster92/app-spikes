@@ -31,4 +31,20 @@ export const DEMO_ASSET_CATALOG = Object.freeze({
     height: 560,
     url: "./assets/demo/space-bg.png",
   }),
+  "sha256:f97330389c6ab207c5c088618f6c153957f17550c60776e24dfb2475e57a6631": Object.freeze({
+    kind: "image",
+    bytes: 1287,
+    mime: "image/png",
+    width: 192,
+    height: 64,
+    url: "./assets/demo/garden-atlas.png",
+  }),
+  "sha256:f470be529e414e51e6be1796a053a230dca73cfa13b1f1eb63628b2830ccd123": Object.freeze({
+    kind: "image",
+    bytes: 4199,
+    mime: "image/png",
+    width: 360,
+    height: 560,
+    url: "./assets/demo/garden-bg.png",
+  }),
 });
