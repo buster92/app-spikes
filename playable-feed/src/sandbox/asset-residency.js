@@ -26,17 +26,29 @@ export function createAssetResidencyController(loader, options = {}) {
 
   const maxPrefetchGames = Math.max(0, Math.min(2, Number(options.maxPrefetchGames ?? 1) || 0));
   let activeRefs = new Set();
+  let desiredRefs = new Set();
   let generation = 0;
+
+  const cleanStaleLoad = () => {
+    // A slower previous card may finish decoding after a newer card became
+    // active. Keep only the latest desired set so stale async work cannot grow
+    // the decoded texture cache over a long swipe session.
+    loader.releaseExcept([...desiredRefs]);
+  };
 
   async function activate(spec, { prefetch = [] } = {}) {
     const token = ++generation;
     const currentRefs = new Set(referencedImageRefs(spec));
+    desiredRefs = new Set(currentRefs);
 
     // Drop assets from older cards before resolving the new visible game. This
     // keeps a long social-feed session from accumulating decoded textures.
-    loader.releaseExcept([...currentRefs]);
+    loader.releaseExcept([...desiredRefs]);
     const current = await loader.preload(spec);
-    if (token !== generation) return { stale: true };
+    if (token !== generation) {
+      cleanStaleLoad();
+      return { stale: true };
+    }
 
     const keep = new Set(currentRefs);
     const prefetched = [];
@@ -46,17 +58,25 @@ export function createAssetResidencyController(loader, options = {}) {
       const candidateRefs = referencedImageRefs(candidate);
       try {
         const result = await loader.preload(candidate);
-        if (token !== generation) return { stale: true };
+        if (token !== generation) {
+          cleanStaleLoad();
+          return { stale: true };
+        }
         candidateRefs.forEach((ref) => keep.add(ref));
+        desiredRefs = new Set(keep);
         prefetched.push({ gameId: candidate.id, ...result });
       } catch (error) {
         skipped.push({ gameId: candidate?.id || null, reason: error?.message || String(error) });
       }
     }
 
-    if (token !== generation) return { stale: true };
-    loader.releaseExcept([...keep]);
-    activeRefs = keep;
+    if (token !== generation) {
+      cleanStaleLoad();
+      return { stale: true };
+    }
+    desiredRefs = new Set(keep);
+    loader.releaseExcept([...desiredRefs]);
+    activeRefs = new Set(desiredRefs);
 
     return {
       stale: false,
@@ -76,12 +96,14 @@ export function createAssetResidencyController(loader, options = {}) {
   function releaseAll() {
     generation += 1;
     activeRefs = new Set();
+    desiredRefs = new Set();
     loader.releaseExcept([]);
   }
 
   function stats() {
     return {
       activeRefs: [...activeRefs],
+      desiredRefs: [...desiredRefs],
       loader: loader.stats?.() || null,
     };
   }
