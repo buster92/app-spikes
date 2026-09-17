@@ -9,6 +9,7 @@ import {
   validateGameSpecV1,
   validatePublicationPolicyV1,
 } from "../src/sandbox/game-spec-v1.js";
+import { reviewGameSpecV1 } from "../src/sandbox/review-v1.js";
 import { SafeSandboxRuntimeV1 } from "../src/sandbox/runtime-v1.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -145,4 +146,16 @@ test("v1 runtime rejects non-scalar dynamic state writes", async () => {
   runtime.entities.get("player").state.missing = { nested: true };
   assert.throws(() => runtime.start(), /Invalid scalar state value/);
   assert.equal(runtime.result.reason, "invalid_entity_state_value");
+});
+
+test("experimental v1 uses the same bounded automated review envelope", async () => {
+  const report = reviewGameSpecV1(await shooter(), {
+    seeds: [3, 11, 29],
+    maxSimulatedMs: 4000,
+  });
+  assert.equal(report.ok, true, report.errors.join("\n"));
+  assert.equal(report.runtime, "playloop-2d-v1");
+  assert.equal(report.summary.seeds, 3);
+  assert.equal(report.summary.crashes, 0);
+  assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
 });
