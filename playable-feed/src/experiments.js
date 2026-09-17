@@ -1,5 +1,21 @@
 const BUCKETS = 10_000;
 const SAFE_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const RESERVED_EXPOSURE_KEYS = new Set([
+  "schema",
+  "name",
+  "event_id",
+  "anon_id",
+  "session_id",
+  "sequence",
+  "ts",
+  "session_ms",
+  "experiment_context",
+  "experiment_id",
+  "variant_id",
+  "forced",
+  "allocation_bucket",
+  "variant_bucket",
+]);
 
 export const PRODUCT_EXPERIMENTS = Object.freeze({
   onboarding_value_prop_v1: Object.freeze({
@@ -23,6 +39,13 @@ function stableHash(value) {
 
 function bucket(value) {
   return stableHash(value) % BUCKETS;
+}
+
+function exposureMetadata(properties) {
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return {};
+  return Object.fromEntries(
+    Object.entries(properties).filter(([key]) => !RESERVED_EXPOSURE_KEYS.has(key)),
+  );
 }
 
 function validateDefinition(definition) {
