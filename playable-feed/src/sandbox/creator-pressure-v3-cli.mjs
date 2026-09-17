@@ -56,6 +56,42 @@ function unknownCaseResult(raw, source) {
   };
 }
 
+function extractJsonHint(text, key) {
+  const match = String(text).match(new RegExp(`"${key}"\\s*:\\s*"?([^",}\\s]+)`));
+  return match?.[1] || null;
+}
+
+function formatErrorResult(text, source, error) {
+  const fenced = /^\s*```(?:json)?\s*$/im.test(text);
+  const caseId = extractJsonHint(text, "caseId");
+  const attemptHint = Number(extractJsonHint(text, "attempt"));
+  const attempt = Number.isInteger(attemptHint) && attemptHint > 0 ? attemptHint : 1;
+  const code = fenced ? "MARKDOWN_FENCE" : "INVALID_JSON";
+
+  return {
+    caseId,
+    attempt,
+    author: null,
+    status: "format_error",
+    valid: false,
+    reviewOk: false,
+    verdict: "reject",
+    runtime: null,
+    specBytes: null,
+    blockers: [],
+    diagnostics: [{
+      severity: "error",
+      stage: "pressure_protocol",
+      code,
+      path: null,
+      message: fenced
+        ? `Submission ${source} is wrapped in Markdown fences; the pressure protocol requires raw JSON only.`
+        : `Submission ${source} is not valid JSON: ${error?.message || String(error)}`,
+    }],
+    warnings: [],
+  };
+}
+
 const args = process.argv.slice(2);
 const casesArg = args[0] || "creator-pressure/v3-cases.json";
 const submissionArgs = args.slice(1);
@@ -77,7 +113,15 @@ const files = await collectSubmissionFiles(submissionArgs);
 const results = [];
 
 for (const file of files) {
-  const document = await readJson(file);
+  const text = await readFile(file, "utf8");
+  let document;
+  try {
+    document = JSON.parse(text);
+  } catch (error) {
+    results.push({ ...formatErrorResult(text, file, error), source: file });
+    continue;
+  }
+
   const attempts = Array.isArray(document) ? document : [document];
   for (const raw of attempts) {
     const pressureCase = casesById.get(raw?.caseId);
