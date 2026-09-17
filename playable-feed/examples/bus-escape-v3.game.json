@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v3",
+  "id": "bus-escape-v3",
+  "title": "Bus Escape",
+  "canvas": { "width": 360, "height": 560, "background": "#111827" },
+  "variables": {
+    "score": 0,
+    "escaped": 0
+  },
+  "collections": {
+    "passengers": ["green", "gold", "red", "blue"],
+    "parking": []
+  },
+  "grids": {
+    "yard": {
+      "columns": 5,
+      "rows": 5,
+      "originX": 45,
+      "originY": 150,
+      "cellWidth": 54,
+      "cellHeight": 54
+    }
+  },
+  "entities": [
+    {
+      "id": "queue-label",
+      "kind": "text",
+      "x": 180,
+      "y": 82,
+      "height": 14,
+      "text": "QUEUE  GREEN → GOLD → RED → BLUE",
+      "color": "#e5e7eb",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 472,
+      "height": 14,
+      "text": "Tap a bus whose arrow has a clear road",
+      "color": "#9ca3af",
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "gold-bus",
+      "kind": "text",
+      "tags": ["bus"],
+      "state": { "color": "gold", "direction": "up" },
+      "grid": { "grid": "yard", "column": 3, "row": 0, "columnSpan": 1, "rowSpan": 2 },
+      "width": 50,
+      "height": 38,
+      "text": "↑",
+      "color": "#f6c945",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "green-bus",
+      "kind": "text",
+      "tags": ["bus"],
+      "state": { "color": "green", "direction": "right" },
+      "grid": { "grid": "yard", "column": 0, "row": 0, "columnSpan": 2, "rowSpan": 1 },
+      "width": 104,
+      "height": 38,
+      "text": "→",
+      "color": "#4ade80",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "blue-bus",
+      "kind": "text",
+      "tags": ["bus"],
+      "state": { "color": "blue", "direction": "up" },
+      "grid": { "grid": "yard", "column": 0, "row": 3, "columnSpan": 1, "rowSpan": 2 },
+      "width": 50,
+      "height": 92,
+      "text": "↑",
+      "color": "#60a5fa",
+      "collidable": false,
+      "interactive": true
+    },
+    {
+      "id": "red-bus",
+      "kind": "text",
+      "tags": ["bus"],
+      "state": { "color": "red", "direction": "left" },
+      "grid": { "grid": "yard", "column": 2, "row": 4, "columnSpan": 2, "rowSpan": 1 },
+      "width": 104,
+      "height": 38,
+      "text": "←",
+      "color": "#fb7185",
+      "collidable": false,
+      "interactive": true
+    }
+  ],
+  "timers": [
+    { "id": "serve-parking", "afterMs": 250, "everyMs": 250 },
+    { "id": "finish", "afterMs": 20000 }
+  ],
+  "rules": [
+    {
+      "on": "tap",
+      "targetTag": "bus",
+      "actions": [
+        {
+          "if": {
+            "condition": {
+              "left": {
+                "grid": {
+                  "op": "pathClearToEdge",
+                  "entity": "$target",
+                  "direction": { "entity": { "ref": "$target", "state": "direction" } }
+                }
+              },
+              "op": "==",
+              "right": true
+            },
+            "then": [
+              {
+                "if": {
+                  "condition": {
+                    "left": { "entity": { "ref": "$target", "state": "color" } },
+                    "op": "==",
+                    "right": { "collection": { "name": "passengers", "op": "first" } }
+                  },
+                  "then": [
+                    { "removeCollectionAt": { "name": "passengers", "index": 0 } },
+                    { "addVar": { "name": "score", "value": 350 } },
+                    { "haptic": { "pattern": [8, 22, 8] } }
+                  ],
+                  "else": [
+                    {
+                      "if": {
+                        "condition": {
+                          "left": { "collection": { "name": "parking", "op": "length" } },
+                          "op": "<",
+                          "right": 3
+                        },
+                        "then": [
+                          {
+                            "pushCollection": {
+                              "name": "parking",
+                              "value": { "entity": { "ref": "$target", "state": "color" } }
+                            }
+                          },
+                          { "addVar": { "name": "score", "value": 100 } },
+                          { "haptic": { "pattern": [5] } }
+                        ],
+                        "else": [
+                          { "fail": { "score": { "var": "score" }, "detail": "Parking overflow" } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              { "destroy": { "entity": "$target" } },
+              { "addVar": { "name": "escaped", "value": 1 } }
+            ],
+            "else": [
+              { "haptic": { "pattern": [18] } },
+              { "emit": { "name": "bus_blocked", "data": { "reason": "road_not_clear" } } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "serve-parking",
+      "condition": {
+        "all": [
+          {
+            "left": { "collection": { "name": "parking", "op": "length" } },
+            "op": ">",
+            "right": 0
+          },
+          {
+            "left": { "collection": { "name": "passengers", "op": "length" } },
+            "op": ">",
+            "right": 0
+          },
+          {
+            "left": { "collection": { "name": "parking", "op": "first" } },
+            "op": "==",
+            "right": { "collection": { "name": "passengers", "op": "first" } }
+          }
+        ]
+      },
+      "actions": [
+        { "removeCollectionAt": { "name": "parking", "index": 0 } },
+        { "removeCollectionAt": { "name": "passengers", "index": 0 } },
+        { "addVar": { "name": "score", "value": 250 } },
+        { "haptic": { "pattern": [7] } }
+      ]
+    },
+    {
+      "on": "tick",
+      "condition": {
+        "left": { "collection": { "name": "passengers", "op": "length" } },
+        "op": "==",
+        "right": 0
+      },
+      "actions": [
+        {
+          "complete": {
+            "score": { "add": [{ "var": "score" }, 600] },
+            "detail": "All passengers served"
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "fail": { "score": { "var": "score" }, "detail": "Yard not cleared in time" } }
+      ]
+    }
+  ]
+}
