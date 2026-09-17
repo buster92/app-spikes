@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v7";
+const CACHE = "playloop-spike-v8";
 const ASSETS = [
   "./",
   "./index.html",
