@@ -30,7 +30,7 @@ The first hands-on phone playtests produced stronger behavioral signal than expe
 
 - the player voluntarily continued through roughly eight different games in the first session
 - a later session reached 4,004 XP and level 5
-- one captured session showed 31 feed items seen, 25 completions, 13 failures, 12 retries and roughly 294 seconds of play
+- one captured session showed 31 feed items seen, 25 completions, 13 failures, 12 retries and roughly 294 seconds of play; attempt counts can exceed feed items because retries are separate attempts
 - the games felt different enough that variety did not collapse into repetition
 - the player wanted to continue partly to see difficulty increase
 - streak/fire feedback and personal-record chasing added motivation without interrupting the loop
