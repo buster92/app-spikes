@@ -6,8 +6,8 @@
   "canvas": { "width": 360, "height": 560, "background": "#0c1020" },
   "variables": {
     "score": 0,
-    "showIndex": 0,
-    "inputIndex": 0,
+    "show_index": 0,
+    "input_index": 0,
     "accepting": false
   },
   "collections": {
@@ -105,7 +105,7 @@
       "on": "timer",
       "timerId": "flash",
       "condition": {
-        "left": { "var": "showIndex" },
+        "left": { "var": "show_index" },
         "op": "<",
         "right": { "collection": { "name": "pattern", "op": "length" } }
       },
@@ -121,7 +121,7 @@
                 "collection": {
                   "name": "pattern",
                   "op": "at",
-                  "index": { "var": "showIndex" }
+                  "index": { "var": "show_index" }
                 }
               },
               "op": "==",
@@ -138,7 +138,7 @@
                       "collection": {
                         "name": "pattern",
                         "op": "at",
-                        "index": { "var": "showIndex" }
+                        "index": { "var": "show_index" }
                       }
                     },
                     "op": "==",
@@ -155,7 +155,7 @@
                             "collection": {
                               "name": "pattern",
                               "op": "at",
-                              "index": { "var": "showIndex" }
+                              "index": { "var": "show_index" }
                             }
                           },
                           "op": "==",
@@ -175,7 +175,7 @@
             ]
           }
         },
-        { "addVar": { "name": "showIndex", "value": 1 } }
+        { "addVar": { "name": "show_index", "value": 1 } }
       ]
     },
     {
@@ -204,19 +204,19 @@
                 "collection": {
                   "name": "pattern",
                   "op": "at",
-                  "index": { "var": "inputIndex" }
+                  "index": { "var": "input_index" }
                 }
               }
             },
             "then": [
               { "addVar": { "name": "score", "value": 250 } },
-              { "addVar": { "name": "inputIndex", "value": 1 } },
+              { "addVar": { "name": "input_index", "value": 1 } },
               { "setEntity": { "entity": "$target", "opacity": 0.48 } },
               { "haptic": { "pattern": [7] } },
               {
                 "if": {
                   "condition": {
-                    "left": { "var": "inputIndex" },
+                    "left": { "var": "input_index" },
                     "op": ">=",
                     "right": { "collection": { "name": "pattern", "op": "length" } }
                   },
