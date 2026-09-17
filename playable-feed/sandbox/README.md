@@ -16,6 +16,7 @@ The current implementation proves that games can be loaded as bounded data rathe
 8. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable transport-neutral tool manifest.
 9. [`CREATOR-PRESSURE-V0.md`](./CREATOR-PRESSURE-V0.md) — genre-by-genre pressure test showing what v0 can express and which missing primitives actually repeat.
 10. [`EXPRESSIVENESS-ROADMAP.md`](./EXPRESSIVENESS-ROADMAP.md) — bounded path from v0 toward richer creator games without arbitrary scripting.
+11. [`GAMESPEC-V1-DRAFT.md`](./GAMESPEC-V1-DRAFT.md) — experimental, evidence-driven extension for bounded entity reads and per-entity scalar state. It is not yet a published compatibility promise.
 
 ## Reference implementation
 
@@ -35,7 +36,8 @@ The web reference lives under `../src/sandbox/` and currently includes:
 - deterministic automated review probes;
 - structured AI-authoring diagnostics/capabilities;
 - deterministic replay traces for future KMP parity;
-- a local creator CLI that mirrors the future API/MCP operations for capabilities, validation, simulation and unsigned publication-manifest generation.
+- a local creator CLI that mirrors the future API/MCP operations for capabilities, validation, simulation and unsigned publication-manifest generation;
+- an experimental v1 validation/runtime layer that adds entity reads and bounded entity-local scalar state without arbitrary scripting.
 
 ## Creator Lab
 
@@ -50,6 +52,8 @@ It lets a person or external AI:
 5. execute it in the trusted Canvas sandbox.
 
 It does not evaluate creator JavaScript and it cannot resolve arbitrary URLs. Sprite games can only run with reviewed assets already present in the host-controlled demo catalog.
+
+The current Creator Lab deliberately targets the stable v0 authoring facade. The v1 experiment is kept separate until its tests/replay semantics and KMP parity are strong enough to expose through creator tools.
 
 This gives us a practical way to test the AI-creation loop before building accounts, remote draft storage, MCP hosting, signing or public publishing.
 
@@ -74,9 +78,10 @@ The CLI returns JSON so an external AI or local agent can consume the same autho
 - `space-dodge.game.json` — visually richer version using a background plus a tiny shared sprite atlas.
 - `creator-star-catch.game.json` — an AI-authored catch/avoid game expressed only as GameSpec and reused reviewed assets; no game-specific JavaScript was added.
 - `whack-orb.game.json` — zero-asset moving-target game, proving a tap/relocation loop on the same runtime.
+- `pocket-shooter-v1.game.json` — experimental v1 shooter using current-entity coordinate reads and player-local health, still with no game-specific JavaScript.
 - `replays/space-dodge-3s.replay.json` — bounded deterministic input trace for runtime parity.
 
-Open `../sandbox-demo.html` through a local HTTP server to switch between the playable examples, or open `../creator-lab.html` to edit/validate/simulate/run GameSpec JSON directly.
+Open `../sandbox-demo.html` through a local HTTP server to switch between the v0 playable examples, or open `../creator-lab.html` to edit/validate/simulate/run v0 GameSpec JSON directly.
 
 ## Architectural rule
 
