@@ -149,6 +149,18 @@ export function mountGameSpec(canvas, spec, options = {}) {
     options.onFinish?.(runtime.snapshot());
   };
 
+  const runRuntime = (operation) => {
+    try {
+      operation();
+      return true;
+    } catch (error) {
+      if (["running", "idle"].includes(runtime.status)) throw error;
+      options.onRuntimeError?.(error, runtime.snapshot());
+      notifyFinish();
+      return false;
+    }
+  };
+
   const advanceClock = (now) => {
     if (destroyed || suspended || runtime.status !== "running") {
       last = now;
@@ -158,7 +170,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
     last = now;
     while (remaining > 0 && runtime.status === "running") {
       const chunk = Math.min(HARD_LIMITS.maxStepMs, remaining);
-      runtime.step(chunk);
+      if (!runRuntime(() => runtime.step(chunk))) return;
       remaining -= chunk;
     }
   };
@@ -200,10 +212,26 @@ export function mountGameSpec(canvas, spec, options = {}) {
   const pointer = (type) => (event) => {
     if (destroyed || suspended || runtime.status !== "running") return;
     advanceClock(performance.now());
+    if (runtime.status !== "running") {
+      render();
+      return;
+    }
+
     const point = toGamePoint(event);
-    runtime.pointer(type, point.x, point.y);
-    if (type === "pointerUp") runtime.pointer("tap", point.x, point.y);
-    if (runtime.status === "running") runtime.step(0);
+    if (!runRuntime(() => runtime.pointer(type, point.x, point.y))) {
+      render();
+      return;
+    }
+    if (type === "pointerUp" && runtime.status === "running") {
+      if (!runRuntime(() => runtime.pointer("tap", point.x, point.y))) {
+        render();
+        return;
+      }
+    }
+    if (runtime.status === "running" && !runRuntime(() => runtime.step(0))) {
+      render();
+      return;
+    }
     render();
     schedule();
   };
@@ -241,8 +269,8 @@ export function mountGameSpec(canvas, spec, options = {}) {
   };
 
   try {
-    runtime.start();
-    if (runtime.status === "running") runtime.step(0);
+    runRuntime(() => runtime.start());
+    if (runtime.status === "running") runRuntime(() => runtime.step(0));
     render();
     schedule();
   } catch (error) {
