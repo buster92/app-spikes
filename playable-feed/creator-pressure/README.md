@@ -20,6 +20,14 @@ Do **not** give the model runtime/validator source, tests, implementation exampl
 
 After a failed attempt, return only the structured validator/review diagnostics produced by the creator tools. The model may then repair its submission. Do not manually explain the implementation unless the experiment has ended.
 
+The repository can generate a single paste-ready packet for a case so the external model sees the exact same public-only material every time:
+
+```bash
+npm run pressure:v3:packet -- crate-push > /tmp/playloop-crate-push.md
+```
+
+Use a different id from `npm run pressure:v3:cases` for another case.
+
 ## Submission envelope
 
 Each attempt is a JSON document:
