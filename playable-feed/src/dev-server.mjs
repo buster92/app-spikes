@@ -3,7 +3,10 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = fileURLToPath(new URL("../", import.meta.url));
+// Normalize away the trailing slash produced by directory file URLs. The
+// traversal guard below appends `sep`, so keeping the URL slash would create a
+// false `//` prefix and reject every non-root request.
+const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const port = Number(process.env.PORT || 8080);
 const host = process.env.HOST || "127.0.0.1";
 
