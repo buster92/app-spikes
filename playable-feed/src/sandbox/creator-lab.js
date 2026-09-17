@@ -1,6 +1,8 @@
 import { createAssetResidencyController } from "./asset-residency.js";
 import { validateForAuthoring, simulateForAuthoring } from "./creator-tools.js";
 import { DEMO_ASSET_CATALOG } from "./demo-asset-catalog.js";
+import { RUNTIME_V1_ID } from "./game-spec-v1.js";
+import { SafeSandboxRuntimeV1 } from "./runtime-v1.js";
 import { createTrustedAssetLoader } from "./trusted-asset-loader.js";
 import { mountGameSpec } from "./web-canvas-host.js";
 
@@ -10,6 +12,8 @@ const EXAMPLES = Object.freeze({
   "space-dodge": "./examples/space-dodge.game.json",
   "creator-star-catch": "./examples/creator-star-catch.game.json",
   "whack-orb": "./examples/whack-orb.game.json",
+  "pocket-shooter-v1": "./examples/pocket-shooter-v1.game.json",
+  "garden-catch-v1": "./examples/garden-catch-v1.game.json",
 });
 
 const editor = document.querySelector("#specEditor");
@@ -106,6 +110,7 @@ function simulateCurrent() {
   });
   show({
     ok: result.ok,
+    runtime: parsed.spec.runtime,
     verdict: result.verdict,
     stage: result.stage,
     diagnostics: result.diagnostics,
@@ -145,14 +150,17 @@ async function runCurrent() {
     const resident = await residency.activate(parsed.spec);
     if (token !== generation || resident.stale) return;
 
+    const RuntimeClass = parsed.spec.runtime === RUNTIME_V1_ID ? SafeSandboxRuntimeV1 : undefined;
     controller = mountGameSpec(canvas, parsed.spec, {
+      RuntimeClass,
       seed: 42,
       assetLoader,
       imageSmoothing: false,
       onEffect: (effect) => {
         if (["complete", "fail"].includes(effect.type)) {
           show({
-            runtime: effect.type,
+            runtime: parsed.spec.runtime,
+            outcome: effect.type,
             score: effect.score,
             detail: effect.detail,
             elapsedMs: effect.elapsedMs,
@@ -164,6 +172,7 @@ async function runCurrent() {
 
     show({
       running: parsed.spec.id,
+      runtime: parsed.spec.runtime,
       seed: 42,
       specBytes: formatBytes(validation.transport.canonicalSpecBytes),
       firstPlayBytes: formatBytes(validation.transport.firstPlayBytes),
