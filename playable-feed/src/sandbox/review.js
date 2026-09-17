@@ -1,6 +1,6 @@
 import { HARD_LIMITS, packageProfile } from "./game-spec.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
-import { SandboxRuntime } from "./runtime-core.js";
+import { SafeSandboxRuntime } from "./safe-runtime.js";
 
 const DEFAULT_SEEDS = Object.freeze([1, 7, 42, 99, 1337]);
 
@@ -52,8 +52,6 @@ function probeInput(runtime, spec, random, simulatedMs) {
   const width = spec.canvas.width;
   const height = spec.canvas.height;
 
-  // Exercise pointer-driven rules without trying to solve the game. This is a
-  // safety/runtime probe, not a playability bot.
   if (simulatedMs % 250 === 0) {
     runtime.pointer("pointerMove", random() * width, random() * height, {
       dx: (random() - 0.5) * width * 0.15,
@@ -113,7 +111,7 @@ export function reviewGameSpec(spec, options = {}) {
     let runtime = null;
 
     try {
-      runtime = new SandboxRuntime(spec, {
+      runtime = new SafeSandboxRuntime(spec, {
         seed,
         onEvent: (event) => increment(eventCounts, event.type),
         onEffect: (effect) => increment(effectCounts, effect.type),
