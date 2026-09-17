@@ -38,8 +38,8 @@ export function buildTransportPlan(spec, { cachedAssetRefs = [] } = {}) {
     .filter((asset) => !asset.cached)
     .reduce((sum, asset) => sum + Number(asset.bytes || 0), 0);
 
-  // This is the small record the social feed needs before a player expresses
-  // intent. The actual GameSpec/assets stay lazy and content-addressed.
+  // Planning descriptor: useful before a publication manifest exists. Public
+  // feed records should use buildPublicationEnvelope() and resolve by hash.
   const feedDescriptor = {
     kind: "playable",
     gameId: spec.id,
@@ -86,5 +86,34 @@ export async function buildUnsignedPublicationManifest(spec) {
     assets: plan.assets.map(({ id, ref, bytes }) => ({ id, ref, bytes })),
     totalDeclaredBytes: plan.canonicalSpecBytes + plan.declaredAssetBytes,
     instantEligible: plan.profile.instantEligible,
+  };
+}
+
+export async function buildPublicationEnvelope(spec) {
+  const manifest = await buildUnsignedPublicationManifest(spec);
+  const manifestRef = await sha256Ref(manifest);
+  const assetBytes = manifest.assets.reduce((sum, asset) => sum + Number(asset.bytes || 0), 0);
+
+  // This is the record a social post can carry. The manifest, GameSpec and
+  // creator assets remain lazy/content-addressed and can live behind a CDN.
+  const feedDescriptor = {
+    kind: "playable",
+    manifestVersion: manifest.manifestVersion,
+    gameId: manifest.gameId,
+    title: manifest.title,
+    runtime: manifest.runtime,
+    manifestRef,
+    specRef: manifest.specRef,
+    specBytes: manifest.specBytes,
+    assetBytes,
+    assetCount: manifest.assets.length,
+    instantEligible: manifest.instantEligible,
+  };
+
+  return {
+    manifest,
+    manifestRef,
+    feedDescriptor,
+    feedDescriptorBytes: utf8Bytes(feedDescriptor),
   };
 }
