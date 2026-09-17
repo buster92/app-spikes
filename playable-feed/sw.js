@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v6";
+const CACHE = "playloop-spike-v7";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const ASSETS = [
   "./interaction-fixes.css",
   "./ux-feedback.css",
   "./expansion.css",
+  "./playtest-tuning.css",
   "./ux-feedback.js",
   "./icons/playloop-icon.svg",
   "./icons/playloop-192.png",
@@ -17,6 +18,7 @@ const ASSETS = [
   "./src/feed.js",
   "./src/games.js",
   "./src/extra-games-register.js",
+  "./src/playtest-tuning.js",
   "./src/progression.js",
   "./manifest.webmanifest"
 ];
