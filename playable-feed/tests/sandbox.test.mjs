@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { HARD_LIMITS, packageProfile, validateGameSpec } from "../src/sandbox/game-spec.js";
+import { validatePublicationPolicy } from "../src/sandbox/publication-policy.js";
 import { SandboxRuntime } from "../src/sandbox/runtime-core.js";
 import { reviewGameSpec } from "../src/sandbox/review.js";
 
@@ -30,6 +31,32 @@ test("sandbox rejects executable/network-shaped content", async () => {
   const validation = validateGameSpec(spec);
   assert.equal(validation.ok, false);
   assert.ok(validation.errors.some((error) => error.includes("allowed action")));
+});
+
+test("publication policy rejects unknown hidden fields and bad semantic references", async () => {
+  const spec = await example();
+  spec.secretUrl = "https://example.com/hidden";
+  spec.rules.push({
+    on: "timer",
+    timerId: "does-not-exist",
+    actions: [{ spawn: { template: "missing-template" } }],
+  });
+  const policy = validatePublicationPolicy(spec);
+  assert.equal(policy.ok, false);
+  assert.ok(policy.errors.some((error) => error.includes("secretUrl")));
+  assert.ok(policy.errors.some((error) => error.includes("unknown timer")));
+  assert.ok(policy.errors.some((error) => error.includes("unknown template")));
+});
+
+test("publication policy keeps semantic emit payloads small and flat", async () => {
+  const spec = await example();
+  spec.rules.push({
+    on: "start",
+    actions: [{ emit: { name: "creator_event", data: { nested: { value: 1 } } } }],
+  });
+  const policy = validatePublicationPolicy(spec);
+  assert.equal(policy.ok, false);
+  assert.ok(policy.errors.some((error) => error.includes("emit.data")));
 });
 
 test("runtime is deterministic for the same seed", async () => {
@@ -92,5 +119,15 @@ test("automated review rejects a statically invalid creator game before simulati
   assert.equal(report.ok, false);
   assert.equal(report.verdict, "reject");
   assert.equal(report.stage, "static_validation");
+  assert.equal(report.runs.length, 0);
+});
+
+test("automated review rejects GameSpecs that pass basic syntax but violate publication policy", async () => {
+  const spec = await example();
+  spec.unreviewedPayload = "hidden";
+  const report = reviewGameSpec(spec);
+  assert.equal(report.ok, false);
+  assert.equal(report.verdict, "reject");
+  assert.equal(report.stage, "publication_policy");
   assert.equal(report.runs.length, 0);
 });
