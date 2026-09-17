@@ -27,6 +27,7 @@ import {
   RUNTIME_V3_ID,
   validatePublicationPolicyV3,
   V3_GRID_ACTIONS,
+  V3_GRID_DIRECTIONS,
   V3_GRID_OPS,
   V3_LIMITS,
 } from "./game-spec-v3.js";
@@ -82,7 +83,7 @@ function classifyDiagnostic(message = "") {
   if (lower.includes("unsupported gamespec runtime") || lower.includes("runtime") && lower.includes("must be playloop")) return "UNSUPPORTED_RUNTIME";
   if (lower.includes("unknown field")) return "UNKNOWN_FIELD";
   if (lower.includes("duplicate")) return "DUPLICATE_ID";
-  if (lower.includes("unknown grid") || lower.includes("grid id") || lower.includes("grid move") || lower.includes("overlaps") || lower.includes("grid placement")) return "INVALID_GRID";
+  if (lower.includes("unknown grid") || lower.includes("grid id") || lower.includes("grid move") || lower.includes("overlaps") || lower.includes("grid placement") || lower.includes("attached to a grid")) return "INVALID_GRID";
   if (lower.includes("unknown collection") || lower.includes("collection id") || lower.includes("collection items")) return "INVALID_COLLECTION";
   if (lower.includes("references unknown asset") || lower.includes("unknown asset")) return "UNKNOWN_ASSET";
   if (lower.includes("references unknown timer") || lower.includes("unknown timer")) return "UNKNOWN_TIMER";
@@ -159,11 +160,13 @@ export function getRuntimeCapabilities(runtime = RUNTIME_ID) {
       maxCollectionStringLength: hasV2 ? V2_LIMITS.maxCollectionStringLength : 0,
       grids: hasV3,
       gridOps: hasV3 ? [...V3_GRID_OPS] : [],
+      gridDirections: hasV3 ? [...V3_GRID_DIRECTIONS] : [],
       maxGrids: hasV3 ? V3_LIMITS.maxGrids : 0,
       maxGridColumns: hasV3 ? V3_LIMITS.maxColumns : 0,
       maxGridRows: hasV3 ? V3_LIMITS.maxRows : 0,
       maxCellsPerGrid: hasV3 ? V3_LIMITS.maxCellsPerGrid : 0,
       maxGridSpan: hasV3 ? V3_LIMITS.maxSpan : 0,
+      gridMovement: hasV3 ? "destination occupancy; pathClearToEdge is the explicit swept-path query" : null,
     },
     assets: {
       kinds: ["image", "audio"],
@@ -231,7 +234,13 @@ export function validateForAuthoring(spec) {
   if (profile.ok) {
     publication = adapter.publication(spec);
     diagnostics.push(...(publication.errors || []).map((message) => structuredDiagnostic(message, { stage: "publication_policy" })));
-    if (publication.ok) transport = buildTransportPlan(spec);
+    if (publication.ok) {
+      try {
+        transport = buildTransportPlan(spec);
+      } catch (error) {
+        diagnostics.push(structuredDiagnostic(error?.message || String(error), { stage: "transport" }));
+      }
+    }
   }
 
   const warnings = (publication.warnings || []).map((message) => structuredDiagnostic(message, {
@@ -240,7 +249,7 @@ export function validateForAuthoring(spec) {
   }));
 
   return {
-    ok: profile.ok && publication.ok,
+    ok: profile.ok && publication.ok && Boolean(transport),
     runtime: spec?.runtime || null,
     diagnostics,
     warnings,
