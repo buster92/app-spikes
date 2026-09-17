@@ -19,6 +19,10 @@ async function shooter() {
   return JSON.parse(await readFile(resolve(root, "examples/pocket-shooter-v1.game.json"), "utf8"));
 }
 
+async function garden() {
+  return JSON.parse(await readFile(resolve(root, "examples/garden-catch-v1.game.json"), "utf8"));
+}
+
 test("v1 shooter validates and remains instant-tier data", async () => {
   const spec = await shooter();
   const validation = validateGameSpecV1(spec);
@@ -31,6 +35,45 @@ test("v1 shooter validates and remains instant-tier data", async () => {
   assert.equal(profile.instantEligible, true);
   assert.ok(profile.metrics.specBytes < 16 * 1024);
   assert.equal(profile.metrics.declaredAssetBytes, 6700);
+});
+
+test("visually distinct garden game uses the same v1 runtime and stays instant-tier", async () => {
+  const spec = await garden();
+  const validation = validateGameSpecV1(spec);
+  const publication = validatePublicationPolicyV1(spec);
+  const profile = packageProfileV1(spec);
+
+  assert.equal(validation.ok, true, validation.errors.join("\n"));
+  assert.equal(publication.ok, true, publication.errors.join("\n"));
+  assert.equal(profile.ok, true, profile.errors.join("\n"));
+  assert.equal(profile.instantEligible, true);
+  assert.ok(profile.metrics.specBytes < 16 * 1024);
+  assert.equal(profile.metrics.declaredAssetBytes, 5486);
+  assert.equal(profile.metrics.assets, 2);
+});
+
+test("garden catch changes local state and score through data-only collision rules", async () => {
+  const spec = await garden();
+  spec.entities.push({
+    id: "forced-berry",
+    kind: "rect",
+    tags: ["berry"],
+    x: 180,
+    y: 492,
+    width: 20,
+    height: 20,
+    color: "#f0f",
+    interactive: false
+  });
+
+  const runtime = new SafeSandboxRuntimeV1(spec, { seed: 1 });
+  runtime.start();
+  runtime.step(0);
+
+  assert.equal(runtime.entities.has("forced-berry"), false);
+  assert.equal(runtime.variables.score, 75);
+  assert.equal(runtime.entities.get("player").state.berries, 1);
+  assert.equal(runtime.entities.get("player").state.health, 3);
 });
 
 test("entity reads let a projectile spawn from current player state", async () => {
@@ -149,13 +192,15 @@ test("v1 runtime rejects non-scalar dynamic state writes", async () => {
 });
 
 test("experimental v1 uses the same bounded automated review envelope", async () => {
-  const report = reviewGameSpecV1(await shooter(), {
-    seeds: [3, 11, 29],
-    maxSimulatedMs: 4000,
-  });
-  assert.equal(report.ok, true, report.errors.join("\n"));
-  assert.equal(report.runtime, "playloop-2d-v1");
-  assert.equal(report.summary.seeds, 3);
-  assert.equal(report.summary.crashes, 0);
-  assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
+  for (const spec of [await shooter(), await garden()]) {
+    const report = reviewGameSpecV1(spec, {
+      seeds: [3, 11, 29],
+      maxSimulatedMs: 4000,
+    });
+    assert.equal(report.ok, true, report.errors.join("\n"));
+    assert.equal(report.runtime, "playloop-2d-v1");
+    assert.equal(report.summary.seeds, 3);
+    assert.equal(report.summary.crashes, 0);
+    assert.ok(["pass", "pass_with_warnings"].includes(report.verdict));
+  }
 });
