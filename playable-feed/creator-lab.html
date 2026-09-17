@@ -34,7 +34,7 @@
   <main>
     <h1>Creator Lab</h1>
     <p class="lead">Paste a GameSpec produced by an AI, validate it against the same sandbox contract used for publication, run deterministic safety probes, and execute it in the trusted web runtime. The editor never evaluates creator JavaScript.</p>
-    <span class="badge">AI authoring loop · v0 + experimental v1 · JSON only · reviewed assets only</span>
+    <span class="badge">AI authoring loop · v0 + experimental v1/v2 · JSON only · reviewed assets only</span>
 
     <div class="grid">
       <section class="panel">
@@ -51,6 +51,9 @@
               <option value="pocket-shooter-v1">Pocket Shooter</option>
               <option value="garden-catch-v1">Garden Catch</option>
             </optgroup>
+            <optgroup label="GameSpec v2 draft">
+              <option value="pattern-echo-v2">Pattern Echo</option>
+            </optgroup>
           </select>
           <button id="loadExample" type="button" class="secondary">Load</button>
           <button id="validateSpec" type="button">Validate</button>
@@ -62,7 +65,7 @@
 
       <section class="panel">
         <canvas id="creatorCanvas" aria-label="Creator GameSpec preview"></canvas>
-        <p class="hint">Only content-addressed assets already present in the host-controlled demo catalog can render here. New uploaded/generated media must go through normalization and review before it receives a public SHA-256 reference. GameSpec v1 is still experimental and is intentionally versioned separately from v0.</p>
+        <p class="hint">Only content-addressed assets already present in the host-controlled demo catalog can render here. New uploaded/generated media must go through normalization and review before it receives a public SHA-256 reference. v1 and v2 are experimental compatibility tiers; v2 adds only bounded scalar collections rather than arbitrary arrays or scripting.</p>
         <pre id="creatorOutput">Load an example or paste GameSpec JSON.</pre>
       </section>
     </div>
