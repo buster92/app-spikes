@@ -66,8 +66,10 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   const inflight = new Map();
   const decoded = new Map();
   const decodedBytesByRef = new Map();
+  const reservedBytesByRef = new Map();
   const maxDecodedBytes = Number(options.maxDecodedBytes || ASSET_POLICY.maxTotalDecodedImageBytes);
   let decodedBytes = 0;
+  let reservedDecodedBytes = 0;
 
   async function fetchVerified(asset) {
     if (!asset || !isTrustedAssetRef(asset.ref)) throw new Error("Invalid content-addressed asset reference");
@@ -91,15 +93,21 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
     if (asset.kind !== "image") throw new Error(`${asset.id} is not an image asset`);
     if (decoded.has(asset.ref)) return decoded.get(asset.ref);
     if (!inflight.has(asset.ref)) {
-      inflight.set(asset.ref, (async () => {
-        const expectedDecodedBytes = decodedImageBytes(asset);
-        if (expectedDecodedBytes <= 0 || expectedDecodedBytes > ASSET_POLICY.maxSingleDecodedImageBytes) {
-          throw new Error(`Decoded image budget invalid for ${asset.id}`);
-        }
-        if (decodedBytes + expectedDecodedBytes > maxDecodedBytes) {
-          throw new Error(`Decoded image working set would exceed ${maxDecodedBytes} bytes`);
-        }
+      const expectedDecodedBytes = decodedImageBytes(asset);
+      if (expectedDecodedBytes <= 0 || expectedDecodedBytes > ASSET_POLICY.maxSingleDecodedImageBytes) {
+        throw new Error(`Decoded image budget invalid for ${asset.id}`);
+      }
+      if (decodedBytes + reservedDecodedBytes + expectedDecodedBytes > maxDecodedBytes) {
+        throw new Error(`Decoded image working set would exceed ${maxDecodedBytes} bytes`);
+      }
 
+      // Reserve the decoded footprint before any async fetch/decode work starts.
+      // Without this, two concurrent image loads can both observe the same free
+      // memory and collectively exceed the active decoded-image budget.
+      reservedBytesByRef.set(asset.ref, expectedDecodedBytes);
+      reservedDecodedBytes += expectedDecodedBytes;
+
+      const promise = (async () => {
         const verified = await fetchVerified(asset);
         const bitmap = await decodeRaster(new Blob([verified.bytes], { type: verified.mime }), asset);
 
@@ -111,7 +119,13 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
         decodedBytesByRef.set(asset.ref, expectedDecodedBytes);
         decodedBytes += expectedDecodedBytes;
         return bitmap;
-      })().finally(() => inflight.delete(asset.ref)));
+      })().finally(() => {
+        const reserved = reservedBytesByRef.get(asset.ref) || 0;
+        reservedDecodedBytes = Math.max(0, reservedDecodedBytes - reserved);
+        reservedBytesByRef.delete(asset.ref);
+        inflight.delete(asset.ref);
+      });
+      inflight.set(asset.ref, promise);
     }
     return inflight.get(asset.ref);
   }
@@ -155,6 +169,8 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
     return {
       decodedAssets: decoded.size,
       decodedBytes,
+      reservedDecodedBytes,
+      totalAccountedDecodedBytes: decodedBytes + reservedDecodedBytes,
       maxDecodedBytes,
       inflight: inflight.size,
     };
