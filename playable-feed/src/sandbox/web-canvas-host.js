@@ -1,10 +1,34 @@
+import { HARD_LIMITS } from "./game-spec.js";
 import { SandboxRuntime } from "./runtime-core.js";
+
+function hasContinuousSimulation(runtime, spec) {
+  if ((spec.rules || []).some((rule) => rule.on === "tick")) return true;
+  for (const entity of runtime.entities.values()) {
+    if (Number(entity.vx || 0) !== 0 || Number(entity.vy || 0) !== 0) return true;
+  }
+  return false;
+}
+
+function nextTimerDelay(runtime) {
+  let next = Infinity;
+  for (const state of runtime.timerState.values()) {
+    if (state.fired && !state.everyMs) continue;
+    next = Math.min(next, state.nextAt - runtime.elapsedMs);
+  }
+  if (!Number.isFinite(next)) return null;
+  return Math.max(0, next);
+}
 
 export function mountGameSpec(canvas, spec, options = {}) {
   const context = canvas.getContext("2d", { alpha: false });
   canvas.width = spec.canvas.width;
   canvas.height = spec.canvas.height;
+
   let frame = 0;
+  let timer = 0;
+  let destroyed = false;
+  let suspended = false;
+  let finishedNotified = false;
   let last = performance.now();
 
   const effects = [];
@@ -18,25 +42,12 @@ export function mountGameSpec(canvas, spec, options = {}) {
     },
   });
 
-  const toGamePoint = (event) => {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (event.clientX - rect.left) * (canvas.width / rect.width),
-      y: (event.clientY - rect.top) * (canvas.height / rect.height),
-    };
+  const cancelScheduled = () => {
+    if (frame) cancelAnimationFrame(frame);
+    if (timer) clearTimeout(timer);
+    frame = 0;
+    timer = 0;
   };
-
-  const pointer = (type) => (event) => {
-    const point = toGamePoint(event);
-    runtime.pointer(type, point.x, point.y);
-    if (type === "pointerUp") runtime.pointer("tap", point.x, point.y);
-  };
-  const handlers = {
-    pointerdown: pointer("pointerDown"),
-    pointermove: pointer("pointerMove"),
-    pointerup: pointer("pointerUp"),
-  };
-  for (const [name, handler] of Object.entries(handlers)) canvas.addEventListener(name, handler);
 
   const render = () => {
     context.fillStyle = spec.canvas.background;
@@ -67,26 +78,120 @@ export function mountGameSpec(canvas, spec, options = {}) {
     context.textAlign = "left";
     context.fillText(`Score ${runtime.variables.score ?? 0}`, 14, 24);
     context.textAlign = "right";
-    context.fillText(`${Math.max(0, Math.ceil((12_000 - runtime.elapsedMs) / 1000))}s`, canvas.width - 14, 24);
+    context.fillText(`${(runtime.elapsedMs / 1000).toFixed(1)}s`, canvas.width - 14, 24);
   };
 
-  const loop = (now) => {
-    const delta = now - last;
-    last = now;
-    if (runtime.status === "running") runtime.step(delta);
-    render();
-    if (["running", "idle"].includes(runtime.status)) frame = requestAnimationFrame(loop);
-    else options.onFinish?.(runtime.snapshot());
+  const notifyFinish = () => {
+    if (finishedNotified || ["running", "idle"].includes(runtime.status)) return;
+    finishedNotified = true;
+    cancelScheduled();
+    options.onFinish?.(runtime.snapshot());
   };
+
+  const advanceClock = (now) => {
+    if (destroyed || suspended || runtime.status !== "running") {
+      last = now;
+      return;
+    }
+    let remaining = Math.max(0, now - last);
+    last = now;
+    while (remaining > 0 && runtime.status === "running") {
+      const chunk = Math.min(HARD_LIMITS.maxStepMs, remaining);
+      runtime.step(chunk);
+      remaining -= chunk;
+    }
+  };
+
+  const schedule = () => {
+    cancelScheduled();
+    if (destroyed || suspended) return;
+    if (runtime.status !== "running") {
+      notifyFinish();
+      return;
+    }
+
+    if (hasContinuousSimulation(runtime, spec)) {
+      frame = requestAnimationFrame((now) => {
+        advanceClock(now);
+        render();
+        schedule();
+      });
+      return;
+    }
+
+    const delay = nextTimerDelay(runtime);
+    if (delay === null) return;
+    // Event-driven idle: no animation frame loop for static games. Wake only
+    // for the next timer, then re-evaluate whether the game now has motion.
+    timer = setTimeout(() => {
+      advanceClock(performance.now());
+      render();
+      schedule();
+    }, Math.max(1, delay));
+  };
+
+  const toGamePoint = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * (canvas.width / rect.width),
+      y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const pointer = (type) => (event) => {
+    if (destroyed || suspended || runtime.status !== "running") return;
+    advanceClock(performance.now());
+    const point = toGamePoint(event);
+    runtime.pointer(type, point.x, point.y);
+    if (type === "pointerUp") runtime.pointer("tap", point.x, point.y);
+    // A static game may move entities through pointer rules; a zero-time step
+    // resolves bounds/collisions without advancing the game clock.
+    if (runtime.status === "running") runtime.step(0);
+    render();
+    schedule();
+  };
+
+  const handlers = {
+    pointerdown: pointer("pointerDown"),
+    pointermove: pointer("pointerMove"),
+    pointerup: pointer("pointerUp"),
+  };
+  for (const [name, handler] of Object.entries(handlers)) canvas.addEventListener(name, handler);
+
+  const suspend = () => {
+    if (destroyed || suspended) return;
+    suspended = true;
+    cancelScheduled();
+  };
+
+  const resume = () => {
+    if (destroyed || !suspended) return;
+    suspended = false;
+    last = performance.now();
+    render();
+    schedule();
+  };
+
+  const visibilityHandler = () => {
+    if (document.hidden) suspend();
+    else resume();
+  };
+  document.addEventListener("visibilitychange", visibilityHandler);
 
   runtime.start();
-  frame = requestAnimationFrame(loop);
+  render();
+  schedule();
 
   return {
     runtime,
     effects,
+    suspend,
+    resume,
     destroy() {
-      cancelAnimationFrame(frame);
+      if (destroyed) return;
+      destroyed = true;
+      cancelScheduled();
+      document.removeEventListener("visibilitychange", visibilityHandler);
       for (const [name, handler] of Object.entries(handlers)) canvas.removeEventListener(name, handler);
     },
   };
