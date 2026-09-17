@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v3",
+  "gameId": "bus-escape-v3",
+  "seed": 42,
+  "durationMs": 2500,
+  "inputs": [
+    { "atMs": 500, "type": "tap", "x": 234, "y": 204 },
+    { "atMs": 1000, "type": "tap", "x": 99, "y": 177 },
+    { "atMs": 1500, "type": "tap", "x": 72, "y": 366 },
+    { "atMs": 2000, "type": "tap", "x": 207, "y": 393 }
+  ],
+  "captureAtMs": [0, 500, 1000, 1500, 2000, 2250]
+}

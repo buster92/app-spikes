@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v1",
+  "id": "pocket-shooter-v1",
+  "title": "Pocket Shooter",
+  "canvas": { "width": 360, "height": 560, "background": "#040814" },
+  "variables": { "score": 0 },
+  "assets": [
+    {
+      "id": "space-bg",
+      "kind": "image",
+      "ref": "sha256:fe1dc859f896df3172cf307d032ed72000298ee08b77a88aaa8b7af6b5c64142",
+      "bytes": 5746,
+      "mime": "image/png",
+      "width": 360,
+      "height": 560
+    },
+    {
+      "id": "space-atlas",
+      "kind": "image",
+      "ref": "sha256:523f731761fea9ae7f6e4221a28cef3ca0d526b5a6aaa1463d88b58bbb383ce5",
+      "bytes": 954,
+      "mime": "image/png",
+      "width": 128,
+      "height": 64
+    }
+  ],
+  "templates": {
+    "enemy": {
+      "kind": "sprite",
+      "asset": "space-atlas",
+      "sourceX": 64,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["enemy"],
+      "width": 38,
+      "height": 38,
+      "vy": 155,
+      "bounds": "destroy",
+      "interactive": false,
+      "state": { "damage": 1 }
+    },
+    "bullet": {
+      "kind": "rect",
+      "tags": ["bullet"],
+      "width": 6,
+      "height": 18,
+      "color": "#7ef9ff",
+      "vy": -360,
+      "bounds": "destroy",
+      "interactive": false
+    }
+  },
+  "entities": [
+    {
+      "id": "background",
+      "kind": "sprite",
+      "asset": "space-bg",
+      "x": 180,
+      "y": 280,
+      "width": 360,
+      "height": 560,
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "player",
+      "kind": "sprite",
+      "asset": "space-atlas",
+      "sourceX": 0,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["player"],
+      "x": 180,
+      "y": 492,
+      "width": 52,
+      "height": 52,
+      "bounds": "clamp",
+      "interactive": false,
+      "state": { "health": 3 }
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 528,
+      "height": 14,
+      "text": "Drag to steer · tap to fire · 3 lives",
+      "color": "#d9e4ff",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "spawn-enemy", "afterMs": 400, "everyMs": 760 },
+    { "id": "finish", "afterMs": 12000 }
+  ],
+  "rules": [
+    {
+      "on": "pointerMove",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "pointerDown",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } },
+        {
+          "spawn": {
+            "template": "bullet",
+            "x": { "entity": { "ref": "player", "field": "x" } },
+            "y": { "sub": [{ "entity": { "ref": "player", "field": "y" } }, 34] },
+            "vy": -360
+          }
+        },
+        { "haptic": { "pattern": [5] } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn-enemy",
+      "actions": [
+        {
+          "spawn": {
+            "template": "enemy",
+            "x": { "random": [24, 336] },
+            "y": -24,
+            "vy": { "random": [130, 205] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "bullet",
+      "bTag": "enemy",
+      "actions": [
+        { "destroy": { "entity": "$a" } },
+        { "destroy": { "entity": "$b" } },
+        { "addVar": { "name": "score", "value": 100 } },
+        { "haptic": { "pattern": [8] } }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "enemy",
+      "actions": [
+        { "destroy": { "entity": "$b" } },
+        { "addEntityState": { "entity": "player", "key": "health", "value": -1 } },
+        { "haptic": { "pattern": [24, 30, 24] } },
+        {
+          "if": {
+            "condition": {
+              "left": { "entity": { "ref": "player", "state": "health" } },
+              "op": "<=",
+              "right": 0
+            },
+            "then": [
+              { "fail": { "score": { "var": "score" }, "detail": "Ship destroyed" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "complete": { "score": { "add": [{ "var": "score" }, 500] }, "detail": "Survived the wave" } }
+      ]
+    }
+  ]
+}

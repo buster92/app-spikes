@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v1",
+  "gameId": "garden-catch-v1",
+  "seed": 42,
+  "durationMs": 3000,
+  "inputs": [
+    { "atMs": 0, "type": "pointerDown", "x": 180, "y": 500 },
+    { "atMs": 450, "type": "pointerMove", "x": 80, "y": 500, "dx": -100, "dy": 0 },
+    { "atMs": 900, "type": "pointerMove", "x": 280, "y": 500, "dx": 200, "dy": 0 },
+    { "atMs": 1350, "type": "pointerMove", "x": 145, "y": 500, "dx": -135, "dy": 0 },
+    { "atMs": 1800, "type": "pointerMove", "x": 315, "y": 500, "dx": 170, "dy": 0 },
+    { "atMs": 2250, "type": "pointerMove", "x": 45, "y": 500, "dx": -270, "dy": 0 },
+    { "atMs": 2700, "type": "pointerMove", "x": 205, "y": 500, "dx": 160, "dy": 0 }
+  ],
+  "captureAtMs": [0, 1000, 2000, 3000]
+}

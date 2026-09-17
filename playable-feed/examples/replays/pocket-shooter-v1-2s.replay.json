@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v1",
+  "gameId": "pocket-shooter-v1",
+  "seed": 42,
+  "durationMs": 2000,
+  "inputs": [
+    { "atMs": 0, "type": "pointerDown", "x": 55, "y": 500 },
+    { "atMs": 350, "type": "pointerMove", "x": 100, "y": 500, "dx": 45, "dy": 0 },
+    { "atMs": 700, "type": "pointerDown", "x": 150, "y": 500 },
+    { "atMs": 1050, "type": "pointerMove", "x": 230, "y": 500, "dx": 80, "dy": 0 },
+    { "atMs": 1400, "type": "pointerDown", "x": 290, "y": 500 },
+    { "atMs": 1750, "type": "pointerMove", "x": 315, "y": 500, "dx": 25, "dy": 0 }
+  ],
+  "captureAtMs": [0, 700, 1400, 2000]
+}

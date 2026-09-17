@@ -1,0 +1,193 @@
+{
+  "name": "playloop-creator-tools",
+  "version": "0.1.0",
+  "runtime": "playloop-2d-v0",
+  "description": "Transport-neutral tool contract for AI-assisted Playloop game authoring. Creator tools manipulate drafts and reviewed assets; they never grant arbitrary execution or player/social/payment capabilities.",
+  "resources": [
+    {
+      "name": "gamespec_schema",
+      "path": "./game-spec-v0.schema.json",
+      "mediaType": "application/schema+json"
+    },
+    {
+      "name": "runtime_reference",
+      "path": "./GAMESPEC-V0.md",
+      "mediaType": "text/markdown"
+    },
+    {
+      "name": "asset_reference",
+      "path": "./ASSET-PIPELINE-V0.md",
+      "mediaType": "text/markdown"
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_runtime_capabilities",
+      "description": "Return the exact supported runtime, operations, media types and resource budgets. Call before authoring instead of assuming capabilities.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    {
+      "name": "create_game_draft",
+      "description": "Create an unpublished GameSpec draft. Validation does not imply publication.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "gameSpec"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "prompt": { "type": "string", "maxLength": 2000 },
+          "gameSpec": { "type": "object" }
+        }
+      }
+    },
+    {
+      "name": "update_game_draft",
+      "description": "Replace a draft GameSpec using optimistic revision control.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "expectedRevision", "gameSpec"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "expectedRevision": { "type": "integer", "minimum": 1 },
+          "gameSpec": { "type": "object" }
+        }
+      }
+    },
+    {
+      "name": "validate_game",
+      "description": "Run GameSpec schema, publication-policy and resource-budget validation and return machine-fixable diagnostics.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    {
+      "name": "simulate_game",
+      "description": "Run deterministic trusted runtime probes. This checks safety/runtime behavior, not fun or guaranteed beatability.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "seeds": {
+            "type": "array",
+            "maxItems": 16,
+            "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          },
+          "maxSimulatedMs": { "type": "integer", "minimum": 50, "maximum": 60000 },
+          "bot": { "type": "string", "enum": ["generic-pointer-v0"] }
+        }
+      }
+    },
+    {
+      "name": "request_asset",
+      "description": "Request upload or generation of draft media. Public GameSpec receives only normalized reviewed content-addressed metadata.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "kind", "source"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "kind": { "type": "string", "enum": ["image", "audio"] },
+          "source": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "enum": ["generate", "upload"] }
+            }
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxWidth": { "type": "integer", "minimum": 1, "maximum": 1024 },
+              "maxHeight": { "type": "integer", "minimum": 1, "maximum": 1024 },
+              "preferAtlas": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "pack_sprite_atlas",
+      "description": "Pack reviewed image assets into one normalized atlas and return GameSpec source rectangles.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assetRefs"],
+        "properties": {
+          "assetRefs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "padding": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
+          "maxDimension": { "type": "integer", "minimum": 64, "maximum": 1024, "default": 512 }
+        }
+      }
+    },
+    {
+      "name": "capture_preview",
+      "description": "Render a trusted still/short autoplay preview from the current draft revision.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision", "seed", "mode"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+          "mode": { "type": "string", "enum": ["still", "6s_autoplay"] }
+        }
+      }
+    },
+    {
+      "name": "submit_for_review",
+      "description": "Freeze one draft revision and submit it to publication review. The AI cannot publish directly.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision", "creatorDeclaration"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "creatorDeclaration": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ownsOrCanUseAssets"],
+            "properties": {
+              "ownsOrCanUseAssets": { "type": "boolean", "const": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "remix_game",
+      "description": "Create a new attributed draft from a public game without mutating the source.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceGameId", "title"],
+        "properties": {
+          "sourceGameId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "name": "playloop-creator-tools-v1-draft",
+  "version": "0.1.0-draft",
+  "runtime": "playloop-2d-v1",
+  "status": "experimental",
+  "description": "Transport-neutral tool contract for AI-assisted authoring against the experimental Playloop v1 runtime. The AI produces bounded GameSpec data and may request reviewed assets; it never receives arbitrary execution, network, player, social, device or payment authority.",
+  "resources": [
+    {
+      "name": "runtime_reference",
+      "path": "./GAMESPEC-V1-DRAFT.md",
+      "mediaType": "text/markdown"
+    },
+    {
+      "name": "v0_schema_baseline",
+      "path": "./game-spec-v0.schema.json",
+      "mediaType": "application/schema+json",
+      "note": "v1 currently extends the v0 wire shape in code; a frozen standalone v1 schema is intentionally deferred until semantics stabilize."
+    },
+    {
+      "name": "asset_reference",
+      "path": "./ASSET-PIPELINE-V0.md",
+      "mediaType": "text/markdown"
+    },
+    {
+      "name": "publishing_reference",
+      "path": "./PUBLISHING-PIPELINE-V0.md",
+      "mediaType": "text/markdown"
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_runtime_capabilities",
+      "description": "Return the exact v1 draft capabilities, actions, entity-readable fields, state limits, media limits and execution budgets. Call before authoring.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "runtime": { "type": "string", "const": "playloop-2d-v1" }
+        }
+      }
+    },
+    {
+      "name": "create_game_draft",
+      "description": "Create an unpublished v1 GameSpec draft. Draft creation and validation never imply publication.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "gameSpec"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "prompt": { "type": "string", "maxLength": 2000 },
+          "gameSpec": { "type": "object" }
+        }
+      }
+    },
+    {
+      "name": "validate_game",
+      "description": "Validate a v1 draft against syntax, semantic references, publication policy and resource budgets. Return structured machine-fixable diagnostics.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    {
+      "name": "simulate_game",
+      "description": "Run deterministic trusted runtime probes for safety and budget behavior. Passing does not prove fun or beatability.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "seeds": {
+            "type": "array",
+            "maxItems": 16,
+            "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          },
+          "maxSimulatedMs": { "type": "integer", "minimum": 50, "maximum": 60000 }
+        }
+      }
+    },
+    {
+      "name": "request_asset",
+      "description": "Request generated or uploaded draft media. Returned public references exist only after Playloop normalization, moderation and content-addressing.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "kind", "source"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "kind": { "type": "string", "enum": ["image", "audio"] },
+          "source": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "enum": ["generate", "upload"] }
+            }
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxWidth": { "type": "integer", "minimum": 1, "maximum": 1024 },
+              "maxHeight": { "type": "integer", "minimum": 1, "maximum": 1024 },
+              "preferAtlas": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "pack_sprite_atlas",
+      "description": "Pack reviewed image assets into one normalized atlas and return source rectangles for GameSpec sprites.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assetRefs"],
+        "properties": {
+          "assetRefs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "padding": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
+          "maxDimension": { "type": "integer", "minimum": 64, "maximum": 1024, "default": 512 }
+        }
+      }
+    },
+    {
+      "name": "capture_preview",
+      "description": "Render a trusted still or short replay-based preview. Preview generation runs the sandbox, not creator code.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision", "seed", "mode"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+          "mode": { "type": "string", "enum": ["still", "6s_autoplay"] }
+        }
+      }
+    },
+    {
+      "name": "submit_for_review",
+      "description": "Freeze one draft revision and submit it to automated publication review. The AI cannot publish or sign content directly.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["draftId", "revision", "creatorDeclaration"],
+        "properties": {
+          "draftId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "creatorDeclaration": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ownsOrCanUseAssets"],
+            "properties": {
+              "ownsOrCanUseAssets": { "type": "boolean", "const": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "remix_game",
+      "description": "Create a new attributed draft from an existing public game. The source game remains immutable.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceGameId", "title"],
+        "properties": {
+          "sourceGameId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      }
+    }
+  ]
+}

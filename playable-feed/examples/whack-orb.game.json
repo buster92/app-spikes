@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "id": "whack-orb",
+  "title": "Whack Orb",
+  "canvas": { "width": 360, "height": 560, "background": "#180d2e" },
+  "variables": { "score": 0, "hits": 0 },
+  "assets": [],
+  "templates": {},
+  "entities": [
+    {
+      "id": "target",
+      "kind": "circle",
+      "tags": ["target"],
+      "x": 180,
+      "y": 240,
+      "radius": 34,
+      "color": "#ffda57",
+      "collidable": false
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 500,
+      "height": 18,
+      "text": "Hit the orb 10 times",
+      "color": "#e9dcff",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "jump", "afterMs": 800, "everyMs": 800 },
+    { "id": "finish", "afterMs": 12000 }
+  ],
+  "rules": [
+    {
+      "on": "tap",
+      "targetTag": "target",
+      "actions": [
+        { "addVar": { "name": "hits", "value": 1 } },
+        { "addVar": { "name": "score", "value": 100 } },
+        { "haptic": { "pattern": [8] } },
+        {
+          "setEntity": {
+            "entity": "target",
+            "x": { "random": [50, 310] },
+            "y": { "random": [90, 420] }
+          }
+        },
+        {
+          "if": {
+            "condition": { "left": { "var": "hits" }, "op": ">=", "right": 10 },
+            "then": [
+              { "complete": { "score": { "add": [{ "var": "score" }, 500] }, "detail": "Ten hits" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "jump",
+      "actions": [
+        {
+          "setEntity": {
+            "entity": "target",
+            "x": { "random": [50, 310] },
+            "y": { "random": [90, 420] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "fail": { "score": { "var": "score" }, "detail": "Time expired" } }
+      ]
+    }
+  ]
+}

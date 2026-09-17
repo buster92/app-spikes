@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "id": "tap-bloom",
+  "title": "Tap Bloom",
+  "canvas": { "width": 360, "height": 560, "background": "#171225" },
+  "variables": { "score": 0, "taps": 0 },
+  "assets": [],
+  "templates": {},
+  "entities": [
+    {
+      "id": "target",
+      "kind": "circle",
+      "tags": ["target"],
+      "x": 180,
+      "y": 260,
+      "radius": 34,
+      "color": "#ff7ac8",
+      "bounds": "clamp"
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 500,
+      "height": 16,
+      "text": "Tap the bloom 10 times",
+      "color": "#d8cdea"
+    }
+  ],
+  "timers": [
+    { "id": "finish", "afterMs": 15000 }
+  ],
+  "rules": [
+    {
+      "on": "tap",
+      "targetTag": "target",
+      "actions": [
+        { "addVar": { "name": "taps", "value": 1 } },
+        { "addVar": { "name": "score", "value": 100 } },
+        {
+          "setEntity": {
+            "entity": "target",
+            "x": { "random": [45, 315] },
+            "y": { "random": [90, 445] }
+          }
+        },
+        { "haptic": { "pattern": [5] } },
+        {
+          "if": {
+            "condition": { "left": { "var": "taps" }, "op": ">=", "right": 10 },
+            "then": [
+              { "complete": { "score": { "add": [{ "var": "score" }, 500] }, "detail": "Ten blooms" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        { "fail": { "score": { "var": "score" }, "detail": "Time ran out" } }
+      ]
+    }
+  ]
+}
