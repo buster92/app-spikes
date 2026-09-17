@@ -36,7 +36,7 @@ The current v3 primitives can support at least two materially different grid int
 
 This is evidence against adding a Sokoban-specific helper or general scripting capability.
 
-## Pressure point exposed
+## Initial pressure point exposed
 
 The one-crate reference can address the crate by fixed id. With several interchangeable movable pieces, authoring becomes increasingly verbose because v3 does not expose a bounded query such as:
 
@@ -47,89 +47,115 @@ entityAtCell(...)
 
 A creator can still enumerate a small fixed set of known entity ids and compare each one's coordinates. That is valid but awkward.
 
-Current decision: **do not add an occupant query yet.**
+The original decision was: **do not add an occupant query from the internal reference alone.** External AI runs should tell us whether multiple independent creators repeatedly hit this limitation.
 
-Reason: one internal reference is not enough evidence. External AI runs should tell us whether multiple independent creators repeatedly hit this same limitation. If they do, a bounded grid-occupant read may be a better future candidate than general loops/search.
+## External pressure round 1: match-line
 
-## External pressure: match-line
+Date: 2026-09-17.
 
-On 2026-09-17 two independent external models were given the public-only `match-line` packet. Both returned `blocked` rather than inventing unsupported opcodes.
+Two independent external models were given only the public creator-pressure packet for `match-line`. Both returned `blocked` rather than inventing unsupported opcodes.
 
-Repeated blockers:
+Repeated blocker themes:
 
 - no bounded occupant/entity-at-cell lookup;
-- no bounded neighbor/run aggregation helper.
+- no bounded neighbor/run or match-line aggregation;
+- difficulty identifying values/types of adjacent pieces dynamically.
 
-Additional blockers mentioned by one model included dynamic entity-reference storage, mutable piece values and awkward swapping.
+Additional blockers reported by one model:
 
-This is meaningful evidence that match-line/match-3 is not naturally authorable from the current public v3 contract. It is **not yet evidence for a match-specific opcode**. The more general question is whether a bounded spatial query or neighbor helper unlocks several genres.
+- no persistent dynamic entity-reference storage across interactions;
+- entity visual/value mutation is intentionally limited;
+- swapping occupied cells is awkward without an explicit bounded swap or a free-buffer workaround.
 
-## External pressure: control and neighboring grid cases
+Interpretation: this is real evidence that match-style games stress spatial inspection beyond current v3. It is **not yet** enough evidence to choose a `matchLine`-specific primitive; a lower-level bounded spatial read could serve more genres.
 
-A second batch used two independent models on `crate-push`, `ice-slide` and `lights-toggle`.
+## External pressure round 2: control + hostile grid cases
 
-Observed results:
+Date: 2026-09-17.
 
-- `crate-push`: one model produced a valid first-pass v3 GameSpec that passed automated review; the other returned `blocked`.
-- `ice-slide`: one model produced a valid first-pass v3 GameSpec that passed automated review; the other returned `blocked`.
-- `lights-toggle`: one model submitted a v1 spec, but it exceeded the 16 KB GameSpec budget at 42,108 bytes; the other returned `blocked`.
+Two models were tested on `crate-push`, `ice-slide`, and `lights-toggle`.
 
-The successful `crate-push` and `ice-slide` submissions are important controls: they show the public contract is expressive enough for at least some external authors without implementation access.
+### Crate Push
 
-The blocked responses are also revealing because some cited capabilities that **do exist in the runtime**, such as conditional action blocks and equality/logical expressions. That means not every `blocked` result should be interpreted as a runtime gap. Some are evidence that the public authoring materials are incomplete or insufficiently discoverable.
+One external model produced a valid first-pass `playloop-2d-v3` GameSpec. Automated review passed with warnings only; the spec was about 5.3 KB and instant-tier eligible.
 
-Current interpretation by case:
+The second model returned `blocked`, claiming that conditional blocks and equality/logical comparison syntax were missing and also asking for an occupant lookup.
 
-- **Crate Push:** runtime capability is sufficient; improve public documentation before considering new primitives. A fixed known crate id is enough for the one-crate case, as both the internal reference and one external model demonstrate.
-- **Ice Slide:** current primitives are at least sufficient to construct one valid solution, so do not add `raycast`/`slideUntilBlocked` yet. First understand how the successful author encoded it and whether that pattern is reasonable or excessively verbose.
-- **Lights Toggle:** still unresolved. The oversized 42 KB submission suggests authoring ergonomics are poor even when a creator tries to encode the mechanic explicitly. The second model's neighbor-targeting complaint may point toward a bounded neighbor/occupant read, but public documentation gaps must be fixed before treating that as conclusive runtime evidence.
+Because the first model successfully authored the same mechanic and the runtime already supports `if`, comparison conditions and fixed-id coordinate reads, the conditional/equality claims are **documentation/authoring-contract failures**, not runtime capability gaps.
 
-## Authoring-contract finding
+Conclusion: **do not add a crate-specific or occupant primitive merely to make one-crate Sokoban work.** Improve the public authoring reference first.
 
-The pressure packet currently includes the v0-v3 markdown drafts, `ai-tools-v3-draft.json` and the v0 schema. External feedback shows that the packet does not make conditional action syntax, comparison/logical expressions and related composition semantics obvious enough for all capable models.
+### Ice Slide
 
-Before changing v3 semantics, improve the public authoring materials so they contain concise, normative examples for:
+One external model produced a valid first-pass `playloop-2d-v3` GameSpec. Automated review passed with warnings only; the spec was about 12.1 KB and instant-tier eligible.
 
-- `if` / `then` / `else` action blocks;
-- equality/comparison expressions;
-- `all` / logical composition;
-- reading `$target` entity-local state;
-- composing `column` / `row` / `canMoveBy` with known entity ids;
-- a small end-to-end grid interaction example that does not reveal implementation source.
+The second model returned `blocked`, asking for loops, distance-to-obstacle/raycast data, or a `slideGridEntityUntilBlocked` action.
 
-Then rerun the same blocked control cases. If a model still reports a missing capability after the documented capability is explicit, that blocker is much stronger evidence.
+Since the first model found a valid bounded composition under the current contract, a slide/raycast primitive is **not justified by this pressure round**. The 12 KB size is worth watching, but the mechanic is currently expressible within the 16 KB limit.
 
-## Deliberately difficult external cases
+### Lights Toggle
 
-The pressure corpus includes mechanics expected to distinguish authoring friction from real language gaps:
+One external model attempted an implementation rather than declaring it blocked, but the GameSpec expanded to about 42.1 KB and was rejected by the 16 KB hard spec budget.
 
-- slide-until-obstacle;
-- orthogonal-neighbor toggling;
-- match-line detection after swaps;
-- growing trail / dynamic grid occupancy.
+The second model returned `blocked`, again citing missing occupant/neighbor access and also incorrectly claiming the condition/`if` grammar was unavailable.
 
-A good external model should return `blocked` instead of inventing opcodes when a case cannot be represented honestly.
+Interpretation: this case currently exposes **two separate problems**:
 
-## Current decision before changing v3
+1. the public authoring packet did not make inherited condition syntax explicit enough;
+2. naive fixed-id neighbor enumeration can create severe verbosity/budget pressure.
 
-Do **not** add `entityAtCell`, `matchLine`, `raycast`, loops or general scripting yet.
+This is stronger evidence for investigating a reusable bounded neighbor/occupant capability than the one-crate case, but the documentation problem must be removed before changing runtime semantics.
 
-The next gate is to improve the public authoring contract and rerun the same external cases, especially `crate-push`, `ice-slide`, `lights-toggle` and `match-line`. The objective is to separate three different failure classes:
+## Documentation gap discovered
 
-1. capability exists but documentation is insufficient;
-2. capability exists but authoring is technically possible only through pathological verbosity;
-3. capability genuinely does not exist.
+The external packet previously bundled the v0-v3 prose references, AI tool metadata and the v0 schema, but did not give a compact machine-readable description of the inherited condition grammar.
 
-Only category 3 should directly drive a runtime extension. Category 2 may justify a bounded ergonomic helper if it generalizes across genres.
+That allowed a model to see that `if` existed while still concluding that it had no documented way to construct:
+
+- `left / op / right` comparison conditions;
+- `==`, `!=`, `>`, `>=`, `<`, `<=`;
+- `all`, `any`, `not`;
+- `if.condition / then / else`;
+- rule-level conditions;
+- composition of `$target` entity-local state with v3 grid reads.
+
+The pressure harness is therefore being hardened before more runtime capabilities are considered. The public packet now includes:
+
+- a generated runtime-capability snapshot;
+- an explicit machine-readable authoring grammar;
+- `GAMESPEC-AUTHORING-QUICK-REFERENCE.md` with normative composition examples;
+- an explicit 16 KB budget reminder;
+- an instruction to treat v3 as additive over v0-v2 rather than reading the v3 grid document in isolation.
+
+## Current capability decision
+
+**Do not extend the v3 runtime yet.**
+
+The evidence currently supports these distinctions:
+
+- **Already expressible:** Bus Escape, one-crate Sokoban, and at least one bounded ice-slide implementation.
+- **Documentation gap:** inherited conditions and conditional action syntax were too easy for an external model to miss.
+- **Ergonomics/budget pressure:** lights-toggle can degenerate into large fixed-id enumeration and exceed the 16 KB budget.
+- **Real capability candidate:** a bounded occupant/neighbor read remains plausible because it recurs in match-line and lights-toggle pressure, but it should be retested after the documentation fix.
+- **Not justified yet:** general loops, raycasts, general scripting, game-specific `matchLine`, or game-specific `slideUntilBlocked` opcodes.
+
+If the same occupant/neighbor limitation repeats after the hardened packet, prefer the smallest reusable bounded spatial primitive over a match-3-specific or scripting-like feature.
+
+## Deliberately difficult remaining cases
+
+The pressure corpus also includes:
+
+- growing trail / dynamic grid occupancy;
+- additional non-grid cases spanning v0-v2.
+
+`growing-trail` is useful but is not required before the documentation rerun because the current batch already exposed a confounding authoring-contract problem.
 
 ## Evidence still required before freezing v3
 
-- improve the public authoring contract around conditionals/comparisons/grid composition;
-- rerun the public-only pressure packets against at least two external models;
-- record first-pass validity and repair iterations;
-- inspect repeated blocker categories after documentation gaps are removed;
-- optionally add `growing-trail` when model quota is available; it is not required before fixing the authoring materials;
+- rerun selected external cases with the hardened packet and at least two independent models when practical;
+- distinguish repeated true blockers from documentation/verbosity failures;
 - keep the full JS test/replay suite green;
 - implement equivalent Kotlin validation/runtime/replay behavior;
 - compare JS↔Kotlin golden snapshots for Bus Escape and Crate Push;
+- confirm operation budgets remain comfortable at maximum legal board occupancy;
 - then decide whether v3 should be frozen or adjusted.
