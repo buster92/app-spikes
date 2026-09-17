@@ -1,7 +1,7 @@
 const TOP_LEVEL_KEYS = new Set(["schemaVersion", "runtime", "id", "title", "canvas", "variables", "assets", "templates", "entities", "timers", "rules"]);
 const CANVAS_KEYS = new Set(["width", "height", "background"]);
-const ASSET_KEYS = new Set(["id", "kind", "ref", "bytes"]);
-const ENTITY_KEYS = new Set(["id", "kind", "tags", "x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity", "color", "text", "bounds"]);
+const ASSET_KEYS = new Set(["id", "kind", "ref", "bytes", "mime", "width", "height"]);
+const ENTITY_KEYS = new Set(["id", "kind", "tags", "x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity", "color", "text", "bounds", "asset"]);
 const TEMPLATE_KEYS = new Set([...ENTITY_KEYS].filter((key) => key !== "id"));
 const TIMER_KEYS = new Set(["id", "afterMs", "everyMs"]);
 const RULE_KEYS = new Set(["on", "timerId", "targetTag", "aTag", "bTag", "condition", "actions"]);
@@ -112,6 +112,16 @@ function validateEntityRef(ref, ruleEvent, knownEntityIds, path, errors) {
   }
 }
 
+function validateSpriteAsset(entity, path, assetsById, errors) {
+  if (entity?.kind !== "sprite") return;
+  const asset = assetsById.get(entity.asset);
+  if (!asset) {
+    errors.push(`${path}.asset: references unknown asset '${entity?.asset}'`);
+    return;
+  }
+  if (asset.kind !== "image") errors.push(`${path}.asset: '${entity.asset}' is not an image asset`);
+}
+
 function walkActions(actions, context, path, errors) {
   if (!Array.isArray(actions)) return;
   actions.forEach((action, index) => {
@@ -178,6 +188,7 @@ export function validatePublicationPolicy(spec) {
   unknownKeys(spec.canvas, CANVAS_KEYS, "canvas", errors);
 
   const assetsById = new Map();
+  const usedAssetIds = new Set();
   for (const [index, asset] of (Array.isArray(spec.assets) ? spec.assets : []).entries()) {
     unknownKeys(asset, ASSET_KEYS, `assets[${index}]`, errors);
     if (typeof asset?.id === "string") {
@@ -191,6 +202,8 @@ export function validatePublicationPolicy(spec) {
     unknownKeys(template, TEMPLATE_KEYS, `templates.${id}`, errors);
     if (typeof template?.text === "string" && template.text.length > 256) errors.push(`templates.${id}.text: exceeds 256 characters`);
     if (typeof template?.color === "string" && template.color.length > 64) errors.push(`templates.${id}.color: exceeds 64 characters`);
+    validateSpriteAsset(template, `templates.${id}`, assetsById, errors);
+    if (template?.kind === "sprite" && typeof template.asset === "string") usedAssetIds.add(template.asset);
   }
 
   const startingEntityIds = new Set();
@@ -199,6 +212,8 @@ export function validatePublicationPolicy(spec) {
     if (typeof entity?.id === "string") startingEntityIds.add(entity.id);
     if (typeof entity?.text === "string" && entity.text.length > 256) errors.push(`entities[${index}].text: exceeds 256 characters`);
     if (typeof entity?.color === "string" && entity.color.length > 64) errors.push(`entities[${index}].color: exceeds 64 characters`);
+    validateSpriteAsset(entity, `entities[${index}]`, assetsById, errors);
+    if (entity?.kind === "sprite" && typeof entity.asset === "string") usedAssetIds.add(entity.asset);
   }
 
   const timerIds = new Set();
@@ -227,10 +242,15 @@ export function validatePublicationPolicy(spec) {
     if ((rule?.aTag !== undefined || rule?.bTag !== undefined) && rule.on !== "collision") errors.push(`${path}: aTag/bTag are only valid on collision rules`);
     if (rule?.condition !== undefined) walkCondition(rule.condition, `${path}.condition`, errors);
     walkActions(rule?.actions, { ruleEvent: rule?.on, knownEntityIds, templateIds, assetsById }, `${path}.actions`, errors);
+    for (const action of rule?.actions || []) {
+      if (action?.sound?.asset) usedAssetIds.add(action.sound.asset);
+    }
   }
 
   if ((spec.assets || []).length > 12) warnings.push("More than 12 assets may increase first-play fetch latency even when total bytes stay within the instant tier.");
   if (fixedSpawnIds.size > 8) warnings.push("Many fixed spawn ids can make remixes brittle; prefer generated ids unless later rules must reference them directly.");
+  const unusedAssets = [...assetsById.keys()].filter((id) => !usedAssetIds.has(id));
+  if (unusedAssets.length) warnings.push(`Unused assets add package weight: ${unusedAssets.join(", ")}`);
 
   return { ok: errors.length === 0, errors, warnings };
 }
