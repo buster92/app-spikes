@@ -29,9 +29,14 @@ function safeWrite(key, value) {
   }
 }
 
+function readAnonId() {
+  const value = readJson(USER_KEY, null);
+  return typeof value === "string" && value.length > 0 && value.length <= 128 ? value : null;
+}
+
 export class Analytics {
   constructor() {
-    this.anonId = readJson(USER_KEY, null) || id("anon");
+    this.anonId = readAnonId() || id("anon");
     safeWrite(USER_KEY, this.anonId);
     this.sessionId = id("session");
     this.sessionStartedAt = Date.now();
