@@ -1,9 +1,11 @@
+import { ASSET_POLICY, validateNormalizedAssetMetadata } from "./asset-contract.js";
+
 export const RUNTIME_ID = "playloop-2d-v0";
 
 export const HARD_LIMITS = Object.freeze({
   maxSpecBytes: 16 * 1024,
-  maxDeclaredAssetBytes: 256 * 1024,
-  maxAssets: 24,
+  maxDeclaredAssetBytes: ASSET_POLICY.maxDeclaredAssetBytes,
+  maxAssets: ASSET_POLICY.maxAssets,
   maxEntities: 64,
   maxTemplates: 24,
   maxRules: 96,
@@ -43,8 +45,7 @@ export const ALLOWED_ACTIONS = new Set([
   "if",
 ]);
 
-const ALLOWED_ENTITY_KINDS = new Set(["circle", "rect", "text"]);
-const ALLOWED_ASSET_KINDS = new Set(["image", "audio"]);
+const ALLOWED_ENTITY_KINDS = new Set(["circle", "rect", "text", "sprite"]);
 const ALLOWED_BOUNDS = new Set(["none", "clamp", "bounce", "wrap", "destroy"]);
 const ALLOWED_COMPARE = new Set(["==", "!=", ">", ">=", "<", "<="]);
 const ALLOWED_MATH = new Set(["add", "sub", "mul", "div", "min", "max"]);
@@ -227,13 +228,18 @@ function validateEntity(entity, path, errors, template = false) {
     return;
   }
   if (!template) validateId(entity.id, `${path}.id`, errors);
-  if (!ALLOWED_ENTITY_KINDS.has(entity.kind)) push(errors, `${path}.kind`, "must be circle, rect, or text");
+  if (!ALLOWED_ENTITY_KINDS.has(entity.kind)) push(errors, `${path}.kind`, "must be circle, rect, text, or sprite");
   if (entity.tags !== undefined) {
     if (!Array.isArray(entity.tags) || entity.tags.length > 8) push(errors, `${path}.tags`, "must be an array of at most 8 tags");
     else entity.tags.forEach((tag, index) => validateId(tag, `${path}.tags[${index}]`, errors));
   }
   for (const key of ["x", "y", "vx", "vy", "width", "height", "radius", "rotation", "opacity"]) {
     if (entity[key] !== undefined && !isFiniteNumber(entity[key])) push(errors, `${path}.${key}`, "must be a finite number");
+  }
+  if (entity.kind === "sprite") {
+    validateId(entity.asset, `${path}.asset`, errors);
+    if (!isFiniteNumber(entity.width) || entity.width <= 0) push(errors, `${path}.width`, "sprite width must be > 0");
+    if (!isFiniteNumber(entity.height) || entity.height <= 0) push(errors, `${path}.height`, "sprite height must be > 0");
   }
   if (entity.bounds !== undefined && !ALLOWED_BOUNDS.has(entity.bounds)) push(errors, `${path}.bounds`, "unsupported bounds behavior");
   if (entity.color !== undefined && typeof entity.color !== "string") push(errors, `${path}.color`, "must be a string");
@@ -276,10 +282,8 @@ export function validateGameSpec(spec) {
     let declaredBytes = 0;
     assets.forEach((asset, index) => {
       validateId(asset?.id, `assets[${index}].id`, errors);
-      if (!ALLOWED_ASSET_KINDS.has(asset?.kind)) push(errors, `assets[${index}].kind`, "must be image or audio");
-      if (typeof asset?.ref !== "string" || !asset.ref.startsWith("sha256:")) push(errors, `assets[${index}].ref`, "must be a content-addressed sha256: reference");
-      if (!Number.isInteger(asset?.bytes) || asset.bytes < 0) push(errors, `assets[${index}].bytes`, "must be a non-negative integer");
-      else declaredBytes += asset.bytes;
+      errors.push(...validateNormalizedAssetMetadata(asset, `assets[${index}]`));
+      if (Number.isInteger(asset?.bytes) && asset.bytes >= 0) declaredBytes += asset.bytes;
     });
     if (declaredBytes > HARD_LIMITS.maxDeclaredAssetBytes) push(errors, "assets", `declared asset bytes ${declaredBytes} exceed ${HARD_LIMITS.maxDeclaredAssetBytes}`);
   }
