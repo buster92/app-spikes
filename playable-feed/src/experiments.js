@@ -151,15 +151,15 @@ export class ExperimentRegistry {
     if (!assignment.assigned) return null;
 
     if (!this.exposed.has(experimentId)) {
-      this.exposed.set(experimentId, assignment.variant_id);
       emit?.("experiment_exposure", {
+        ...exposureMetadata(properties),
         experiment_id: assignment.experiment_id,
         variant_id: assignment.variant_id,
         forced: assignment.forced,
         allocation_bucket: assignment.allocation_bucket,
         variant_bucket: assignment.variant_bucket,
-        ...properties,
       });
+      this.exposed.set(experimentId, assignment.variant_id);
     }
     return assignment.variant_id;
   }
