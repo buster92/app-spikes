@@ -11,17 +11,26 @@
     main { width: min(100%, 420px); padding: 18px; }
     h1 { margin: 0 0 6px; font-size: 24px; }
     p { color: #aeb7d4; font-size: 13px; line-height: 1.45; }
+    .controls { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 12px 0; }
+    select, button { min-height: 46px; border: 0; border-radius: 14px; font-weight: 800; }
+    select { width: 100%; padding: 0 12px; background: #171a29; color: white; border: 1px solid rgba(255,255,255,.1); }
+    button { padding: 0 16px; background: #fff; color: #111; }
     canvas { width: 100%; aspect-ratio: 360 / 560; border: 1px solid rgba(255,255,255,.1); border-radius: 22px; touch-action: none; background: #0c1020; }
-    button { width: 100%; min-height: 46px; margin-top: 12px; border: 0; border-radius: 14px; font-weight: 800; background: #fff; color: #111; }
-    pre { white-space: pre-wrap; color: #93a0c5; font-size: 11px; }
+    pre { min-height: 42px; white-space: pre-wrap; color: #93a0c5; font-size: 11px; }
   </style>
 </head>
 <body>
   <main>
     <h1>GameSpec v0</h1>
-    <p>This page is intentionally separate from the feed. The game below is loaded from declarative JSON and executed by the sandbox runtime—no game-specific JavaScript.</p>
+    <p>These games are loaded from declarative JSON and executed by the same sandbox runtime. Neither mechanic has game-specific JavaScript.</p>
+    <div class="controls">
+      <select id="sandboxGame" aria-label="Choose GameSpec example">
+        <option value="meteor-dodge">Meteor Dodge · drag</option>
+        <option value="tap-bloom">Tap Bloom · tap</option>
+      </select>
+      <button id="restartSandbox" type="button">Restart</button>
+    </div>
     <canvas id="sandboxCanvas" aria-label="GameSpec sandbox"></canvas>
-    <button id="restartSandbox" type="button">Restart generated game</button>
     <pre id="sandboxOutput"></pre>
   </main>
   <script type="module" src="./src/sandbox/demo.js"></script>
