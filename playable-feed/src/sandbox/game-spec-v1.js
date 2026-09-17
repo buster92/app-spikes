@@ -168,6 +168,39 @@ function validateStateAction(action, eventName, initialIds, path, errors) {
   walkExpressions(payload.value, eventName, initialIds, `${path}.${type}.value`, errors);
 }
 
+function walkBaseActionExpressions(action, eventName, initialIds, path, errors) {
+  const keys = Object.keys(action);
+  if (keys.length !== 1) return;
+  const [type] = keys;
+  const payload = action[type];
+  if (!isObject(payload)) return;
+
+  switch (type) {
+    case "setVar":
+    case "addVar":
+      if (payload.value !== undefined) walkExpressions(payload.value, eventName, initialIds, `${path}.${type}.value`, errors);
+      break;
+    case "setEntity":
+    case "moveEntity":
+    case "setVelocity":
+      for (const key of ["x", "y", "vx", "vy", "rotation", "opacity"]) {
+        if (payload[key] !== undefined) walkExpressions(payload[key], eventName, initialIds, `${path}.${type}.${key}`, errors);
+      }
+      break;
+    case "spawn":
+      for (const key of ["x", "y", "vx", "vy"]) {
+        if (payload[key] !== undefined) walkExpressions(payload[key], eventName, initialIds, `${path}.spawn.${key}`, errors);
+      }
+      break;
+    case "complete":
+    case "fail":
+      if (payload.score !== undefined) walkExpressions(payload.score, eventName, initialIds, `${path}.${type}.score`, errors);
+      break;
+    default:
+      break;
+  }
+}
+
 function walkActions(actions, eventName, initialIds, path, errors) {
   if (!Array.isArray(actions)) return;
   actions.forEach((action, index) => {
@@ -184,7 +217,7 @@ function walkActions(actions, eventName, initialIds, path, errors) {
       walkActions(action.if.else, eventName, initialIds, `${actionPath}.if.else`, errors);
       return;
     }
-    walkExpressions(action, eventName, initialIds, actionPath, errors);
+    walkBaseActionExpressions(action, eventName, initialIds, actionPath, errors);
   });
 }
 
