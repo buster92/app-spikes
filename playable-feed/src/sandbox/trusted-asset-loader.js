@@ -68,17 +68,24 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
   const decodedBytesByRef = new Map();
   const reservedBytesByRef = new Map();
   const maxDecodedBytes = Number(options.maxDecodedBytes || ASSET_POLICY.maxTotalDecodedImageBytes);
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const decodeImage = options.decodeImage || decodeRaster;
+  const hashBytes = options.hashBytes || sha256Bytes;
   let decodedBytes = 0;
   let reservedDecodedBytes = 0;
   let disposed = false;
   let lifetime = 0;
+
+  if (typeof fetchImpl !== "function") throw new Error("Trusted asset loader requires fetch support");
+  if (typeof decodeImage !== "function") throw new Error("Trusted asset loader requires an image decoder");
+  if (typeof hashBytes !== "function") throw new Error("Trusted asset loader requires SHA-256 support");
 
   async function fetchVerified(asset) {
     if (!asset || !isTrustedAssetRef(asset.ref)) throw new Error("Invalid content-addressed asset reference");
     const catalogEntry = entries.get(asset.ref);
     assertCatalogMetadata(asset, catalogEntry);
 
-    const response = await fetch(assertSameOrigin(catalogEntry.url), {
+    const response = await fetchImpl(assertSameOrigin(catalogEntry.url), {
       cache: "force-cache",
       credentials: "same-origin",
       redirect: "error",
@@ -86,7 +93,7 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
     if (!response.ok) throw new Error(`Unable to load trusted asset ${asset.id}: ${response.status}`);
     const bytes = await response.arrayBuffer();
     if (bytes.byteLength !== asset.bytes) throw new Error(`Fetched byte size mismatch for ${asset.id}`);
-    const ref = await sha256Bytes(bytes);
+    const ref = await hashBytes(bytes);
     if (ref !== asset.ref) throw new Error(`SHA-256 mismatch for ${asset.id}`);
     return { bytes, mime: asset.mime };
   }
@@ -113,7 +120,7 @@ export function createTrustedAssetLoader(catalog = {}, options = {}) {
 
       const promise = (async () => {
         const verified = await fetchVerified(asset);
-        const bitmap = await decodeRaster(new Blob([verified.bytes], { type: verified.mime }), asset);
+        const bitmap = await decodeImage(new Blob([verified.bytes], { type: verified.mime }), asset);
 
         // The browser may finish a fetch/decode after pagehide/disposal. Never
         // let that asynchronous completion recreate decoded resources.
