@@ -16,28 +16,23 @@
       "height": 560
     },
     {
-      "id": "ship",
+      "id": "space-atlas",
       "kind": "image",
-      "ref": "sha256:f991c3906c21bb3d3ecd393bdcd1cc52f5d590cbd894b28e8c8862f220c5ba2d",
-      "bytes": 452,
+      "ref": "sha256:523f731761fea9ae7f6e4221a28cef3ca0d526b5a6aaa1463d88b58bbb383ce5",
+      "bytes": 954,
       "mime": "image/png",
-      "width": 64,
-      "height": 64
-    },
-    {
-      "id": "meteor",
-      "kind": "image",
-      "ref": "sha256:5b42f691c3fb10de6dea77b2135e9c1072ad2a6b1ebb9ebe451826a609cb8e80",
-      "bytes": 563,
-      "mime": "image/png",
-      "width": 64,
+      "width": 128,
       "height": 64
     }
   ],
   "templates": {
     "meteor": {
       "kind": "sprite",
-      "asset": "meteor",
+      "asset": "space-atlas",
+      "sourceX": 64,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
       "tags": ["hazard"],
       "width": 42,
       "height": 42,
@@ -61,7 +56,11 @@
     {
       "id": "player",
       "kind": "sprite",
-      "asset": "ship",
+      "asset": "space-atlas",
+      "sourceX": 0,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
       "tags": ["player"],
       "x": 180,
       "y": 492,
