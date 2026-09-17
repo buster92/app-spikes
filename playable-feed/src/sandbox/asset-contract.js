@@ -6,6 +6,8 @@ export const ASSET_POLICY = Object.freeze({
   maxSingleImageBytes: 96 * 1024,
   maxSingleAudioBytes: 128 * 1024,
   maxRasterDimension: 1024,
+  maxSingleDecodedImageBytes: 4 * 1024 * 1024,
+  maxTotalDecodedImageBytes: 8 * 1024 * 1024,
   allowedImageMime: Object.freeze(["image/png", "image/webp", "image/avif"]),
   allowedAudioMime: Object.freeze(["audio/ogg", "audio/webm", "audio/mp4"]),
 });
@@ -20,6 +22,14 @@ export function assetBudgetForKind(kind) {
   return 0;
 }
 
+export function decodedImageBytes(asset) {
+  if (asset?.kind !== "image") return 0;
+  const width = Number(asset.width || 0);
+  const height = Number(asset.height || 0);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return 0;
+  return width * height * 4;
+}
+
 export function validateNormalizedAssetMetadata(asset, path = "asset") {
   const errors = [];
   if (!asset || typeof asset !== "object" || Array.isArray(asset)) return [`${path}: must be an object`];
@@ -28,6 +38,7 @@ export function validateNormalizedAssetMetadata(asset, path = "asset") {
   if (!Number.isInteger(asset.bytes) || asset.bytes < 0) errors.push(`${path}.bytes: must be a non-negative integer`);
   const budget = assetBudgetForKind(asset.kind);
   if (budget && Number(asset.bytes || 0) > budget) errors.push(`${path}.bytes: exceeds ${budget} byte per-${asset.kind} instant budget`);
+
   if (asset.kind === "image") {
     if (!ASSET_POLICY.allowedImageMime.includes(asset.mime)) errors.push(`${path}.mime: must be a normalized raster type`);
     for (const key of ["width", "height"]) {
@@ -35,7 +46,12 @@ export function validateNormalizedAssetMetadata(asset, path = "asset") {
         errors.push(`${path}.${key}: must be 1–${ASSET_POLICY.maxRasterDimension}`);
       }
     }
+    const decodedBytes = decodedImageBytes(asset);
+    if (decodedBytes > ASSET_POLICY.maxSingleDecodedImageBytes) {
+      errors.push(`${path}: decoded raster size ${decodedBytes} bytes exceeds ${ASSET_POLICY.maxSingleDecodedImageBytes}`);
+    }
   }
+
   if (asset.kind === "audio" && !ASSET_POLICY.allowedAudioMime.includes(asset.mime)) {
     errors.push(`${path}.mime: must be an approved normalized audio type`);
   }
