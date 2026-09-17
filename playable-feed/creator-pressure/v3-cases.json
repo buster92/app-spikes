@@ -1,0 +1,78 @@
+{
+  "protocolVersion": 1,
+  "contract": "GameSpec public authoring materials only",
+  "cases": [
+    {
+      "id": "reaction-orbit",
+      "genre": "reaction",
+      "prompt": "Create a zero-asset 20-second reaction game where a target appears at seeded-random positions, the player taps it for points, misses are harmless, and the game ends with a score.",
+      "evaluationTags": ["v0", "random", "tap", "spawn"]
+    },
+    {
+      "id": "lane-dodge",
+      "genre": "arcade",
+      "prompt": "Create a zero-asset dodge game with a player that can move between safe horizontal lanes while hazards descend. It must be deterministic for a seed and finish within 45 seconds.",
+      "evaluationTags": ["v0", "movement", "collision", "timers"]
+    },
+    {
+      "id": "turret-defense",
+      "genre": "shooter",
+      "prompt": "Create a compact one-screen shooter where tapping fires projectiles from the player's current position, enemies move toward the player, and hits update score without using executable code.",
+      "evaluationTags": ["v1", "entity-read", "spawn", "collision"]
+    },
+    {
+      "id": "harvest-streak",
+      "genre": "catcher",
+      "prompt": "Create a catcher game where falling objects have a bounded local type/value state, the basket catches them, and consecutive catches of the same type increase a streak bonus.",
+      "evaluationTags": ["v1", "entity-state", "collision", "scoring"]
+    },
+    {
+      "id": "echo-sequence",
+      "genre": "memory",
+      "prompt": "Create a four-button memory game that stores a bounded generated sequence, shows it, accepts player input, and completes after a short successful round.",
+      "evaluationTags": ["v2", "collections", "indexed-read", "input"]
+    },
+    {
+      "id": "queue-sort",
+      "genre": "sorting",
+      "prompt": "Create a small game where colored items must be tapped in the order described by a bounded queue. Wrong taps should produce feedback but must not expose any host API.",
+      "evaluationTags": ["v2", "collections", "queue", "tap"]
+    },
+    {
+      "id": "parking-release",
+      "genre": "grid-traffic",
+      "prompt": "Create a small grid traffic puzzle where differently sized pieces may leave only when the lane from their leading edge to the board edge is clear.",
+      "evaluationTags": ["v3", "grid", "occupancy", "path-clear"]
+    },
+    {
+      "id": "crate-push",
+      "genre": "sokoban",
+      "prompt": "Create a 5x5 Sokoban-style puzzle with one movable player, one crate, walls, a goal cell, and four directional controls. The player may move into empty cells and may push the crate one cell only when the crate's destination is free. Complete when the crate reaches the goal.",
+      "evaluationTags": ["v3", "grid", "occupancy", "push"]
+    },
+    {
+      "id": "ice-slide",
+      "genre": "grid-puzzle",
+      "prompt": "Create a grid puzzle where tapping a direction makes a piece slide in that direction until the next obstacle or board edge, then stop on the last free cell.",
+      "evaluationTags": ["v3", "grid", "path", "multi-cell-move"]
+    },
+    {
+      "id": "lights-toggle",
+      "genre": "logic-grid",
+      "prompt": "Create a 4x4 lights puzzle where tapping a cell toggles that cell and its orthogonal neighbors. The game completes when all lights are off.",
+      "evaluationTags": ["grid", "neighbor-access", "entity-state"]
+    },
+    {
+      "id": "match-line",
+      "genre": "match-puzzle",
+      "prompt": "Create a small match puzzle where swapping two adjacent pieces can clear a horizontal or vertical line of three equal values and add score. Keep the board bounded and deterministic.",
+      "evaluationTags": ["grid", "neighbors", "match-line", "collections"]
+    },
+    {
+      "id": "growing-trail",
+      "genre": "snake-like",
+      "prompt": "Create a grid game where a player advances one cell at a time, collects food, and leaves a growing occupied trail that causes failure when hit. Keep all state bounded and deterministic.",
+      "evaluationTags": ["grid", "dynamic-occupancy", "growth", "spawn"]
+    }
+  ]
+}
