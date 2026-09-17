@@ -28,6 +28,7 @@ test("creator capabilities expose bounded data-only v0 runtime", () => {
   assert.ok(capabilities.events.includes("collision"));
   assert.ok(capabilities.actions.includes("spawn"));
   assert.equal(capabilities.expressions.entityReads, false);
+  assert.equal(capabilities.expressions.collections, false);
   assert.equal(capabilities.sandbox.arbitraryCode, false);
   assert.equal(capabilities.sandbox.network, false);
   assert.equal(capabilities.assets.addressing, "sha256");
@@ -40,12 +41,29 @@ test("v1 capabilities explicitly expose entity reads and bounded local state", (
   assert.equal(capabilities.runtime, "playloop-2d-v1");
   assert.ok(capabilities.supportedRuntimes.includes("playloop-2d-v0"));
   assert.ok(capabilities.supportedRuntimes.includes("playloop-2d-v1"));
+  assert.ok(capabilities.supportedRuntimes.includes("playloop-2d-v2"));
   assert.ok(capabilities.actions.includes("setEntityState"));
   assert.ok(capabilities.actions.includes("addEntityState"));
   assert.equal(capabilities.expressions.entityReads, true);
   assert.equal(capabilities.expressions.entityLocalState, true);
+  assert.equal(capabilities.expressions.collections, false);
   assert.equal(capabilities.expressions.maxStateKeysPerEntity, 8);
   assert.ok(capabilities.expressions.entityFields.includes("x"));
+  assert.equal(capabilities.sandbox.network, false);
+});
+
+test("v2 capabilities add only bounded scalar collections", () => {
+  const capabilities = getRuntimeCapabilities("playloop-2d-v2");
+  assert.equal(capabilities.ok, true);
+  assert.equal(capabilities.runtime, "playloop-2d-v2");
+  assert.equal(capabilities.expressions.entityReads, true);
+  assert.equal(capabilities.expressions.collections, true);
+  assert.equal(capabilities.expressions.maxCollections, 8);
+  assert.equal(capabilities.expressions.maxItemsPerCollection, 16);
+  assert.deepEqual(capabilities.expressions.collectionOps, ["length", "at", "first", "last"]);
+  assert.ok(capabilities.actions.includes("shuffleCollection"));
+  assert.ok(capabilities.actions.includes("pushCollection"));
+  assert.equal(capabilities.sandbox.arbitraryCode, false);
   assert.equal(capabilities.sandbox.network, false);
 });
 
@@ -78,6 +96,16 @@ test("v1 author validation uses the same lightweight transport guidance", async 
   assert.ok(result.transport.firstPlayBytes < 32 * 1024);
 });
 
+test("v2 author validation keeps collection games tiny and transport-neutral", async () => {
+  const result = validateForAuthoring(await example("pattern-echo-v2"));
+  assert.equal(result.ok, true, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(result.runtime, "playloop-2d-v2");
+  assert.equal(result.transport.instantEligible, true);
+  assert.ok(result.transport.feedDescriptorBytes < 512);
+  assert.equal(result.transport.declaredAssetBytes, 0);
+  assert.ok(result.transport.firstPlayBytes < 16 * 1024);
+});
+
 test("author validation converts errors to stable structured diagnostics", async () => {
   const spec = await example();
   spec.entities.find((entity) => entity.id === "player").asset = "missing";
@@ -87,6 +115,14 @@ test("author validation converts errors to stable structured diagnostics", async
   assert.ok(unknown, result.diagnostics.map((item) => item.message).join("\n"));
   assert.ok(unknown.path?.includes("asset"));
   assert.equal(unknown.stage, "publication_policy");
+});
+
+test("collection diagnostics remain machine-fixable", () => {
+  const item = structuredDiagnostic("rules[1].condition.right.collection.name: unknown collection 'missing'", {
+    stage: "schema",
+  });
+  assert.equal(item.code, "INVALID_COLLECTION");
+  assert.equal(item.path, "rules[1].condition.right.collection.name");
 });
 
 test("diagnostic classifier identifies atlas frame budget errors", () => {
@@ -119,6 +155,17 @@ test("v1 creator simulation routes through the v1 runtime review adapter", async
   assert.equal(result.summary.crashes, 0);
 });
 
+test("v2 creator simulation routes through the bounded collection adapter", async () => {
+  const result = simulateForAuthoring(await example("pattern-echo-v2"), {
+    seeds: [3, 11],
+    maxSimulatedMs: 3500,
+  });
+  assert.equal(result.ok, true, result.diagnostics.map((item) => item.message).join("\n"));
+  assert.equal(result.validation.runtime, "playloop-2d-v2");
+  assert.equal(result.summary.seeds, 2);
+  assert.equal(result.summary.crashes, 0);
+});
+
 test("publication candidate hashes a valid v0 spec but never signs it client-side", async () => {
   const candidate = await buildPublicationCandidate(await example("tap-bloom"));
   assert.equal(candidate.ok, true, candidate.diagnostics.map((item) => item.message).join("\n"));
@@ -133,6 +180,16 @@ test("publication candidate can describe a v1 draft without expanding feed paylo
   assert.match(candidate.manifest.specRef, /^sha256:[0-9a-f]{64}$/);
   assert.equal(candidate.manifest.runtime, "playloop-2d-v1");
   assert.equal(candidate.manifest.assets.length, 2);
+  assert.equal(candidate.manifest.instantEligible, true);
+  assert.equal(Object.hasOwn(candidate.manifest, "signature"), false);
+});
+
+test("publication candidate preserves the explicit v2 runtime tier", async () => {
+  const candidate = await buildPublicationCandidate(await example("pattern-echo-v2"));
+  assert.equal(candidate.ok, true, candidate.diagnostics.map((item) => item.message).join("\n"));
+  assert.match(candidate.manifest.specRef, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(candidate.manifest.runtime, "playloop-2d-v2");
+  assert.equal(candidate.manifest.assets.length, 0);
   assert.equal(candidate.manifest.instantEligible, true);
   assert.equal(Object.hasOwn(candidate.manifest, "signature"), false);
 });
