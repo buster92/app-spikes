@@ -45,7 +45,7 @@ try {
       print({
         ok: false,
         usage: [
-          "node src/sandbox/creator-cli.mjs capabilities [playloop-2d-v0|playloop-2d-v1|playloop-2d-v2]",
+          "node src/sandbox/creator-cli.mjs capabilities [playloop-2d-v0|playloop-2d-v1|playloop-2d-v2|playloop-2d-v3]",
           "node src/sandbox/creator-cli.mjs validate <game-spec.json>",
           "node src/sandbox/creator-cli.mjs simulate <game-spec.json>",
           "node src/sandbox/creator-cli.mjs manifest <game-spec.json>",
