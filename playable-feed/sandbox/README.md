@@ -28,13 +28,30 @@ The web reference lives under `../src/sandbox/` and currently includes:
 - Canvas renderer/input host;
 - SHA-256 verified trusted image loading;
 - sprite and sprite-atlas rendering;
-- decoded-image memory budgets;
+- decoded-image memory budgets with reservations for concurrent decodes;
+- disposal guards so late async decodes cannot recreate textures after the host is gone;
 - visible+next asset residency/eviction policy;
 - lightweight transport planning;
 - deterministic automated review probes;
 - structured AI-authoring diagnostics/capabilities;
 - deterministic replay traces for future KMP parity;
 - a local creator CLI that mirrors the future API/MCP operations for capabilities, validation, simulation and unsigned publication-manifest generation.
+
+## Creator Lab
+
+`../creator-lab.html` is a deliberately small manual authoring workbench for the stage before a real creator backend exists.
+
+It lets a person or external AI:
+
+1. generate or edit GameSpec JSON;
+2. paste it into the editor;
+3. validate it through the same authoring/publication gates;
+4. run deterministic safety simulations;
+5. execute it in the trusted Canvas sandbox.
+
+It does not evaluate creator JavaScript and it cannot resolve arbitrary URLs. Sprite games can only run with reviewed assets already present in the host-controlled demo catalog.
+
+This gives us a practical way to test the AI-creation loop before building accounts, remote draft storage, MCP hosting, signing or public publishing.
 
 ## Creator CLI
 
@@ -59,7 +76,7 @@ The CLI returns JSON so an external AI or local agent can consume the same autho
 - `whack-orb.game.json` — zero-asset moving-target game, proving a tap/relocation loop on the same runtime.
 - `replays/space-dodge-3s.replay.json` — bounded deterministic input trace for runtime parity.
 
-Open `../sandbox-demo.html` through a local HTTP server to switch between the playable examples.
+Open `../sandbox-demo.html` through a local HTTP server to switch between the playable examples, or open `../creator-lab.html` to edit/validate/simulate/run GameSpec JSON directly.
 
 ## Architectural rule
 
