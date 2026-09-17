@@ -1,453 +1,360 @@
 # Playloop sandbox continuation handoff
 
-This file exists so a fresh ChatGPT conversation can continue the current Playloop creator-runtime work without relying on chat history.
+This file exists so a fresh conversation can continue the Playloop creator-runtime work without relying on chat history.
 
-**Important:** repository state can move after this file is written. At the beginning of a new session, re-fetch PR #3 and the head branch before editing anything. Treat this file as context and intent, not as a substitute for reading the current code.
+**Always re-fetch PR #3 and the branch head before editing.** Repository state can move after this file is written. Treat this as architecture/context plus the last known verification status, not as a replacement for reading current code.
 
 ## Repository / branch / PR
 
 - Repository: `buster92/app-spikes`
-- Current sandbox branch: `feature/gamespec-sandbox-v0`
+- Branch: `feature/gamespec-sandbox-v0`
 - Pull request: **#3 — Add portable GameSpec sandbox v0**
-- PR URL: `https://github.com/buster92/app-spikes/pull/3`
-- Base branch: `main`
-- Known head when this handoff was written: `bdef832cee681f2ef02458322e79b0ca3ed57934`
-- PR was open and mergeable when this handoff was written.
-- Do **not** work directly on `main` for this milestone.
+- Base: `main`
+- Known head immediately before this handoff rewrite: `6f5b1c4d98a40b466282176624e3a12ea1fec847`
+- PR was open and mergeable.
+- Do not work directly on `main` for this milestone.
+- GitHub Actions are intentionally disabled; do not enable hosted CI unless the user explicitly changes that decision.
 
-The PR is intentionally large because it establishes the creator-platform boundary, not just one UI feature. Do not merge it merely because one experimental runtime version works. Finish integration, review the complete diff, and make verification status explicit first.
+## Product direction
 
-## Product direction / north star
+Playloop is evolving from a handcrafted mini-game feed into a **social platform for playable posts**.
 
-Playloop started as a swipeable feed of tiny handcrafted games. The product direction has now evolved into a **social platform for playable posts**.
+The long-term creator experience should allow a creator/influencer to:
 
-A creator/influencer should eventually be able to:
-
-1. ask an AI to create a small game;
-2. preview and tweak it;
+1. describe a small game to an AI;
+2. preview/tune it;
 3. submit it to automated review/moderation;
-4. publish a post that can contain video + an instantly playable game;
-5. let followers play, like, comment, challenge, remix, follow, and eventually tip/donate.
+4. publish video/passive content plus an instantly playable experience;
+5. let followers play, challenge and remix it.
 
-The runtime is the foundation that lets this scale. The goal is Minecraft/mod-like creative breadth **without** allowing arbitrary untrusted code in each post.
+Likes, comments, follows, profiles, recommendations, payments/tips, account state and other social/product capabilities belong to the trusted Playloop shell/backend. They are not creator-runtime APIs.
 
-The app is expected to migrate toward **Kotlin Multiplatform** for the production mobile experience. The architecture should therefore keep game logic portable and platform-neutral now, while the current web implementation acts as the reference runtime and fast experimentation surface.
+The production mobile runtime is expected to migrate toward Kotlin Multiplatform. The JS implementation is the reference language/runtime while semantics are still being discovered.
 
-## Non-negotiable architecture rules
+## Non-negotiable sandbox boundary
 
-Creator content is **data, not application code**.
+Creator content is **bounded declarative data**, never downloaded application code.
 
-Do not solve expressiveness problems by allowing arbitrary JavaScript, WASM, native binaries, Lua, eval-like code, arbitrary browser APIs, or arbitrary remote URLs.
+Do not add arbitrary:
 
-A creator GameSpec must not directly receive:
-
-- network access;
+- JavaScript / `eval`;
+- WASM;
+- Lua/general scripting;
+- native binaries;
 - DOM access;
-- filesystem access;
+- network clients or arbitrary URLs;
+- filesystem/storage/database handles;
 - account/session tokens;
-- storage/database handles;
 - social graph APIs;
-- payment/tip APIs;
-- raw device identity;
-- unrestricted camera/microphone/sensors.
+- payment APIs;
+- unrestricted camera/microphone/sensor/device identity APIs.
 
-Those belong to the trusted Playloop shell/backend. Future device capabilities can be explicitly capability-gated if there is a strong product reason.
+The GameSpec runtime must stay:
 
-The runtime should remain:
+- bounded in CPU/memory/assets;
+- statically reviewable;
+- deterministic enough for automated review and JS↔KMP parity;
+- content-addressed for public packages/assets;
+- fully suspendable off-screen;
+- versioned so published content does not silently change semantics.
 
-- bounded;
-- deterministic enough for automated review and JS↔KMP logical parity;
-- suspendable when off-screen;
-- inspectable by publication tooling;
-- lightweight enough for feed delivery;
-- versioned so old games retain semantics.
+## Resource model
 
-## Lightweight post / resource goals
-
-Current instant-tier design targets are roughly:
+Current instant-tier targets:
 
 - GameSpec <= **16 KB**;
 - declared assets <= **256 KB**;
 - combined first-play package <= **300 KB** for instant eligibility;
 - normalized image <= **96 KB compressed**;
-- decoded raster <= **4 MB per image**;
-- decoded creator-image working set <= **8 MB**;
-- content-addressed SHA-256 assets;
-- no arbitrary creator asset URLs;
-- feed post descriptor should remain only hundreds of bytes;
-- scrolling the feed must not download every playable package;
-- only the visible game should be active;
-- at most one next game should be bounded-prefetched;
-- static/puzzle games should not run a permanent 60 FPS loop while idle;
-- off-screen/background runtimes should consume effectively no simulation/audio resources.
+- decoded image <= **4 MB each**;
+- creator decoded-image working set <= **8 MB**;
+- <=64 runtime entities in the v0 baseline;
+- <=2,000 interpreted operations per simulation step;
+- max simulation step 50 ms;
+- max runtime duration 60 s;
+- feed descriptors stay only hundreds of bytes;
+- playable packages/assets are lazy/content-addressed;
+- only the visible runtime is active;
+- at most one next playable is bounded-prefetched.
 
-The current asset path already uses reviewed same-origin mappings, SHA-256 verification, metadata checks, sprite atlases, memory reservations, and residency/eviction controls.
+Static/puzzle games should sleep between input/timer deadlines rather than burn a permanent frame loop.
 
-## KMP target architecture
+## Runtime ladder
 
-The intended production split is:
+### `playloop-2d-v0`
 
-```text
-Playloop mobile shell
-  feed / video / profile / comments / likes / notifications / payments / uploads
-                  |
-                  v
-        Playloop runtime commonMain
-  GameSpec model / validation / seeded RNG / rules / state / replay
-                  |
-        platform host adapters
-  renderer / input / audio / haptics / asset resolver / clock
+Reference foundation:
+
+- primitive shapes/text/sprites;
+- content-addressed reviewed assets and sprite atlases;
+- movement/velocity/bounds;
+- pointer/tap input;
+- timers;
+- collision events;
+- scalar globals;
+- bounded expressions/math;
+- spawn/destroy;
+- host-controlled emit/sound/haptic;
+- complete/fail;
+- deterministic seeded RNG;
+- hard operation/entity/time limits.
+
+### `playloop-2d-v1` — experimental
+
+Adds only:
+
+- bounded reads of whitelisted entity fields;
+- <=8 scalar entity-local state keys;
+- `setEntityState` / `addEntityState`.
+
+Reference examples: `Pocket Shooter v1`, `Garden Catch v1`.
+
+### `playloop-2d-v2` — experimental
+
+Adds only bounded scalar collections:
+
+- <=8 collections;
+- <=16 scalar values each;
+- reads `length`, `at`, `first`, `last`;
+- push/set/remove/clear;
+- deterministic Fisher-Yates shuffle using runtime RNG.
+
+Reference example: `Pattern Echo v2`.
+
+### `playloop-2d-v3` — experimental, now integrated
+
+Adds bounded grid/occupancy mechanics without scripting:
+
+- <=4 grids;
+- <=10 rows/columns and <=64 cells/grid;
+- entity grid spans <=4x4;
+- initial non-overlapping grid placement;
+- `isCellFree`, `column`, `row`, `canMoveBy`, `pathClearToEdge`;
+- `moveGridEntity`, `moveGridBy`;
+- deterministic occupancy/probe iteration;
+- grid internals charged against the same operation budget.
+
+Reference example/replay: `Bus Escape v3`.
+
+v3 is integrated through validation, publication policy, transport/manifests, Creator Lab, creator tools/CLI, automated review and deterministic replay. It is **not** a frozen public compatibility promise yet.
+
+Read `GAMESPEC-V3-DRAFT.md` and `KMP-VERSIONED-EXTENSIONS-DRAFT.md` before changing grid semantics.
+
+## v3 semantics that must not drift
+
+- Grid dimensions/coordinates use real JSON integers where the contract says integer; numeric strings are rejected.
+- The entire grid rectangle must fit inside the canvas.
+- Initial grid placements must fit and not overlap.
+- Grid placement is the logical source of truth for grid entity position; wire `x/y` are rejected for grid entities.
+- Grid entities cannot carry nonzero velocity.
+- Occupancy is rebuilt from **currently live** grid entities instead of maintained as a second mutable creator table.
+- Destroyed entities free occupancy immediately.
+- Occupancy iteration: runtime entity insertion order, then cells row-major.
+- `canMoveBy` and grid move actions validate only the destination placement.
+- `pathClearToEdge` is the explicit swept-lane operation; it probes every lane covered by the piece span in documented order.
+- Direct known non-grid refs are rejected statically; event-resolved misuse is guarded at runtime.
+- Dynamic coordinates/deltas must resolve to integers.
+- Grid work contributes to `maxOpsPerStep`.
+- Replay id is exactly `playloop-2d-v3`; older runtime ids cannot silently execute v3 traces.
+
+## Transport/publication state
+
+The old v3 transport gap is fixed.
+
+`transport.js` dispatches through a versioned adapter for v0/v1/v2/v3. v3 therefore uses the same:
+
+- profile/budget gate;
+- publication-policy gate;
+- canonical JSON;
+- SHA-256 GameSpec refs;
+- unsigned publication manifest;
+- content-addressed manifest ref;
+- tiny social-feed descriptor;
+- lazy asset accounting.
+
+Do not introduce a v3-only transport bypass.
+
+## Creator tooling state
+
+`creator-tools.js` supports v0-v3 and exposes exact v3 grid limits/directions while keeping all host authority false.
+
+Creator Lab has `Bus Escape v3` and selects `SafeSandboxRuntimeV3` through the trusted runtime path.
+
+Package scripts include v3:
+
+```bash
+npm run creator:capabilities:v3
+npm run creator:validate:v3
+npm run creator:simulate:v3
+npm run creator:manifest:v3
+npm run review:v3
+npm run replay:v3
 ```
 
-Read `KMP-RUNTIME-CONTRACT-V0.md` before making changes that would leak browser-specific semantics into the logical runtime.
+`npm run check` syntax-checks the v3 validator/runtime/review/replay/CLI modules along with the earlier sandbox code.
 
-The common runtime must not depend on Compose, Android Views, UIKit, DOM, filesystem paths or HTTP clients.
+AI-facing materials include:
 
-Cross-platform parity goal is **equivalent logical snapshots/results**, not pixel-identical rendering.
+- `GAMESPEC-V3-DRAFT.md`;
+- `ai-tools-v3-draft.json`;
+- versioned KMP mapping in `KMP-VERSIONED-EXTENSIONS-DRAFT.md`.
 
-## Important directories / files
+## Core correctness hardening completed during v3 review
 
-Start with these:
+The complete PR was reviewed, not only v3. Several older issues were found and fixed:
 
-### Architecture / contracts
+### Collision semantic roles
+
+Physical collision insertion order no longer determines `$a` / `$b` when a rule declares `aTag` / `bTag`.
+
+`SandboxRuntime` now canonicalizes the event to declared tag roles before matching/executing the rule. The duplicate implementation that existed in `SafeSandboxRuntime` was removed so there is one semantic source of truth.
+
+### Geometry/schema alignment
+
+Runtime validation now rejects negative radius and constrains initial entity geometry/opacity consistently with the published schema:
+
+- width/height > 0 if present;
+- radius >= 0 if present;
+- opacity 0..1;
+- explicit zero radius remains valid and is preserved by nullish runtime defaults.
+
+### Host reporting of deterministic runtime failures
+
+Operation-budget and similar runtime failures no longer escape the Canvas animation/timer/input loop and leave the host frozen.
+
+If a runtime operation throws **after the runtime has entered a terminal status**, the host routes the error through optional `onRuntimeError` and the normal `onFinish(snapshot)` path. Unexpected host/programming errors while the runtime is still running/idle still propagate.
+
+### Spawn identity
+
+The safe/public runtime no longer allows a spawn to silently replace a live entity in the runtime map.
+
+- Explicit fixed spawn id already live → deterministic `spawn_id_collision` failure.
+- Fixed id becomes reusable after the prior entity is destroyed.
+- Auto-generated `spawn-N` ids increase monotonically and skip both live ids and fixed spawn ids reserved anywhere in the GameSpec rules.
+
+This behavior is documented in `KMP-RUNTIME-CONTRACT-V0.md` because entity identity is replay-visible and must match in `commonMain`.
+
+## Tests added for this hardening
+
+`tests/core-correctness.test.mjs` covers:
+
+- geometry/opacity validation;
+- valid zero radius preservation;
+- raw-runtime collision role canonicalization;
+- generated spawn-id collision/reservation handling;
+- explicit live spawn-id failure;
+- Canvas host delivery of operation-budget failure through `onFinish`.
+
+v3-specific tests include:
+
+- `tests/v3.test.mjs`;
+- `tests/v3-edge.test.mjs`;
+- `tests/v3-integration.test.mjs`;
+- `tests/v3-replay.test.mjs`.
+
+They cover grid validation/occupancy/path behavior, replay determinism, creator-tool routing, transport/manifests, automated review, Creator Lab/package dispatch and KMP-sensitive edge cases.
+
+## PR review status
+
+At the last review pass, all four existing inline review threads were resolved after code fixes and regression coverage:
+
+- collision `aTag`/`bTag` role normalization;
+- negative-radius validation;
+- operation-budget failure reporting from the Canvas host;
+- zero/default entity-dimension handling.
+
+Re-fetch review threads in a future session in case new comments have appeared.
+
+## Verification status — be precise
+
+GitHub Actions remain intentionally disabled.
+
+A complete current `npm test` and `npm run check` has **not** been executed from a full checkout in the assistant environment because the local shell could not resolve `github.com` and the connector does not expose a mounted checkout.
+
+What was actually executed locally in a reconstructed text-only core slice before the later spawn-id addition:
+
+- `node --check` for the changed core validator/runtime/safe-runtime/web-host modules — passed;
+- `tests/core-correctness.test.mjs` at that stage — **4/4 passed**, including a real valid 64-overlapping-entity collision storm exhausting the 2,000-op budget and reaching `onFinish` as a failed runtime.
+
+The later spawn-id tests were added after that reconstructed run and have **not** been executed in a complete repository checkout yet.
+
+Earlier in the workstream, the trusted asset-loader concurrency/disposal slice was independently reproduced as **3/3 passing**. Do not turn either targeted result into a claim that the complete current suite is green.
+
+The first merge gate in a real checkout should therefore be:
+
+```bash
+cd playable-feed
+npm test
+npm run check
+```
+
+Do not claim merge readiness if either fails.
+
+## Important files
+
+Start here:
 
 - `playable-feed/sandbox/README.md`
 - `playable-feed/sandbox/GAMESPEC-V0.md`
 - `playable-feed/sandbox/GAMESPEC-V1-DRAFT.md`
 - `playable-feed/sandbox/GAMESPEC-V2-DRAFT.md`
-- `playable-feed/sandbox/EXPRESSIVENESS-ROADMAP.md`
-- `playable-feed/sandbox/CREATOR-PRESSURE-V0.md`
-- `playable-feed/sandbox/ASSET-PIPELINE-V0.md`
-- `playable-feed/sandbox/PUBLISHING-PIPELINE-V0.md`
+- `playable-feed/sandbox/GAMESPEC-V3-DRAFT.md`
 - `playable-feed/sandbox/KMP-RUNTIME-CONTRACT-V0.md`
+- `playable-feed/sandbox/KMP-VERSIONED-EXTENSIONS-DRAFT.md`
+- `playable-feed/sandbox/PUBLISHING-PIPELINE-V0.md`
 - `playable-feed/sandbox/REPLAY-CONTRACT-V0.md`
-- `playable-feed/sandbox/AI-CREATOR-TOOLS-V0.md`
-- `playable-feed/sandbox/ai-tools-v0.json`
-- `playable-feed/sandbox/ai-tools-v1-draft.json`
-- `playable-feed/sandbox/ai-tools-v2-draft.json`
+- `playable-feed/sandbox/ai-tools-v3-draft.json`
 
-### Runtime / validation
+Runtime/integration:
 
-- `playable-feed/src/sandbox/game-spec.js` — v0 validator/profile and hard limits
-- `playable-feed/src/sandbox/runtime-core.js` — deterministic logical base runtime
-- `playable-feed/src/sandbox/safe-runtime.js` — safety/effect/runtime ceilings
-- `playable-feed/src/sandbox/game-spec-v1.js`
-- `playable-feed/src/sandbox/runtime-v1.js`
-- `playable-feed/src/sandbox/game-spec-v2.js`
-- `playable-feed/src/sandbox/runtime-v2.js`
-- `playable-feed/src/sandbox/game-spec-v3.js`
-- `playable-feed/src/sandbox/runtime-v3.js`
-- `playable-feed/src/sandbox/publication-policy.js`
-- `playable-feed/src/sandbox/review-engine.js`
-- versioned `review*.js`, `replay*.js`, and CLI adapters
+- `src/sandbox/game-spec.js`
+- `src/sandbox/runtime-core.js`
+- `src/sandbox/safe-runtime.js`
+- `src/sandbox/game-spec-v1.js`, `runtime-v1.js`
+- `src/sandbox/game-spec-v2.js`, `runtime-v2.js`
+- `src/sandbox/game-spec-v3.js`, `runtime-v3.js`
+- `src/sandbox/transport.js`
+- `src/sandbox/creator-tools.js`
+- `src/sandbox/creator-lab.js`
+- `src/sandbox/review-engine.js`
+- `src/sandbox/replay-engine.js`
+- `src/sandbox/web-canvas-host.js`
 
-### Delivery / assets / creator tools
+Reference content:
 
-- `playable-feed/src/sandbox/transport.js`
-- `playable-feed/src/sandbox/asset-contract.js`
-- `playable-feed/src/sandbox/trusted-asset-loader.js`
-- `playable-feed/src/sandbox/asset-residency.js`
-- `playable-feed/src/sandbox/demo-asset-catalog.js`
-- `playable-feed/src/sandbox/web-canvas-host.js`
-- `playable-feed/src/sandbox/creator-tools.js`
-- `playable-feed/src/sandbox/creator-cli.mjs`
-- `playable-feed/src/sandbox/creator-lab.js`
-- `playable-feed/creator-lab.html`
-
-### Examples / replay fixtures
-
-Important examples include:
-
-- `examples/meteor-dodge.game.json`
-- `examples/tap-bloom.game.json`
-- `examples/space-dodge.game.json`
-- `examples/creator-star-catch.game.json`
-- `examples/whack-orb.game.json`
 - `examples/pocket-shooter-v1.game.json`
 - `examples/garden-catch-v1.game.json`
 - `examples/pattern-echo-v2.game.json`
 - `examples/bus-escape-v3.game.json`
+- `examples/replays/bus-escape-v3.replay.json`
 
-There are corresponding replay fixtures under `examples/replays/` for several runtime versions.
+## What should happen next
 
-## Runtime ladder as currently intended
+Do **not** add another unrelated runtime capability yet.
 
-### `playloop-2d-v0`
+Recommended next sequence:
 
-Stable foundation / reference contract:
+1. re-fetch PR/head/review threads;
+2. run the full local suite from a real repository checkout if the environment permits it;
+3. fix any regressions revealed by that suite;
+4. perform one more diff-level PR audit for accidental duplication/stale docs/security/resource issues;
+5. pressure-test v3 with an external AI that only receives public authoring materials;
+6. build at least one additional grid genre to test whether v3 generalizes beyond Bus Escape;
+7. implement the validator/runtime/replay core in KMP `commonMain` and compare JS↔Kotlin golden snapshots;
+8. only after those gates consider freezing v3 or adding the next bounded capability.
 
-- circles, rectangles, text, sprites;
-- sprite atlas source rectangles;
-- movement/velocity;
-- bounds handling;
-- pointer/tap input;
-- timers;
-- collisions;
-- scalar globals;
-- conditions and bounded math;
-- spawn/destroy;
-- semantic events;
-- sound/haptic host requests;
-- complete/fail;
-- seeded randomness;
-- hard operation/entity/time budgets.
+Likely later capability candidates such as declarative tweens/animation or a bounded match-line helper must be justified by repeated creator pressure. Do not use general scripting as the shortcut.
 
-### `playloop-2d-v1` — experimental
+## Merge-readiness rule
 
-Adds:
+PR #3 should be judged as the creator-runtime foundation, not as “Bus Escape works.”
 
-- bounded entity reads (`x`, `y`, velocity, dimensions, rotation, opacity, etc.);
-- entity-local scalar state;
-- `setEntityState` / `addEntityState`;
-- max **8 scalar state keys per entity**.
+Before calling it ready:
 
-Reference example: `Pocket Shooter v1` and visually distinct `Garden Catch v1`.
-
-This was added because repeated creator-pressure showed simple shooters, richer enemies/items, and stateful objects were awkward in v0.
-
-### `playloop-2d-v2` — experimental
-
-Adds bounded scalar collections for:
-
-- memory sequences;
-- queues;
-- hands;
-- small ordered sets of scalar state.
-
-Current limits:
-
-- max **8 collections**;
-- max **16 scalar items per collection**;
-- deterministic shuffle;
-- reads like `length`, `at`, `first`, `last`;
-- bounded mutation actions such as push/set/remove/clear/shuffle.
-
-Reference example: `Pattern Echo v2`.
-
-This exists because sequence/queue/card-like creator pressure repeated; it should not become an excuse for general-purpose dynamic containers.
-
-### `playloop-2d-v3` — experimental and CURRENTLY INCOMPLETE INTEGRATION
-
-The intent is a bounded grid/occupancy layer for games such as:
-
-- Bus Escape / traffic puzzles;
-- Match-like board mechanics;
-- block/grid puzzles.
-
-Current implementation already contains `game-spec-v3.js`, `runtime-v3.js`, and `bus-escape-v3.game.json`.
-
-The design includes concepts such as:
-
-- bounded grids (max 64 cells intended);
-- entities attached to grid coordinates/spans;
-- cell occupancy checks;
-- `canMoveBy`;
-- `pathClearToEdge`;
-- deterministic grid movement;
-- composition with v1 entity state and v2 collections.
-
-`Bus Escape v3` currently combines:
-
-- directional buses on a grid;
-- bus color/direction in entity-local state;
-- passenger queue as a v2 collection;
-- parking queue as a v2 collection;
-- `pathClearToEdge` before a bus can leave;
-- generic GameSpec rules rather than special-purpose Bus Jam JavaScript.
-
-This is the architectural milestone to finish next.
-
-## Current integration gap / likely first bug to fix
-
-At handoff time, `creator-tools.js` already recognizes `playloop-2d-v3`, but **`transport.js` only has adapters for v0, v1 and v2**.
-
-That means a valid v3 spec can pass the v3 profile/publication adapter in `validateForAuthoring()`, then fail when creator tooling calls `buildTransportPlan(spec)` because transport does not yet recognize v3.
-
-This should be one of the first fixes in the next session.
-
-Do not paper over this by bypassing transport for v3. Add the same versioned adapter properly so feed descriptor / manifest / byte accounting remain shared across runtime versions.
-
-## Other v3 work that was intentionally left unfinished
-
-Before calling v3 integrated, check and complete all of these:
-
-1. **Transport**
-   - add v3 profile/publication adapter to `transport.js`;
-   - ensure deterministic publication envelope/manifest works;
-   - keep feed descriptor small.
-
-2. **Creator Lab**
-   - add `Bus Escape v3` to the example picker;
-   - choose `SafeSandboxRuntimeV3` when runtime id is v3;
-   - validate/simulate/run v3 through the same trusted path;
-   - do not add any creator-code execution shortcut.
-
-3. **Creator CLI / package scripts**
-   - add capabilities/validate/simulate/manifest/review/replay commands for v3;
-   - update `npm run check` to syntax-check every new v3 module/CLI;
-   - preserve the JSON-oriented interface expected by future MCP/API tooling.
-
-4. **AI-facing contract**
-   - write `GAMESPEC-V3-DRAFT.md`;
-   - add `ai-tools-v3-draft.json` or equivalent transport-neutral contract;
-   - document grid limits and complexity explicitly;
-   - explain that grid APIs are high-level bounded primitives, not arbitrary pathfinding/loops.
-
-5. **Sandbox README / roadmap**
-   - add v3 to the runtime ladder;
-   - explain which creator-pressure problem it solves;
-   - keep the next capability evidence-driven.
-
-6. **Tests**
-   - validate v3 schema/policy/profile;
-   - runtime occupancy/path semantics;
-   - blocked and clear bus paths;
-   - invalid overlapping/out-of-bounds initial placements;
-   - v3 deterministic replay;
-   - creator-tools capabilities and diagnostics;
-   - transport envelope / instant-tier accounting;
-   - Creator Lab/runtime dispatch where practical;
-   - automated review through the v3 adapter.
-
-7. **Security / complexity review**
-   - verify no grid operation can become unbounded with creator-controlled board sizes;
-   - verify operations contribute appropriately to runtime operation budgets;
-   - reject invalid spans/placements at publication time rather than relying only on runtime failure;
-   - make initial occupancy deterministic and reject overlapping starting placements;
-   - make event-scoped entity refs obey the same availability rules as earlier runtimes.
-
-8. **KMP contract**
-   - add `GridSpec` / `GridPlacement` commonMain mapping;
-   - specify exact occupancy/path semantics and iteration order;
-   - add v3 golden replay fixture expectations for JS↔Kotlin parity.
-
-## Quality bar for continuing this work
-
-Do not optimize for number of commits or features. Optimize for a small runtime language that is safe, portable, predictable, lightweight and surprisingly expressive.
-
-For each new primitive, explicitly answer:
-
-1. bounded worst-case CPU cost?
-2. bounded memory cost?
-3. statically reviewable?
-4. deterministically testable?
-5. portable to KMP with equivalent semantics?
-6. fully suspendable off-screen?
-7. no implicit network/device/account authority?
-8. does it materially expand the creator design space instead of just making one example easier?
-
-When a desired game is awkward, first ask whether the pain repeats across several genres. Prefer high-level reviewed components with known complexity over general scripting.
-
-Examples:
-
-- collections were justified by memory sequences / queues / hands;
-- grid occupancy is justified by traffic / match / block puzzles;
-- animation/tweens will likely be justified for comprehension/polish and can remain declarative;
-- arbitrary physics should remain a later, explicitly reviewed capability tier rather than being casually added to the instant runtime.
-
-## Asset / visual diversity direction
-
-A major product concern is visual sameness. The runtime cannot become a set of obvious reskins.
-
-Current solution direction:
-
-- creators/AI request or upload assets;
-- backend normalizes/resizes/moderates them;
-- public media receives SHA-256 refs;
-- sprites and atlases reference those reviewed hashes;
-- assets remain small and cacheable across many games;
-- GameSpec never contains arbitrary URLs;
-- runtime logic remains independent from visual style.
-
-This lets one game look like pixel space, another like a garden/frog game, another like an influencer-branded challenge, while all execute through the same interpreter.
-
-Do not conflate visual freedom with arbitrary code freedom.
-
-## Social/platform scope: important but NOT next implementation priority
-
-The long-term product needs followers, likes, comments, creator profiles, shares, challenges, remixing and possible tips/donations.
-
-However, those should remain in the shell/backend and should not distract from the current runtime milestone.
-
-The next foundational question is still:
-
-> Can an external AI create genuinely varied, novel, lightweight games that the Playloop runtime did not know about when the app shipped, while Playloop can safely validate/review/run them?
-
-The creator-runtime work should prove that before building the full social network.
-
-## Existing consumer spike context
-
-The original playable-feed PWA has ~16 handcrafted games and prior playtest improvements. It demonstrated that the `play → swipe` loop can be fun, but the user observed fatigue after ~15 minutes because the games continuously demand attention/speed.
-
-That observation led to the larger platform direction: posts can mix passive video/social content and playable experiences. A creator might stream or post a video about a game, and followers can immediately play the attached experience.
-
-Do not spend the next sandbox session polishing the old handcrafted mini-games unless a runtime/platform need depends on it.
-
-## Verification policy
-
-**GitHub Actions are intentionally not being used for this spike** because the user does not want to spend hosted CI quota on it.
-
-Rules for future assistant work:
-
-- Do not add/enable hosted CI unless the user explicitly changes this decision.
-- Do not claim `npm test` or `npm run check` passed unless they were actually executed in an available runtime.
-- If only code inspection/tests were written but not executed, say that explicitly.
-- Earlier stages had confirmed local/isolated tests, but the complete newest v1/v2/v3-expanded suite has **not** been verified through hosted CI.
-- Before merge, ideally execute `npm test` and `npm run check` locally if the environment allows it.
-
-## GitHub editing workflow / practical notes
-
-Use the GitHub connector directly for this repository.
-
-When updating an existing file:
-
-1. fetch the latest file on `feature/gamespec-sandbox-v0`;
-2. use its current SHA;
-3. update sequentially.
-
-There have been several `409` stale-SHA conflicts during long sessions because the same files were modified repeatedly. A 409 normally means the branch moved or the blob SHA is stale; re-fetch before retrying rather than guessing.
-
-Prefer coherent commits and keep the current branch/PR. Do not create another branch just because the chat changed unless there is a specific architectural reason.
-
-After substantial work:
-
-- re-fetch PR #3;
-- update the PR body so it accurately reflects the actual runtime ladder and verification status;
-- inspect mergeability;
-- inspect the whole changed-file set/diff for accidental files, stale docs and inconsistent claims.
-
-## Recommended next-session sequence
-
-Use this order rather than immediately adding another capability:
-
-```text
-1. Re-fetch PR #3 + branch head
-2. Read this handoff + sandbox README + v3 files
-3. Finish v3 transport / lab / CLI / docs / AI contract integration
-4. Harden v3 validator/runtime edge cases
-5. Complete v3 tests + replay/review adapters
-6. Run local checks/tests if execution is available
-7. Review complete PR #3 diff for correctness/duplication/stale claims
-8. Update PR #3 body accurately
-9. Only then decide whether v3 is ready to keep or needs simplification
-10. Next capability only after this milestone is coherent
-```
-
-Likely next capability after v3, if creator pressure still supports it, is **declarative animation/tweens/particles** for comprehension and visual polish. Do not jump to that until v3 is integrated and reviewed.
-
-## Definition of success for this milestone
-
-PR #3 should leave us with a convincing proof that:
-
-- games arrive as data, not code;
-- multiple visually/mechanically distinct games run through the same engine;
-- creators/AIs can target a documented API/contract;
-- richer state/sequence/grid mechanics can be added through bounded versioned primitives;
-- assets stay reviewed/content-addressed/lightweight;
-- public feed metadata stays tiny;
-- automated review can reason about runtime behavior;
-- deterministic replays make future JS↔KMP parity testable;
-- no experimental version silently changes v0 semantics;
-- native migration can preserve the same security boundary.
-
-That is more important than maximizing the number of supported genres right now.
+- current full tests/checks pass in a real checkout;
+- no unresolved review threads remain;
+- PR description and docs reflect the actual branch state;
+- no hosted CI was enabled against the user’s request;
+- versioned transport/publication remains shared;
+- no creator-controlled host authority slipped into any runtime tier;
+- deterministic/KMP semantics are explicit for replay-visible behavior.
