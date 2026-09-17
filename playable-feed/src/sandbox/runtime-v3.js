@@ -7,6 +7,8 @@ import {
 
 const GRID_ACTION_SET = new Set(V3_GRID_ACTIONS);
 const DIRECTIONS = new Set(["left", "right", "up", "down"]);
+const GRID_CONTROLLED_ACTIONS = new Set(["setEntity", "moveEntity", "setVelocity"]);
+const GRID_CONTROLLED_TRANSFORM_KEYS = new Set(["x", "y", "vx", "vy"]);
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -21,6 +23,10 @@ function isGridRead(expr) {
     && Object.keys(expr).length === 1
     && isObject(expr.grid)
     && typeof expr.grid.op === "string";
+}
+
+function cellKey(column, row) {
+  return `${column},${row}`;
 }
 
 export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
@@ -45,6 +51,8 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
         columnSpan: source.grid.columnSpan ?? 1,
         rowSpan: source.grid.rowSpan ?? 1,
       });
+      entity.vx = 0;
+      entity.vy = 0;
       this.syncGridPosition(entity);
     }
   }
@@ -81,6 +89,26 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
     entity.y = Number(grid.originY) + (placement.row + placement.rowSpan / 2) * Number(grid.cellHeight);
   }
 
+  integrate(seconds) {
+    for (const entity of this.entities.values()) {
+      if (entity.grid) {
+        entity.vx = 0;
+        entity.vy = 0;
+        this.syncGridPosition(entity);
+        continue;
+      }
+      entity.x += entity.vx * seconds;
+      entity.y += entity.vy * seconds;
+    }
+  }
+
+  resolveBounds() {
+    super.resolveBounds();
+    for (const entity of this.entities.values()) {
+      if (entity.grid) this.syncGridPosition(entity);
+    }
+  }
+
   occupiedCells(entity, placement = entity?.grid) {
     if (!placement) return [];
     const cells = [];
@@ -96,27 +124,52 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
     const grid = this.gridConfig(placement.grid);
     return Number.isInteger(placement.column)
       && Number.isInteger(placement.row)
+      && Number.isInteger(placement.columnSpan)
+      && Number.isInteger(placement.rowSpan)
+      && placement.columnSpan >= 1
+      && placement.rowSpan >= 1
       && placement.column >= 0
       && placement.row >= 0
       && placement.column + placement.columnSpan <= grid.columns
       && placement.row + placement.rowSpan <= grid.rows;
   }
 
-  cellOccupied(gridId, column, row, ignoreEntityId = null) {
+  occupancyForGrid(gridId, ignoreEntityId = null) {
+    this.gridConfig(gridId);
+    const occupied = new Map();
     for (const entity of this.entities.values()) {
       if (entity.id === ignoreEntityId || entity.grid?.grid !== gridId) continue;
+      this.bumpOps();
       for (const cell of this.occupiedCells(entity)) {
-        if (cell.column === column && cell.row === row) return entity.id;
+        this.bumpOps();
+        const key = cellKey(cell.column, cell.row);
+        const existing = occupied.get(key);
+        if (existing && existing !== entity.id) {
+          this.failGrid(
+            "grid_overlap_runtime",
+            `Grid ${gridId} contains overlapping entities '${existing}' and '${entity.id}' at cell ${key}`,
+          );
+        }
+        occupied.set(key, entity.id);
       }
     }
-    return null;
+    return occupied;
+  }
+
+  cellOccupied(gridId, column, row, ignoreEntityId = null) {
+    const occupied = this.occupancyForGrid(gridId, ignoreEntityId);
+    this.bumpOps();
+    return occupied.get(cellKey(column, row)) || null;
   }
 
   placementIsFree(placement, ignoreEntityId = null) {
     if (!this.placementInsideGrid(placement)) return false;
-    return this.occupiedCells(null, placement).every(
-      ({ column, row }) => !this.cellOccupied(placement.grid, column, row, ignoreEntityId),
-    );
+    const occupied = this.occupancyForGrid(placement.grid, ignoreEntityId);
+    for (const { column, row } of this.occupiedCells(null, placement)) {
+      this.bumpOps();
+      if (occupied.has(cellKey(column, row))) return false;
+    }
+    return true;
   }
 
   integerExpression(expr, event, label) {
@@ -129,11 +182,16 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
     if (!entity?.grid || !DIRECTIONS.has(direction)) return false;
     const placement = entity.grid;
     const grid = this.gridConfig(placement.grid);
+    const occupied = this.occupancyForGrid(placement.grid, entity.id);
+    const blocked = (column, row) => {
+      this.bumpOps();
+      return occupied.has(cellKey(column, row));
+    };
 
     if (direction === "left") {
       for (let row = placement.row; row < placement.row + placement.rowSpan; row += 1) {
         for (let column = placement.column - 1; column >= 0; column -= 1) {
-          if (this.cellOccupied(placement.grid, column, row, entity.id)) return false;
+          if (blocked(column, row)) return false;
         }
       }
       return true;
@@ -141,7 +199,7 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
     if (direction === "right") {
       for (let row = placement.row; row < placement.row + placement.rowSpan; row += 1) {
         for (let column = placement.column + placement.columnSpan; column < grid.columns; column += 1) {
-          if (this.cellOccupied(placement.grid, column, row, entity.id)) return false;
+          if (blocked(column, row)) return false;
         }
       }
       return true;
@@ -149,14 +207,14 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
     if (direction === "up") {
       for (let column = placement.column; column < placement.column + placement.columnSpan; column += 1) {
         for (let row = placement.row - 1; row >= 0; row -= 1) {
-          if (this.cellOccupied(placement.grid, column, row, entity.id)) return false;
+          if (blocked(column, row)) return false;
         }
       }
       return true;
     }
     for (let column = placement.column; column < placement.column + placement.columnSpan; column += 1) {
       for (let row = placement.row + placement.rowSpan; row < grid.rows; row += 1) {
-        if (this.cellOccupied(placement.grid, column, row, entity.id)) return false;
+        if (blocked(column, row)) return false;
       }
     }
     return true;
@@ -176,7 +234,10 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
       }
 
       const entity = this.gridEntity(read.entity, event);
-      if (!entity) return null;
+      if (!entity) {
+        if (["canMoveBy", "pathClearToEdge"].includes(read.op)) return false;
+        return null;
+      }
       if (read.op === "column") return entity.grid.column;
       if (read.op === "row") return entity.grid.row;
       if (read.op === "canMoveBy") {
@@ -204,7 +265,24 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
       this.failGrid("grid_move_blocked", `Grid move for ${entity.id} is blocked or outside the board`);
     }
     entity.grid = next;
+    entity.vx = 0;
+    entity.vy = 0;
     this.syncGridPosition(entity);
+  }
+
+  rejectDirectGridTransform(action, type, event) {
+    if (!GRID_CONTROLLED_ACTIONS.has(type)) return;
+    const payload = action?.[type];
+    if (!isObject(payload)) return;
+    const id = this.resolveEntityRef(payload.entity, event);
+    const entity = this.entities.get(id);
+    if (!entity?.grid) return;
+    const controlledKeys = Object.keys(payload).filter((key) => GRID_CONTROLLED_TRANSFORM_KEYS.has(key));
+    if (!controlledKeys.length) return;
+    this.failGrid(
+      "grid_transform_controlled",
+      `Grid entity ${entity.id} position/velocity must use v3 grid actions`,
+    );
   }
 
   executeActions(actions, event) {
@@ -212,6 +290,7 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
       if (this.status !== "running") return;
       const type = Object.keys(action || {})[0];
       if (!GRID_ACTION_SET.has(type)) {
+        this.rejectDirectGridTransform(action, type, event);
         super.executeActions([action], event);
         continue;
       }
@@ -221,6 +300,7 @@ export class SafeSandboxRuntimeV3 extends SafeSandboxRuntimeV2 {
       const id = this.resolveEntityRef(payload.entity, event);
       const entity = this.entities.get(id);
       if (!entity) continue;
+      if (!entity.grid) this.failGrid("entity_not_on_grid", `Entity ${entity.id} is not on a grid`);
 
       if (type === "moveGridEntity") {
         const column = this.integerExpression(payload.column, event, "grid column");
