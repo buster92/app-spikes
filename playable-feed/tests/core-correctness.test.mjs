@@ -71,6 +71,28 @@ test("runtime validation enforces the published geometry and opacity contract", 
   assert.ok(opacityResult.errors.some((error) => error.includes("opacity")));
 });
 
+test("executable validation matches schema constraints used by creator authoring", () => {
+  const flags = baseSpec();
+  flags.entities.push({ id: "bad-flags", kind: "circle", radius: 1, collidable: "false" });
+  assert.ok(validateGameSpec(flags).errors.some((error) => error.includes("collidable") && error.includes("boolean")));
+
+  const sourceRect = baseSpec();
+  sourceRect.entities.push({ id: "bad-frame", kind: "rect", sourceX: 0 });
+  assert.ok(validateGameSpec(sourceRect).errors.some((error) => error.includes("source rectangle requires")));
+
+  const longState = baseSpec();
+  longState.variables.label = "x".repeat(129);
+  assert.ok(validateGameSpec(longState).errors.some((error) => error.includes("variables.label") && error.includes("128")));
+
+  const sound = baseSpec();
+  sound.rules.push({ on: "start", actions: [{ sound: { asset: "tone", volume: 2 } }] });
+  assert.ok(validateGameSpec(sound).errors.some((error) => error.includes("sound.volume")));
+
+  const missingRules = baseSpec();
+  delete missingRules.rules;
+  assert.ok(validateGameSpec(missingRules).errors.some((error) => error.startsWith("rules:")));
+});
+
 test("zero radius remains valid and is not replaced by the runtime default", () => {
   const spec = baseSpec();
   spec.entities.push({ id: "point", kind: "circle", x: 10, y: 10, radius: 0 });
