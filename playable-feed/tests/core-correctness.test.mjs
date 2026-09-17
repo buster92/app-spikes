@@ -138,15 +138,15 @@ test("Canvas host reports operation-budget runtime failures through onFinish", (
         onRuntimeError: (error) => { runtimeError = error; },
       });
     });
+
+    assert.ok(mounted);
+    assert.equal(mounted.runtime.status, "failed");
+    assert.equal(finishSnapshot?.status, "failed");
+    assert.equal(finishSnapshot?.result?.detail, "Runtime operation budget exceeded");
+    assert.match(runtimeError?.message || "", /operation budget exceeded/i);
+    mounted.destroy();
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;
   }
-
-  assert.ok(mounted);
-  assert.equal(mounted.runtime.status, "failed");
-  assert.equal(finishSnapshot?.status, "failed");
-  assert.equal(finishSnapshot?.result?.detail, "Runtime operation budget exceeded");
-  assert.match(runtimeError?.message || "", /operation budget exceeded/i);
-  mounted.destroy();
 });
