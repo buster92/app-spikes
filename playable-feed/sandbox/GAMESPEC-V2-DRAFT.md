@@ -90,7 +90,7 @@ The first reference example is `examples/pattern-echo-v2.game.json`.
 - deterministic `shuffleCollection` on game start;
 - timer-driven indexed reads to display the pattern;
 - v1 entity-local `slot` state on four tappable pads;
-- comparing `$target.slot` against `pattern[inputIndex]`;
+- comparing `$target.slot` against `pattern[input_index]`;
 - deterministic completion/failure without game-specific JavaScript.
 
 This directly addresses the repeated **bounded collections / sequence memory** blocker from `CREATOR-PRESSURE-V0.md`.
