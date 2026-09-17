@@ -18,6 +18,7 @@ This is intentionally a **behavior-validation prototype**, not a game platform. 
 - Lightweight adaptive difficulty from 1–5 based on recent outcomes.
 - XP/streak feedback, local personal records, micro-animation, optional sound and supported-device haptics.
 - Swipe-first continuation after an outcome, with retry available.
+- A feed variant can award progression only once. After it has been won, further retries are practice attempts: they still run and are logged, but award 0 XP and do not alter streak or difficulty progression.
 - Mobile gesture hardening so the browser does not select text, show iOS callouts, scroll, or steal ordinary game/feed gestures.
 - Background lifecycle handling: an active round is stopped while hidden and the same deterministic variant restarts on return without counting another feed impression or hidden time as active play.
 - Strong local analytics with JSON export, including unexpected runtime errors.
@@ -41,8 +42,9 @@ Phone playtesting also exposed important tuning issues:
 - Micro Snake controls were too small and level-5 movement was too fast on an iPhone 13
 - Micro Match felt frustrating without direct swipe-to-swap interaction or visible clear/drop animation
 - Flash Memory ramped working-memory load too aggressively at higher difficulty
+- a completed easy game could be retried repeatedly to farm unlimited XP/streak progression
 
-The current branch tunes those directly: larger Snake controls, a slower 500→360 ms/tick difficulty curve with a 900 ms ready delay, swipe-enabled animated Match-3 resolution, and Flash Memory capped to 3→5 inputs instead of the previous 4→8 ramp.
+The current branch tunes those directly: larger Snake controls, a slower 500→360 ms/tick difficulty curve with a 900 ms ready delay, swipe-enabled animated Match-3 resolution, Flash Memory capped to 3→5 inputs instead of the previous 4→8 ramp, and one-time progression rewards per feed variant.
 
 This is still anecdotal and from a tiny sample, so it is not product validation. It is enough evidence to keep testing the loop rather than expanding into platform infrastructure.
 
@@ -78,11 +80,12 @@ The prototype stores bounded events in `localStorage` and exposes an in-app anal
 
 - `session_start` / `session_end`
 - `game_impression` — only a new feed item, never a retry/resume
-- `game_first_interaction` with time-to-first-action
+- `game_first_interaction` with time-to-first-action and attempt number
 - categorized `game_interaction`
 - `game_complete` / `game_fail`
 - `game_skip` including whether the user interacted first
 - `game_retry`
+- `game_reward_granted` / `game_reward_suppressed`
 - `game_paused_background` / `game_resumed_after_background`
 - `feed_swipe` / `feed_advance`
 - `feed_cycle_completed`
@@ -93,7 +96,7 @@ The prototype stores bounded events in `localStorage` and exposes an in-app anal
 - visibility/background transitions
 - unexpected runtime errors / unhandled promise rejections for debugging failed or blank game mounts
 
-Every game outcome includes game/variant identifiers, difficulty, active time and score/detail where relevant. Use **Export JSON** from the app after a playtest.
+Every game outcome includes game/variant identifiers, difficulty, active time, attempt/retry state and score/detail where relevant. Use **Export JSON** from the app after a playtest.
 
 ### Metrics that matter first
 
