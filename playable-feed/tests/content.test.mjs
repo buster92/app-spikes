@@ -28,6 +28,7 @@ const expectedFiles = [
   "src/bootstrap.js",
   "src/app.js",
   "src/analytics.js",
+  "src/experiments.js",
   "src/feed.js",
   "src/games.js",
   "src/extra-games-register.js",
@@ -76,12 +77,13 @@ test("service worker caches the current offline shell", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
   for (const asset of [
     "index.html", "round3.css", "bus-feedback.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
+    "src/experiments.js",
     "src/playtest-round2.js", "src/bus-jam-v2.js", "src/bus-jam-v3.js", "src/navigation-guard.js",
     "src/progression.js", "src/round3-ui.js", "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
-  assert.match(sw, /playloop-spike-v11/);
+  assert.match(sw, /playloop-spike-v12/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {
