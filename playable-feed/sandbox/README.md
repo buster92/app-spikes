@@ -14,6 +14,8 @@ The current implementation proves that games can be loaded as bounded data rathe
 6. [`REPLAY-CONTRACT-V0.md`](./REPLAY-CONTRACT-V0.md) — deterministic input/snapshot format for JS↔KMP parity and future ghosts/challenges.
 7. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
 8. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable transport-neutral tool manifest.
+9. [`CREATOR-PRESSURE-V0.md`](./CREATOR-PRESSURE-V0.md) — genre-by-genre pressure test showing what v0 can express and which missing primitives actually repeat.
+10. [`EXPRESSIVENESS-ROADMAP.md`](./EXPRESSIVENESS-ROADMAP.md) — bounded path from v0 toward richer creator games without arbitrary scripting.
 
 ## Reference implementation
 
@@ -54,6 +56,7 @@ The CLI returns JSON so an external AI or local agent can consume the same autho
 - `tap-bloom.game.json` — zero-asset tap/reposition mechanic.
 - `space-dodge.game.json` — visually richer version using a background plus a tiny shared sprite atlas.
 - `creator-star-catch.game.json` — an AI-authored catch/avoid game expressed only as GameSpec and reused reviewed assets; no game-specific JavaScript was added.
+- `whack-orb.game.json` — zero-asset moving-target game, proving a tap/relocation loop on the same runtime.
 - `replays/space-dodge-3s.replay.json` — bounded deterministic input trace for runtime parity.
 
 Open `../sandbox-demo.html` through a local HTTP server to switch between the playable examples.
