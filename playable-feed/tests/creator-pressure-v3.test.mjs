@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -86,6 +87,43 @@ test("generated pressure packet surfaces machine grammar before the long public 
   assert.match(stdout, /"maxSpecBytes": 16384/);
   assert.match(stdout, /GAMESPEC-AUTHORING-QUICK-REFERENCE\.md/);
   assert.match(stdout, /Return exactly one raw JSON submission envelope and no prose or Markdown fences/);
+});
+
+test("pressure CLI preserves fenced external output as a measurable format failure", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "playloop-pressure-"));
+  const submission = join(directory, "fenced.json");
+  const cli = resolve(root, "src/sandbox/creator-pressure-v3-cli.mjs");
+  const cases = resolve(root, "creator-pressure/v3-cases.json");
+
+  try {
+    await writeFile(submission, [
+      "```json",
+      "{",
+      "  \"caseId\": \"crate-push\",",
+      "  \"attempt\": 1,",
+      "  \"status\": \"blocked\",",
+      "  \"blockers\": [\"example\"]",
+      "}",
+      "```",
+      "",
+    ].join("\n"));
+
+    const { stdout } = await execFileAsync(process.execPath, [cli, cases, submission], {
+      maxBuffer: 5 * 1024 * 1024,
+    });
+    const report = JSON.parse(stdout);
+
+    assert.equal(report.summary.totalAttempts, 1);
+    assert.equal(report.summary.attemptedCases, 1);
+    assert.equal(report.summary.firstPassValidCases, 0);
+    assert.equal(report.summary.diagnosticCounts.MARKDOWN_FENCE, 1);
+    assert.equal(report.results[0].caseId, "crate-push");
+    assert.equal(report.results[0].attempt, 1);
+    assert.equal(report.results[0].status, "format_error");
+    assert.equal(report.results[0].diagnostics[0].code, "MARKDOWN_FENCE");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("internal Sokoban reference passes the same pressure evaluator used for external attempts", async () => {
