@@ -4,22 +4,27 @@ This directory defines the creator-content boundary for a future Playloop platfo
 
 The implementation proves that games can be loaded as bounded data rather than being compiled into the app, while keeping a migration path to Kotlin Multiplatform. The versioned runtime experiments are deliberately narrow: add one repeated creator need at a time, keep it deterministic, and never answer missing expressiveness by silently introducing arbitrary creator code.
 
+> **Continuing this work in a fresh session?** Read [`NEXT-CHAT-HANDOFF.md`](./NEXT-CHAT-HANDOFF.md) first, then re-fetch PR #3 and the current branch head before editing. The handoff records product intent, architectural constraints, current integration gaps, verification policy and the recommended next sequence.
+
 ## Read in this order
 
-1. [`GAMESPEC-V0.md`](./GAMESPEC-V0.md) — runtime/security model and v0 GameSpec contract.
-2. [`game-spec-v0.schema.json`](./game-spec-v0.schema.json) — machine-readable v0 authoring schema for tools/AIs.
-3. [`ASSET-PIPELINE-V0.md`](./ASSET-PIPELINE-V0.md) — normalized media, hashes, atlases, caching and memory/network budgets.
-4. [`PUBLISHING-PIPELINE-V0.md`](./PUBLISHING-PIPELINE-V0.md) — draft → automated review → moderation → signed public package.
-5. [`KMP-RUNTIME-CONTRACT-V0.md`](./KMP-RUNTIME-CONTRACT-V0.md) — commonMain/platform split and migration invariants.
-6. [`REPLAY-CONTRACT-V0.md`](./REPLAY-CONTRACT-V0.md) — deterministic input/snapshot format for JS↔KMP parity and future ghosts/challenges.
-7. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
-8. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable stable-v0-oriented tool manifest.
-9. [`CREATOR-PRESSURE-V0.md`](./CREATOR-PRESSURE-V0.md) — genre-by-genre pressure test showing what v0 can express and which missing primitives repeat.
-10. [`EXPRESSIVENESS-ROADMAP.md`](./EXPRESSIVENESS-ROADMAP.md) — evidence-driven path toward richer games without arbitrary scripting.
-11. [`GAMESPEC-V1-DRAFT.md`](./GAMESPEC-V1-DRAFT.md) — experimental entity reads + bounded entity-local scalar state.
-12. [`ai-tools-v1-draft.json`](./ai-tools-v1-draft.json) — AI-facing manifest for that experimental runtime.
-13. [`GAMESPEC-V2-DRAFT.md`](./GAMESPEC-V2-DRAFT.md) — experimental bounded scalar collections for sequences/hands/queues.
-14. [`ai-tools-v2-draft.json`](./ai-tools-v2-draft.json) — AI-facing manifest for the collection draft.
+1. [`NEXT-CHAT-HANDOFF.md`](./NEXT-CHAT-HANDOFF.md) — current session handoff and exact continuation priorities.
+2. [`GAMESPEC-V0.md`](./GAMESPEC-V0.md) — runtime/security model and v0 GameSpec contract.
+3. [`game-spec-v0.schema.json`](./game-spec-v0.schema.json) — machine-readable v0 authoring schema for tools/AIs.
+4. [`ASSET-PIPELINE-V0.md`](./ASSET-PIPELINE-V0.md) — normalized media, hashes, atlases, caching and memory/network budgets.
+5. [`PUBLISHING-PIPELINE-V0.md`](./PUBLISHING-PIPELINE-V0.md) — draft → automated review → moderation → signed public package.
+6. [`KMP-RUNTIME-CONTRACT-V0.md`](./KMP-RUNTIME-CONTRACT-V0.md) — commonMain/platform split and migration invariants.
+7. [`REPLAY-CONTRACT-V0.md`](./REPLAY-CONTRACT-V0.md) — deterministic input/snapshot format for JS↔KMP parity and future ghosts/challenges.
+8. [`AI-CREATOR-TOOLS-V0.md`](./AI-CREATOR-TOOLS-V0.md) — proposed API/MCP/plugin surface for external AIs.
+9. [`ai-tools-v0.json`](./ai-tools-v0.json) — machine-readable stable-v0-oriented tool manifest.
+10. [`CREATOR-PRESSURE-V0.md`](./CREATOR-PRESSURE-V0.md) — genre-by-genre pressure test showing what v0 can express and which missing primitives actually repeat.
+11. [`EXPRESSIVENESS-ROADMAP.md`](./EXPRESSIVENESS-ROADMAP.md) — evidence-driven path toward richer games without arbitrary scripting.
+12. [`GAMESPEC-V1-DRAFT.md`](./GAMESPEC-V1-DRAFT.md) — experimental entity reads + bounded entity-local scalar state.
+13. [`ai-tools-v1-draft.json`](./ai-tools-v1-draft.json) — AI-facing manifest for that experimental runtime.
+14. [`GAMESPEC-V2-DRAFT.md`](./GAMESPEC-V2-DRAFT.md) — experimental bounded scalar collections for sequences/hands/queues.
+15. [`ai-tools-v2-draft.json`](./ai-tools-v2-draft.json) — AI-facing manifest for the collection draft.
+
+The v3 grid draft is currently implemented in code but not fully integrated/documented yet. Finishing that integration is the next milestone; do not treat v3 as a frozen/public compatibility promise.
 
 ## Runtime ladder
 
@@ -32,6 +37,9 @@ playloop-2d-v1 (experimental)
 
 playloop-2d-v2 (experimental)
   v1 + <=8 scalar collections + <=16 items/collection
+
+playloop-2d-v3 (experimental, integration incomplete)
+  v2 + bounded grids/occupancy/path-to-edge primitives
 ```
 
 The experimental ids exist so prototype semantics cannot accidentally mutate v0. They are **not** publication promises yet.
@@ -56,7 +64,8 @@ The web reference under `../src/sandbox/` currently includes:
 - deterministic replay traces for future KMP parity;
 - a creator CLI mirroring future API/MCP operations;
 - v1 entity reads and entity-local state;
-- v2 bounded collections with deterministic shuffle/indexing.
+- v2 bounded collections with deterministic shuffle/indexing;
+- an experimental v3 grid/occupancy runtime used by the `Bus Escape` proof.
 
 ## Creator Lab
 
@@ -72,7 +81,7 @@ A person or external AI can:
 
 The lab does not evaluate creator JavaScript and cannot resolve arbitrary creator URLs. Sprite games can only render reviewed assets already present in the host-controlled demo catalog.
 
-The lab now exposes v0 plus v1/v2 experimental examples specifically so we can pressure-test the language before freezing native/public semantics.
+The lab currently exposes v0 plus v1/v2 experimental examples. Wiring v3 into the same trusted path is part of the next continuation milestone.
 
 ## Creator CLI
 
@@ -92,6 +101,8 @@ npm run replay:v2
 
 The CLI returns JSON so an external AI/local agent can consume authoring feedback without Playloop source-code access. It does **not** publish, sign content, upload arbitrary executable code or grant player/social/payment APIs.
 
+The v3 CLI/scripts still need to be wired before the grid draft is considered integrated.
+
 ## Examples
 
 - `meteor-dodge.game.json` — zero-asset continuous dodge.
@@ -102,11 +113,12 @@ The CLI returns JSON so an external AI/local agent can consume authoring feedbac
 - `pocket-shooter-v1.game.json` — v1 projectile spawning from current entity position + player-local health.
 - `garden-catch-v1.game.json` — visually unrelated frog/bee/berry game using the same v1 runtime and ~5.5 KB of image assets.
 - `pattern-echo-v2.game.json` — zero-asset memory game using deterministic bounded collection shuffle/indexing.
+- `bus-escape-v3.game.json` — experimental traffic/Bus-Escape-style composition of v1 entity state + v2 queues + v3 grid occupancy/path checks.
 - `replays/space-dodge-3s.replay.json` — v0 replay fixture.
 - `replays/pocket-shooter-v1-2s.replay.json` — v1 replay fixture.
 - `replays/pattern-echo-v2.replay.json` — v2 collection replay fixture.
 
-Open `../sandbox-demo.html` through a local HTTP server for v0 examples, or `../creator-lab.html` to inspect/edit/run the versioned GameSpec examples.
+Open `../sandbox-demo.html` through a local HTTP server for v0 examples, or `../creator-lab.html` to inspect/edit/run the currently wired versioned GameSpec examples.
 
 ## Architectural rule
 
@@ -122,4 +134,4 @@ GameSpec + reviewed content-addressed assets
 
 Likes, follows, comments, challenges, tips, payments, accounts, network access and device capabilities remain owned by the Playloop shell/backend rather than creator games.
 
-The next sandbox capability should continue to follow creator pressure. Collections solve sequences/hands/queues; they do not solve Bus Jam or Match-3 cleanly. The next serious candidate is therefore a bounded grid/occupancy layer with known-complexity operations, not more general scripting.
+The next step is not another general-purpose language feature. Finish and harden the bounded v3 grid/occupancy layer first, prove that it solves repeated traffic/board-puzzle pressure safely, and only then evaluate the next repeated need such as declarative animation/tweens.
