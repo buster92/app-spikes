@@ -1,4 +1,5 @@
 import { HARD_LIMITS, packageProfile } from "./game-spec.js";
+import { validatePublicationPolicy } from "./publication-policy.js";
 import { SandboxRuntime } from "./runtime-core.js";
 
 const DEFAULT_SEEDS = Object.freeze([1, 7, 42, 99, 1337]);
@@ -20,6 +21,31 @@ function increment(map, key) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function emptySummary() {
+  return {
+    seeds: 0,
+    crashes: 0,
+    terminalRuns: 0,
+    completes: 0,
+    fails: 0,
+    peakEntities: 0,
+    peakOps: 0,
+  };
+}
+
+function rejectStatic(profile, errors, warnings = [], stage = "static_validation") {
+  return {
+    ok: false,
+    verdict: "reject",
+    stage,
+    profile,
+    runs: [],
+    errors,
+    warnings,
+    summary: emptySummary(),
+  };
 }
 
 function probeInput(runtime, spec, random, simulatedMs) {
@@ -44,7 +70,25 @@ function probeInput(runtime, spec, random, simulatedMs) {
 }
 
 export function reviewGameSpec(spec, options = {}) {
-  const profile = packageProfile(spec);
+  let profile;
+  try {
+    profile = packageProfile(spec);
+  } catch (error) {
+    return rejectStatic(
+      null,
+      [`validator crashed on malformed input: ${error?.message ? String(error.message) : String(error)}`],
+      [],
+      "static_validation",
+    );
+  }
+
+  if (!profile.ok) return rejectStatic(profile, [...profile.errors]);
+
+  const publication = validatePublicationPolicy(spec);
+  if (!publication.ok) {
+    return rejectStatic(profile, [...publication.errors], [...publication.warnings], "publication_policy");
+  }
+
   const seeds = Array.isArray(options.seeds) && options.seeds.length
     ? options.seeds.map((seed) => Number(seed) >>> 0)
     : [...DEFAULT_SEEDS];
@@ -55,30 +99,9 @@ export function reviewGameSpec(spec, options = {}) {
     HARD_LIMITS.maxDurationMs,
   );
 
-  if (!profile.ok) {
-    return {
-      ok: false,
-      verdict: "reject",
-      stage: "static_validation",
-      profile,
-      runs: [],
-      errors: [...profile.errors],
-      warnings: [],
-      summary: {
-        seeds: 0,
-        crashes: 0,
-        terminalRuns: 0,
-        completes: 0,
-        fails: 0,
-        peakEntities: 0,
-        peakOps: 0,
-      },
-    };
-  }
-
   const runs = [];
   const errors = [];
-  const warnings = [];
+  const warnings = [...publication.warnings];
 
   for (const seed of seeds) {
     const eventCounts = {};
@@ -149,6 +172,7 @@ export function reviewGameSpec(spec, options = {}) {
     verdict: ok ? (warnings.length ? "pass_with_warnings" : "pass") : "reject",
     stage: "automated_runtime_review",
     profile,
+    publicationPolicy: publication,
     runs,
     errors,
     warnings,
