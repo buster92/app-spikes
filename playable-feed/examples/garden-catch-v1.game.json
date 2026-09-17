@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v1",
+  "id": "garden-catch-v1",
+  "title": "Garden Catch",
+  "canvas": { "width": 360, "height": 560, "background": "#66bad1" },
+  "variables": { "score": 0 },
+  "assets": [
+    {
+      "id": "garden-bg",
+      "kind": "image",
+      "ref": "sha256:f470be529e414e51e6be1796a053a230dca73cfa13b1f1eb63628b2830ccd123",
+      "bytes": 4199,
+      "mime": "image/png",
+      "width": 360,
+      "height": 560
+    },
+    {
+      "id": "garden-atlas",
+      "kind": "image",
+      "ref": "sha256:f97330389c6ab207c5c088618f6c153957f17550c60776e24dfb2475e57a6631",
+      "bytes": 1287,
+      "mime": "image/png",
+      "width": 192,
+      "height": 64
+    }
+  ],
+  "templates": {
+    "berry": {
+      "kind": "sprite",
+      "asset": "garden-atlas",
+      "sourceX": 128,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["berry"],
+      "width": 34,
+      "height": 34,
+      "vy": 150,
+      "bounds": "destroy",
+      "interactive": false
+    },
+    "bee": {
+      "kind": "sprite",
+      "asset": "garden-atlas",
+      "sourceX": 64,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["bee"],
+      "width": 38,
+      "height": 38,
+      "vy": 175,
+      "bounds": "destroy",
+      "interactive": false,
+      "state": { "damage": 1 }
+    }
+  },
+  "entities": [
+    {
+      "id": "background",
+      "kind": "sprite",
+      "asset": "garden-bg",
+      "x": 180,
+      "y": 280,
+      "width": 360,
+      "height": 560,
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "player",
+      "kind": "sprite",
+      "asset": "garden-atlas",
+      "sourceX": 0,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["player"],
+      "x": 180,
+      "y": 492,
+      "width": 58,
+      "height": 58,
+      "bounds": "clamp",
+      "interactive": false,
+      "state": { "health": 3, "berries": 0 }
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 528,
+      "height": 14,
+      "text": "Slide the frog · catch berries · dodge bees",
+      "color": "#ffffff",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "spawn-berry", "afterMs": 250, "everyMs": 650 },
+    { "id": "spawn-bee", "afterMs": 900, "everyMs": 980 },
+    { "id": "finish", "afterMs": 12000 }
+  ],
+  "rules": [
+    {
+      "on": "pointerMove",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "pointerDown",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } },
+        { "haptic": { "pattern": [4] } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn-berry",
+      "actions": [
+        {
+          "spawn": {
+            "template": "berry",
+            "x": { "random": [26, 334] },
+            "y": -24,
+            "vy": { "random": [125, 180] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn-bee",
+      "actions": [
+        {
+          "spawn": {
+            "template": "bee",
+            "x": { "random": [26, 334] },
+            "y": -24,
+            "vy": { "random": [155, 215] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "berry",
+      "actions": [
+        { "destroy": { "entity": "$b" } },
+        { "addVar": { "name": "score", "value": 75 } },
+        { "addEntityState": { "entity": "player", "key": "berries", "value": 1 } },
+        { "haptic": { "pattern": [6] } }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "bee",
+      "actions": [
+        { "destroy": { "entity": "$b" } },
+        { "addEntityState": { "entity": "player", "key": "health", "value": -1 } },
+        { "haptic": { "pattern": [20, 24, 20] } },
+        {
+          "if": {
+            "condition": {
+              "left": { "entity": { "ref": "player", "state": "health" } },
+              "op": "<=",
+              "right": 0
+            },
+            "then": [
+              { "fail": { "score": { "var": "score" }, "detail": "Too many bee stings" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        {
+          "complete": {
+            "score": { "add": [{ "var": "score" }, 500] },
+            "detail": "Garden round complete"
+          }
+        }
+      ]
+    }
+  ]
+}
