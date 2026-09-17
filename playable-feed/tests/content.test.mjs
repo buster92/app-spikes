@@ -13,6 +13,7 @@ const expectedFiles = [
   "interaction-fixes.css",
   "ux-feedback.css",
   "expansion.css",
+  "playtest-tuning.css",
   "ux-feedback.js",
   "icons/playloop-icon.svg",
   "icons/playloop-192.png",
@@ -26,6 +27,7 @@ const expectedFiles = [
   "src/feed.js",
   "src/games.js",
   "src/extra-games-register.js",
+  "src/playtest-tuning.js",
   "src/progression.js",
 ];
 
@@ -53,6 +55,7 @@ test("index contains the core feed, result, onboarding, records and analytics su
   assert.match(html, /styles\.css/);
   assert.match(html, /interaction-fixes\.css/);
   assert.match(html, /expansion\.css/);
+  assert.match(html, /playtest-tuning\.css/);
   assert.match(html, /icons\/playloop-icon\.svg/);
   assert.match(html, /icons\/apple-touch-icon\.png/);
   assert.match(html, /src\/bootstrap\.js/);
@@ -78,6 +81,7 @@ test("service worker caches the expanded offline shell", async () => {
     "styles.css",
     "interaction-fixes.css",
     "expansion.css",
+    "playtest-tuning.css",
     "icons/playloop-icon.svg",
     "icons/playloop-192.png",
     "icons/playloop-512.png",
@@ -86,6 +90,7 @@ test("service worker caches the expanded offline shell", async () => {
     "src/app.js",
     "src/games.js",
     "src/extra-games-register.js",
+    "src/playtest-tuning.js",
     "src/progression.js",
     "manifest.webmanifest",
   ]) {
@@ -123,10 +128,11 @@ test("app logging covers behavioral outcomes and renderer failures", async () =>
   assert.match(analytics, /syncFromStorage/);
 });
 
-test("expanded games register before app startup and report success/failure through the shared runtime", async () => {
+test("expanded games register before phone tuning and app startup", async () => {
   const bootstrap = await readFile(resolve(root, "src/bootstrap.js"), "utf8");
   const extras = await readFile(resolve(root, "src/extra-games-register.js"), "utf8");
-  assert.ok(bootstrap.indexOf("extra-games-register.js") < bootstrap.indexOf("app.js"));
+  assert.ok(bootstrap.indexOf("extra-games-register.js") < bootstrap.indexOf("playtest-tuning.js"));
+  assert.ok(bootstrap.indexOf("playtest-tuning.js") < bootstrap.indexOf("app.js"));
   for (const gameId of ["dodge-stream", "jump-rush", "micro-snake", "micro-match"]) {
     assert.ok(extras.includes(`id: "${gameId}"`), `missing ${gameId}`);
   }
@@ -135,6 +141,17 @@ test("expanded games register before app startup and report success/failure thro
   for (const interaction of ["hazard_dodged", "target_hit", "snake_eat", "match_clear"]) {
     assert.ok(extras.includes(interaction), `missing ${interaction} interaction logging`);
   }
+});
+
+test("phone tuning slows snake, enables match swipes and caps memory load", async () => {
+  const tuning = await readFile(resolve(root, "src/playtest-tuning.js"), "utf8");
+  assert.match(tuning, /500, 465, 430, 395, 360/);
+  assert.match(tuning, /readyMs: 900/);
+  assert.match(tuning, /match_swipe/);
+  assert.match(tuning, /is-clearing/);
+  assert.match(tuning, /targetLength = \[0, 3, 3, 4, 4, 5\]/);
+  assert.match(tuning, /finish\("complete"/);
+  assert.match(tuning, /finish\("fail"/);
 });
 
 test("local progression persists records and logs record milestones", async () => {
