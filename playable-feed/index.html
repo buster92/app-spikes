@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./expansion.css">
   <link rel="stylesheet" href="./playtest-tuning.css">
   <link rel="stylesheet" href="./playtest-round2.css">
+  <link rel="stylesheet" href="./round3.css">
   <title>Playloop — playable feed spike</title>
   <script>
     (() => {
@@ -123,7 +124,7 @@
         <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
         <div class="onboarding-chips"><span>16 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
         <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
-        <small>Event logs can be exported or cleared. Personal records stay on this device.</small>
+        <small>Event logs can be exported or cleared. Personal records and liked games stay on this device.</small>
       </div>
     </div>
 
@@ -140,7 +141,7 @@
         <h3 id="recordsHeading">Your best run</h3>
         <div id="recordsBody" class="records-grid"></div>
       </section>
-      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes, personal-record milestones, timing, and client runtime errors. No account or personal profile is collected.</p>
+      <p class="privacy-note">Events include game impressions, first interaction, outcomes, likes, skips, retries, swipe behavior, difficulty changes, reward/record milestones, timing, and client runtime errors. No account or personal profile is collected.</p>
       <div class="sheet-actions">
         <button id="exportButton" class="primary-button" type="button">Export JSON</button>
         <button id="clearButton" class="secondary-button" type="button">Clear event log</button>
