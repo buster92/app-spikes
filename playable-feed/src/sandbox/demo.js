@@ -11,6 +11,7 @@ const GAMES = Object.freeze({
   "tap-bloom": "./examples/tap-bloom.game.json",
   "space-dodge": "./examples/space-dodge.game.json",
   "creator-star-catch": "./examples/creator-star-catch.game.json",
+  "whack-orb": "./examples/whack-orb.game.json",
 });
 
 const canvas = document.querySelector("#sandboxCanvas");
