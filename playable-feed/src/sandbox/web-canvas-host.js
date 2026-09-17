@@ -19,10 +19,38 @@ function nextTimerDelay(runtime) {
   return Math.max(0, next);
 }
 
+function referencedSpriteAssetIds(spec) {
+  const ids = new Set();
+  for (const entity of spec.entities || []) {
+    if (entity?.kind === "sprite") ids.add(entity.asset);
+  }
+  for (const template of Object.values(spec.templates || {})) {
+    if (template?.kind === "sprite") ids.add(template.asset);
+  }
+  return ids;
+}
+
+function assertSpriteAssetsReady(spec, assetLoader, assetsById) {
+  const refs = referencedSpriteAssetIds(spec);
+  if (!refs.size) return;
+  if (!assetLoader) throw new Error("GameSpec uses sprites but no trusted asset loader was provided");
+  for (const id of refs) {
+    const asset = assetsById.get(id);
+    if (!asset) throw new Error(`Sprite references unknown asset ${id}`);
+    if (asset.kind !== "image") throw new Error(`Sprite asset ${id} is not an image`);
+    if (!assetLoader.getImage(asset.ref)) throw new Error(`Sprite asset ${id} has not been verified and preloaded`);
+  }
+}
+
 export function mountGameSpec(canvas, spec, options = {}) {
   const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Canvas 2D rendering is unavailable");
   canvas.width = spec.canvas.width;
   canvas.height = spec.canvas.height;
+
+  const assetLoader = options.assetLoader || null;
+  const assetsById = new Map((spec.assets || []).map((asset) => [asset.id, asset]));
+  assertSpriteAssetsReady(spec, assetLoader, assetsById);
 
   let frame = 0;
   let timer = 0;
@@ -49,6 +77,18 @@ export function mountGameSpec(canvas, spec, options = {}) {
     timer = 0;
   };
 
+  const drawSprite = (entity) => {
+    const asset = assetsById.get(entity.asset);
+    const bitmap = asset ? assetLoader?.getImage(asset.ref) : null;
+    if (!bitmap) {
+      context.fillStyle = "#ff3b81";
+      context.fillRect(-entity.width / 2, -entity.height / 2, entity.width, entity.height);
+      return;
+    }
+    context.imageSmoothingEnabled = options.imageSmoothing !== false;
+    context.drawImage(bitmap, -entity.width / 2, -entity.height / 2, entity.width, entity.height);
+  };
+
   const render = () => {
     context.fillStyle = spec.canvas.background;
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -69,6 +109,8 @@ export function mountGameSpec(canvas, spec, options = {}) {
         context.textAlign = "center";
         context.textBaseline = "middle";
         context.fillText(entity.text, 0, 0);
+      } else if (entity.kind === "sprite") {
+        drawSprite(entity);
       }
       context.restore();
     }
@@ -184,6 +226,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
     effects,
     suspend,
     resume,
+    render,
     destroy() {
       if (destroyed) return;
       destroyed = true;
