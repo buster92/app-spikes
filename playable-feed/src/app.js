@@ -52,6 +52,8 @@ const state = {
   outcomes: [],
   transitioning: false,
   impressions: 0,
+  attemptNumber: 0,
+  rewardedVariantIds: new Set(),
 };
 
 let audioContext = null;
@@ -142,6 +144,7 @@ function showGameLoadFailure(game, error, kind = "game_mount_error") {
     cycle: state.cycle,
     position_in_cycle: state.index,
     difficulty: game?.difficulty ?? state.difficulty,
+    attempt: state.attemptNumber,
     ...errorDetails(error),
   });
 
@@ -163,6 +166,11 @@ function mountCurrent({ retry = false, resumed = false } = {}) {
   state.current = state.deck[state.index];
   state.finished = false;
   state.pausedForVisibility = false;
+  if (retry) {
+    state.attemptNumber += 1;
+  } else if (!resumed) {
+    state.attemptNumber = 1;
+  }
   if (!resumed) {
     state.firstInteractionAt = null;
     state.activeAccumulatedMs = 0;
@@ -196,6 +204,7 @@ function mountCurrent({ retry = false, resumed = false } = {}) {
       variant_id: game.variantId,
       active_ms_before_resume: Math.round(state.activeAccumulatedMs),
       feed_position: state.cycle * state.deck.length + state.index,
+      attempt: state.attemptNumber,
     });
   }
 
@@ -207,12 +216,14 @@ function mountCurrent({ retry = false, resumed = false } = {}) {
         game_id: game.id,
         variant_id: game.variantId,
         time_to_first_interaction_ms: activeMs(),
+        attempt: state.attemptNumber,
       });
     }
     analytics.log("game_interaction", {
       game_id: game.id,
       variant_id: game.variantId,
       interaction_type: type,
+      attempt: state.attemptNumber,
       ...data,
     });
   };
@@ -250,6 +261,8 @@ function finishGame(outcome, result = {}) {
   const game = state.current;
   const ms = activeMs();
   const score = Math.max(0, Math.round(Number(result.score || 0)));
+  const practiceRetry = state.rewardedVariantIds.has(game.variantId);
+
   analytics.log(outcome === "complete" ? "game_complete" : "game_fail", {
     game_id: game.id,
     variant_id: game.variantId,
@@ -257,41 +270,81 @@ function finishGame(outcome, result = {}) {
     score,
     detail: result.detail || null,
     difficulty: game.difficulty,
+    attempt: state.attemptNumber,
+    retry: state.attemptNumber > 1,
+    progression_eligible: !practiceRetry,
   });
 
-  state.outcomes.push(outcome);
-  if (state.outcomes.length > 8) state.outcomes.shift();
+  let affectsProgression = !practiceRetry;
 
-  if (outcome === "complete") {
+  if (outcome === "complete" && !practiceRetry) {
+    state.rewardedVariantIds.add(game.variantId);
+    state.outcomes.push("complete");
+    if (state.outcomes.length > 8) state.outcomes.shift();
+
     state.streak += 1;
     const gain = Math.max(25, Math.round(score / 10));
     state.xp += gain;
     els.resultWord.textContent = state.streak >= 3 ? "ON FIRE" : "NICE";
     els.resultScore.textContent = `+${gain} XP`;
+    els.resultDetail.textContent = result.detail || "Clean run";
     els.card.classList.add("success-pulse");
     tone(820, 0.09);
+
+    analytics.log("game_reward_granted", {
+      game_id: game.id,
+      variant_id: game.variantId,
+      attempt: state.attemptNumber,
+      xp: gain,
+      score,
+      streak: state.streak,
+    });
+  } else if (practiceRetry) {
+    affectsProgression = false;
+    els.resultWord.textContent = "PRACTICE";
+    els.resultScore.textContent = "0 XP";
+    els.resultDetail.textContent = `${result.detail || (outcome === "complete" ? "Clean run" : "Try again")} · reward already claimed`;
+    if (outcome === "complete") {
+      els.card.classList.add("success-pulse");
+      tone(680, 0.055);
+    } else {
+      els.card.classList.add("fail-shake");
+    }
+
+    analytics.log("game_reward_suppressed", {
+      game_id: game.id,
+      variant_id: game.variantId,
+      attempt: state.attemptNumber,
+      outcome,
+      reason: "variant_already_rewarded",
+      score,
+    });
   } else {
+    state.outcomes.push("fail");
+    if (state.outcomes.length > 8) state.outcomes.shift();
     state.streak = 0;
     els.resultWord.textContent = "SO CLOSE";
     els.resultScore.textContent = score ? `${score} pts` : "TRY AGAIN";
+    els.resultDetail.textContent = result.detail || "One more try?";
     els.card.classList.add("fail-shake");
   }
 
-  els.resultDetail.textContent = result.detail || (outcome === "complete" ? "Clean run" : "One more try?");
   els.result.hidden = false;
   sessionStorage.setItem("playloop.xp", String(state.xp));
   sessionStorage.setItem("playloop.streak", String(state.streak));
 
-  const previousDifficulty = state.difficulty;
-  state.difficulty = nextDifficulty(state.difficulty, state.outcomes);
-  if (state.difficulty !== previousDifficulty) {
-    analytics.log("difficulty_changed", {
-      from: previousDifficulty,
-      to: state.difficulty,
-      reason: state.outcomes.slice(-3),
-      applies_from_next_cycle: true,
-    });
-    sessionStorage.setItem("playloop.difficulty", String(state.difficulty));
+  if (affectsProgression) {
+    const previousDifficulty = state.difficulty;
+    state.difficulty = nextDifficulty(state.difficulty, state.outcomes);
+    if (state.difficulty !== previousDifficulty) {
+      analytics.log("difficulty_changed", {
+        from: previousDifficulty,
+        to: state.difficulty,
+        reason: state.outcomes.slice(-3),
+        applies_from_next_cycle: true,
+      });
+      sessionStorage.setItem("playloop.difficulty", String(state.difficulty));
+    }
   }
   updateHud();
 }
@@ -306,6 +359,7 @@ function skipCurrent(reason = "swipe") {
       active_ms: activeMs(),
       had_interaction: state.firstInteractionAt !== null,
       reason,
+      attempt: state.attemptNumber,
     });
     state.outcomes.push("skip");
     if (state.outcomes.length > 8) state.outcomes.shift();
@@ -362,6 +416,8 @@ function retry() {
     game_id: state.current.id,
     variant_id: state.current.variantId,
     active_ms_before_retry: activeMs(),
+    next_attempt: state.attemptNumber + 1,
+    practice: state.rewardedVariantIds.has(state.current.variantId),
   });
   mountCurrent({ retry: true });
 }
@@ -370,7 +426,7 @@ function renderStats() {
   const summary = analytics.summary();
   const values = [
     ["Seen", summary.gamesSeen],
-    ["Started", summary.gamesStarted],
+    ["Attempts", summary.gamesStarted],
     ["Completed", summary.completed],
     ["Failed", summary.failed],
     ["Skipped", summary.skipped],
@@ -468,6 +524,7 @@ window.addEventListener("visibilitychange", () => {
         game_id: state.current.id,
         variant_id: state.current.variantId,
         active_ms: activeMs(),
+        attempt: state.attemptNumber,
       });
     }
     analytics.log("app_hidden", {
