@@ -8,6 +8,7 @@ import {
 } from "./game-spec.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
 import { reviewGameSpec } from "./review.js";
+import { HOST_EFFECT_LIMITS } from "./safe-runtime.js";
 import { buildTransportPlan, buildUnsignedPublicationManifest } from "./transport.js";
 
 const ENTITY_KINDS = Object.freeze(["circle", "rect", "text", "sprite"]);
@@ -72,7 +73,10 @@ export function getRuntimeCapabilities() {
       addressing: "sha256",
       arbitraryUrls: false,
     },
-    budgets: { ...HARD_LIMITS },
+    budgets: {
+      ...HARD_LIMITS,
+      hostEffectsPerSecond: { ...HOST_EFFECT_LIMITS },
+    },
     sandbox: {
       arbitraryCode: false,
       network: false,
