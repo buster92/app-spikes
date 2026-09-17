@@ -76,14 +76,14 @@ export class SandboxRuntime {
       id: entity.id,
       kind: entity.kind,
       tags: [...(entity.tags || [])],
-      x: Number(entity.x || 0),
-      y: Number(entity.y || 0),
-      vx: Number(entity.vx || 0),
-      vy: Number(entity.vy || 0),
-      width: Number(entity.width || 40),
-      height: Number(entity.height || 40),
-      radius: Number(entity.radius || 20),
-      rotation: Number(entity.rotation || 0),
+      x: Number(entity.x ?? 0),
+      y: Number(entity.y ?? 0),
+      vx: Number(entity.vx ?? 0),
+      vy: Number(entity.vy ?? 0),
+      width: Number(entity.width ?? 40),
+      height: Number(entity.height ?? 40),
+      radius: Number(entity.radius ?? 20),
+      rotation: Number(entity.rotation ?? 0),
       opacity: entity.opacity === undefined ? 1 : Number(entity.opacity),
       color: entity.color || "#ffffff",
       text: entity.text || "",
@@ -205,13 +205,33 @@ export class SandboxRuntime {
     this.lastCollisions = current;
   }
 
+  normalizeRuleEvent(rule, type, event) {
+    if (type !== "collision" || !rule?.aTag || !rule?.bTag) return event;
+    const a = this.entities.get(event.a);
+    const b = this.entities.get(event.b);
+    const direct = hasTag(a, rule.aTag) && hasTag(b, rule.bTag);
+    if (direct) return event;
+    const reverse = hasTag(a, rule.bTag) && hasTag(b, rule.aTag);
+    return reverse ? { ...event, a: event.b, b: event.a } : event;
+  }
+
   dispatch(type, event) {
     if (this.status !== "running") return;
     this.onEvent({ type, elapsedMs: this.elapsedMs, ...event });
     const rules = this.spec.rules || [];
     for (const rule of rules) {
-      if (this.status !== "running" || !this.ruleMatches(rule, type, event)) continue;
-      this.executeActions(rule.actions, event);
+      if (this.status !== "running") return;
+      const normalizedEvent = this.normalizeRuleEvent(rule, type, event);
+
+      if (typeof this.matchEventForRule === "function") {
+        const matchedEvent = this.matchEventForRule(rule, type, normalizedEvent);
+        if (!matchedEvent) continue;
+        this.executeActions(rule.actions, matchedEvent);
+        continue;
+      }
+
+      if (!this.ruleMatches(rule, type, normalizedEvent)) continue;
+      this.executeActions(rule.actions, normalizedEvent);
     }
   }
 
