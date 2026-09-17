@@ -1,36 +1,73 @@
 # Playloop sandbox expressiveness roadmap
 
-The sandbox only matters if creators can make things that do **not** all feel like reskins of the same five mechanics. At the same time, arbitrary creator scripting would undermine security, reviewability, performance and native portability.
+The sandbox only matters if creators can make things that do **not** all feel like reskins of the same few mechanics. At the same time, arbitrary creator scripting would undermine security, reviewability, performance, lightweight delivery and native portability.
 
-This document keeps those goals explicit.
+The rule is therefore: **expand from observed creator pressure, one bounded capability at a time.**
 
-## What v0 can already express
+## Evidence so far
 
-The current runtime is suitable for small real-time/tap games built from:
+The original v0 pressure test clustered around a surprisingly small set of missing capabilities:
+
+1. entity reads;
+2. entity-local scalar state;
+3. bounded collections;
+4. grid/occupancy queries;
+5. declarative animation/tween polish;
+6. reviewed high-level physics much later.
+
+We are implementing that sequence rather than inventing a general scripting language.
+
+## Current version ladder
+
+### `playloop-2d-v0`
+
+The base runtime supports:
 
 - circles, rectangles, text and sprites;
 - sprite atlases/source rectangles;
-- seeded random placement;
+- seeded randomness;
 - movement/velocity;
 - bounds behavior;
 - timers;
 - pointer/tap events;
 - collision events;
-- global variables;
+- global scalar variables;
 - conditions and bounded math;
 - spawning/destruction;
-- score/result state;
+- score/results;
 - semantic events, sound and haptic host requests.
 
-This can produce materially different games such as reaction targets, dodge/survival, catch/avoid, simple shooters, lane games, timed collection, chase patterns and some board-like interactions.
+This already covers dodge/survival, catch/avoid, moving targets, reaction/timing and simple chase patterns.
 
-It is **not yet** enough for the Minecraft-like creator ambition. Complex board games, inventories, rich NPCs, pathfinding, card rules or deeply stateful simulations would currently require too much awkward rule expansion.
+### `playloop-2d-v1` — experimental
 
-That limitation is intentional and should be measured rather than hidden.
+v1 answers the first repeated pressure with only:
 
-## Design rule for every new primitive
+- bounded reads of whitelisted entity fields;
+- reads of entity-local state;
+- <=8 scalar state keys per entity;
+- `setEntityState` / `addEntityState`.
 
-A capability is eligible for the public creator language only if we can answer all of these:
+It enables mechanics such as a projectile spawning from the player's current position and individual enemies/cards/resources carrying small local state.
+
+`Pocket Shooter` and `Garden Catch` are the current reference examples.
+
+### `playloop-2d-v2` — experimental
+
+v2 answers the next repeated pressure with only:
+
+- <=8 named scalar collections;
+- <=16 items per collection;
+- reads: `length`, `at`, `first`, `last`;
+- mutations: push, set, remove, clear, deterministic shuffle.
+
+There are still no loops/filter/map/reduce callbacks and no arbitrary arrays of objects.
+
+`Pattern Echo` demonstrates a sequence-memory game driven by a deterministically shuffled collection and v1 entity-local pad state.
+
+## Design rule for every new capability
+
+A capability is eligible for the creator language only if we can answer all of these:
 
 1. What is its bounded worst-case CPU cost?
 2. What is its bounded memory/asset cost?
@@ -39,19 +76,75 @@ A capability is eligible for the public creator language only if we can answer a
 5. Can JS and KMP implement the same logical semantics?
 6. Can the host suspend it completely off-screen?
 7. Does it avoid giving the game arbitrary network/device/account access?
+8. Does it materially expand creator range rather than merely shorten syntax?
 
-If not, it belongs in the host app or a later explicitly capability-gated runtime.
+If not, it belongs in the host app or a later explicit capability tier.
 
-## Near-term safe extensions
+## Next mechanical candidate: grid / occupancy
 
-### 1. Declarative animation
+Collections make sequences, hands and queues practical, but they do not make Bus Jam, Match-3, block puzzles or traffic puzzles pleasant to author.
 
-Add atlas-frame animation without adding code:
+Those genres repeatedly need spatial questions such as:
+
+- which cell contains this piece?;
+- is the next cell free?;
+- which cells are occupied by this multi-cell object?;
+- can this piece move N cells in its direction?;
+- which adjacent cells match?;
+- did this row/column form a bounded match?;
+- is there a path to the board edge under a known movement rule?
+
+Encoding those as dozens/hundreds of low-level rules would make AI authoring brittle and automated review less semantic.
+
+A future grid capability should therefore be **high level and bounded**, for example:
 
 ```json
 {
-  "kind": "sprite",
-  "asset": "hero-atlas",
+  "grid": {
+    "id": "board",
+    "columns": 6,
+    "rows": 8,
+    "cellWidth": 48,
+    "cellHeight": 48
+  }
+}
+```
+
+Potential reviewed operations:
+
+```text
+isCellFree(grid, column, row)
+cellOccupant(grid, column, row)
+moveGridEntity(entity, column, row)
+cellsAhead(entity, maxDistance)
+neighbors(grid, column, row)
+matchLine(grid, column, row, maxLength)
+```
+
+Every operation needs a strict board-size/search ceiling. No creator-defined pathfinding loop.
+
+A useful acceptance test is whether a compact Bus Jam-like puzzle and a compact Match-3-like puzzle can both be expressed without special-case JavaScript.
+
+## Parallel visual-quality track
+
+Mechanical expressiveness is only half the Minecraft/mod-style ambition. Games also need to stop looking like the same framework.
+
+The current reviewed asset path already provides an important base:
+
+- generated/uploaded images are normalized outside GameSpec;
+- public games reference SHA-256 assets rather than URLs;
+- sprite atlases allow several characters/items in one tiny image;
+- decoded-memory/network budgets remain host controlled;
+- visual assets are lazy-loaded separately from feed metadata.
+
+`Space Dodge` vs `Garden Catch` proves the same runtime can already support visually unrelated themes with only a few KB of raster assets.
+
+The next visual primitives should remain declarative.
+
+### Declarative frame animation
+
+```json
+{
   "animation": {
     "frames": [
       { "x": 0, "y": 0, "width": 32, "height": 32 },
@@ -63,13 +156,9 @@ Add atlas-frame animation without adding code:
 }
 ```
 
-Hard limits: frame count, minimum frame duration, atlas bounds.
+Hard limits: frame count, minimum frame duration and atlas bounds.
 
-This gives substantial visual life for very little network weight.
-
-### 2. Tweens
-
-A host/runtime action such as:
+### Tweens
 
 ```json
 {
@@ -83,55 +172,13 @@ A host/runtime action such as:
 }
 ```
 
-The runtime owns tween count and time. A creator cannot register arbitrary callbacks.
+The runtime owns tween count/timing. No callbacks.
 
-This covers satisfying movement, boarding/departure, UI transitions and many puzzle animations.
+This is especially important for comprehension: boarding, departure, swapping, rewards and puzzle movement should visibly happen rather than state teleporting.
 
-### 3. Entity reads
+### Particles
 
-Expressions need a bounded way to inspect entity state:
-
-```json
-{ "entity": { "ref": "$target", "field": "x" } }
-```
-
-Allowed fields should be whitelisted (`x`, `y`, `vx`, `vy`, `rotation`, `opacity`, selected creator state). No reflection.
-
-### 4. Entity-local state
-
-Global variables become awkward quickly. Add a small bounded map of scalar entity state:
-
-```json
-{
-  "state": {
-    "health": 3,
-    "team": "green"
-  }
-}
-```
-
-Hard limits on keys/value sizes make this reviewable while allowing cards, enemies, passengers, resources and puzzle pieces to behave differently.
-
-### 5. Safe queries
-
-Small aggregate queries remove huge rule duplication:
-
-```json
-{ "count": { "tag": "enemy" } }
-```
-
-Potential safe queries:
-
-- count by tag;
-- nearest entity by tag with a maximum search set;
-- any/all tag existence;
-- distance between two refs.
-
-No arbitrary filter lambdas.
-
-### 6. Particles
-
-Particles should be a renderer primitive, not 500 normal entities.
+Particles should be a renderer primitive rather than hundreds of full runtime entities:
 
 ```json
 {
@@ -144,45 +191,24 @@ Particles should be a renderer primitive, not 500 normal entities.
 }
 ```
 
-The renderer enforces a global particle budget and can reduce quality under device pressure.
+The renderer can enforce a global particle budget and downgrade quality under device pressure.
 
-## Board/puzzle layer
+## Later behavioral components
 
-To support things like Bus Jam, match games, block puzzles and traffic puzzles without writing hundreds of low-level rules, introduce bounded high-level board primitives.
+After grids and visual polish, two bounded ideas may increase variety substantially.
 
-Possible components:
+### Safe aggregate queries
 
-### Grid
+Examples:
 
-```json
-{
-  "grid": {
-    "columns": 6,
-    "rows": 8,
-    "cellWidth": 48,
-    "cellHeight": 48
-  }
-}
-```
+- count by tag;
+- any/existence by tag;
+- distance between two refs;
+- nearest entity by tag with a strict candidate cap.
 
-### Occupancy/path operations
+No arbitrary predicate lambdas.
 
-Safe built-ins:
-
-- `isCellFree`;
-- `moveGridEntity`;
-- `cellsAhead`;
-- `neighbors`;
-- `floodFillCount` with strict board-size caps;
-- match-line detection for a bounded grid.
-
-The runtime provides algorithms with known complexity. The creator describes rules around them.
-
-This is preferable to letting AI emit general loops/pathfinding code.
-
-## State machines
-
-NPCs, enemies and puzzle objects benefit from a tiny declarative state machine:
+### Tiny declarative state machines
 
 ```json
 {
@@ -196,71 +222,67 @@ NPCs, enemies and puzzle objects benefit from a tiny declarative state machine:
 }
 ```
 
-Limits on states/transitions keep it inspectable. This can enable much richer behavior while remaining deterministic.
+Limits on states/transitions preserve inspectability while allowing richer enemies/NPCs/puzzle pieces.
 
-## Reusable creator components
+## Reusable reviewed components
 
-A long-term creator system should allow trusted **data components**, not executable mods.
+Long term, Minecraft-like breadth probably needs versioned **data components**, not executable mods.
 
-For example:
+Examples:
 
 ```text
 component: top_down_movement_v2
 component: health_and_damage_v1
 component: projectile_weapon_v1
-component: match3_board_v3
+component: match3_board_v1
 component: traffic_escape_v1
+component: dialogue_choices_v1
 ```
 
-These are versioned runtime capabilities maintained/reviewed by Playloop. AI composes and configures them.
+These are Playloop-maintained/reviewed runtime capabilities. AI composes/configures them. Creators do not ship the component implementation itself.
 
-This is one path to Minecraft-like breadth without each post shipping code.
+This gives the ecosystem reusable building blocks while preserving one secure portable engine.
 
 ## Why not arbitrary Lua/JavaScript?
 
-A scripting language would make some games easier to author, but it changes the security/product model dramatically:
+A scripting language would make unsupported concepts easier immediately, but changes the product/security model:
 
 - CPU termination becomes harder;
 - memory behavior becomes harder to bound;
-- review becomes less semantic;
+- static review loses semantic visibility;
 - app-store/native execution constraints become more sensitive;
-- network/device APIs need a much stronger capability model;
-- deterministic cross-runtime behavior gets harder;
-- malicious obfuscation becomes possible.
+- malicious obfuscation becomes possible;
+- deterministic JS↔KMP behavior becomes harder;
+- network/device capability boundaries become much more complex.
 
-A future scripting tier is not impossible, but it should be considered only after the declarative/component model proves genuinely insufficient and there is a mature sandbox/security team.
+A future scripting tier is not impossible, but should be considered only after the declarative/component approach has repeatedly failed under real creator demand and there is mature sandbox/security ownership.
 
-## Capability versions
+## Versioning rule
 
-Do not continuously mutate one ambiguous runtime.
-
-Example path:
+Never silently expand old runtime semantics.
 
 ```text
-playloop-2d-v0   primitives + sprites + timers + collisions
-playloop-2d-v1   animation + tween + entity state/queries
-playloop-2d-v2   board/grid + state machines + particles
+v0  primitive state/events/assets
+v1  + entity reads/local scalar state
+v2  + bounded scalar collections
+v3? + bounded grid/occupancy, only if pressure validates it
 ```
 
-Old games keep their original semantics. New creator tools can target the newest supported runtime while remixing can optionally upgrade a game through a migration tool.
+Old games keep their original semantics. New creator tooling can target a newer runtime. Remixing may later offer an explicit migration/upgrade operation.
 
-## Validation experiment before implementing v1
+## Validation program
 
-Use several AIs to create a corpus against v0 first.
+For each candidate runtime version, give external models only the public authoring materials and ask them to build different genres.
 
-Ask for genres such as:
+Measure:
 
-- endless dodge;
-- whack-a-mole;
-- simple shooter;
-- collect/avoid;
-- timing game;
-- memory game;
-- mini traffic puzzle;
-- tiny RPG combat;
-- card-like choice game;
-- physics-like stacker.
+- valid on first attempt;
+- repair iterations;
+- spec/asset bytes;
+- review result;
+- deterministic replay result;
+- mechanical similarity to existing examples;
+- which primitive was missing;
+- whether the game can be explained from GameSpec rather than hidden implementation knowledge.
 
-For each failed concept, record **which missing primitive forced the failure**. Implement capabilities based on repeated creator pressure, not speculation.
-
-The product goal is not maximum theoretical expressiveness. It is a small language with enough combinatorial range that users stop noticing the framework underneath the creations.
+The product goal is not maximum theoretical expressiveness. It is a small, portable language with enough combinatorial and visual range that players stop noticing the framework underneath the creations.
