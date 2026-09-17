@@ -4,6 +4,11 @@ import {
   RUNTIME_V1_ID,
   validatePublicationPolicyV1,
 } from "./game-spec-v1.js";
+import {
+  packageProfileV2,
+  RUNTIME_V2_ID,
+  validatePublicationPolicyV2,
+} from "./game-spec-v2.js";
 import { validatePublicationPolicy } from "./publication-policy.js";
 
 const encoder = new TextEncoder();
@@ -27,6 +32,11 @@ function runtimeAdapter(spec) {
       return {
         profile: packageProfileV1,
         publication: validatePublicationPolicyV1,
+      };
+    case RUNTIME_V2_ID:
+      return {
+        profile: packageProfileV2,
+        publication: validatePublicationPolicyV2,
       };
     default:
       throw new Error(`Unsupported GameSpec runtime '${spec?.runtime ?? "<missing>"}'`);
