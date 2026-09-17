@@ -96,7 +96,7 @@ The prototype stores bounded events in `localStorage` and exposes an in-app anal
 - visibility/background transitions
 - unexpected runtime errors / unhandled promise rejections for debugging failed or blank game mounts
 
-Every game outcome includes game/variant identifiers, difficulty, active time, attempt/retry state and score/detail where relevant. Use **Export JSON** from the app after a playtest.
+Every game outcome includes game/variant identifiers, difficulty, active time, attempt/retry state, progression eligibility, and score/detail where relevant. Use **Export JSON** from the app after a playtest.
 
 ### Metrics that matter first
 
