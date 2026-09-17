@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "id": "creator-star-catch",
+  "title": "Star Catch",
+  "canvas": { "width": 360, "height": 560, "background": "#040814" },
+  "variables": { "score": 0, "catches": 0, "hits": 0 },
+  "assets": [
+    {
+      "id": "space-bg",
+      "kind": "image",
+      "ref": "sha256:fe1dc859f896df3172cf307d032ed72000298ee08b77a88aaa8b7af6b5c64142",
+      "bytes": 5746,
+      "mime": "image/png",
+      "width": 360,
+      "height": 560
+    },
+    {
+      "id": "space-atlas",
+      "kind": "image",
+      "ref": "sha256:523f731761fea9ae7f6e4221a28cef3ca0d526b5a6aaa1463d88b58bbb383ce5",
+      "bytes": 954,
+      "mime": "image/png",
+      "width": 128,
+      "height": 64
+    }
+  ],
+  "templates": {
+    "star": {
+      "kind": "circle",
+      "tags": ["collectible"],
+      "radius": 12,
+      "color": "#7ef9ff",
+      "vy": 185,
+      "bounds": "destroy",
+      "interactive": false
+    },
+    "meteor": {
+      "kind": "sprite",
+      "asset": "space-atlas",
+      "sourceX": 64,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["hazard"],
+      "width": 40,
+      "height": 40,
+      "vy": 205,
+      "bounds": "destroy",
+      "interactive": false
+    }
+  },
+  "entities": [
+    {
+      "id": "background",
+      "kind": "sprite",
+      "asset": "space-bg",
+      "x": 180,
+      "y": 280,
+      "width": 360,
+      "height": 560,
+      "collidable": false,
+      "interactive": false
+    },
+    {
+      "id": "player",
+      "kind": "sprite",
+      "asset": "space-atlas",
+      "sourceX": 0,
+      "sourceY": 0,
+      "sourceWidth": 64,
+      "sourceHeight": 64,
+      "tags": ["player"],
+      "x": 180,
+      "y": 492,
+      "width": 52,
+      "height": 52,
+      "bounds": "clamp",
+      "interactive": false
+    },
+    {
+      "id": "hint",
+      "kind": "text",
+      "x": 180,
+      "y": 528,
+      "height": 14,
+      "text": "Catch 8 blue stars · avoid 3 meteors",
+      "color": "#d9e4ff",
+      "collidable": false,
+      "interactive": false
+    }
+  ],
+  "timers": [
+    { "id": "spawn-star", "afterMs": 250, "everyMs": 620 },
+    { "id": "spawn-meteor", "afterMs": 900, "everyMs": 1050 },
+    { "id": "finish", "afterMs": 15000 }
+  ],
+  "rules": [
+    {
+      "on": "pointerMove",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "pointerDown",
+      "actions": [
+        { "setEntity": { "entity": "player", "x": { "event": "x" }, "y": 492 } }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn-star",
+      "actions": [
+        {
+          "spawn": {
+            "template": "star",
+            "x": { "random": [18, 342] },
+            "y": -16,
+            "vy": { "random": [155, 225] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "spawn-meteor",
+      "actions": [
+        {
+          "spawn": {
+            "template": "meteor",
+            "x": { "random": [22, 338] },
+            "y": -24,
+            "vy": { "random": [190, 275] }
+          }
+        }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "collectible",
+      "actions": [
+        { "addVar": { "name": "catches", "value": 1 } },
+        { "addVar": { "name": "score", "value": 150 } },
+        { "destroy": { "entity": "$b" } },
+        { "haptic": { "pattern": [10] } },
+        {
+          "if": {
+            "condition": { "left": { "var": "catches" }, "op": ">=", "right": 8 },
+            "then": [
+              { "complete": { "score": { "add": [{ "var": "score" }, 400] }, "detail": "Eight stars caught" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "collision",
+      "aTag": "player",
+      "bTag": "hazard",
+      "actions": [
+        { "addVar": { "name": "hits", "value": 1 } },
+        { "destroy": { "entity": "$b" } },
+        { "haptic": { "pattern": [24, 30, 24] } },
+        {
+          "if": {
+            "condition": { "left": { "var": "hits" }, "op": ">=", "right": 3 },
+            "then": [
+              { "fail": { "score": { "var": "score" }, "detail": "Three meteor hits" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "on": "timer",
+      "timerId": "finish",
+      "actions": [
+        {
+          "if": {
+            "condition": { "left": { "var": "catches" }, "op": ">=", "right": 8 },
+            "then": [
+              { "complete": { "score": { "var": "score" }, "detail": "Star target reached" } }
+            ],
+            "else": [
+              { "fail": { "score": { "var": "score" }, "detail": "Not enough stars caught" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
