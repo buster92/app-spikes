@@ -23,13 +23,14 @@
 <body>
   <main>
     <h1>GameSpec v0</h1>
-    <p>Each game below is declarative JSON executed by the same sandbox runtime. The sprite example also proves verified, content-addressed art can change the visual identity without giving creator code access to the browser.</p>
+    <p>Each game below is declarative JSON executed by the same sandbox runtime. Sprite examples use verified content-addressed art, and Star Catch is an AI-authored GameSpec added without game-specific JavaScript.</p>
     <span class="badge">JSON rules · trusted assets · no game JavaScript</span>
     <div class="controls">
       <select id="sandboxGame" aria-label="Choose GameSpec example">
         <option value="meteor-dodge">Meteor Dodge · primitive drag</option>
         <option value="tap-bloom">Tap Bloom · primitive tap</option>
         <option value="space-dodge">Space Dodge · sprite assets</option>
+        <option value="creator-star-catch">Star Catch · AI-authored catch game</option>
       </select>
       <button id="restartSandbox" type="button">Restart</button>
     </div>
