@@ -10,6 +10,7 @@ const GAMES = Object.freeze({
   "meteor-dodge": "./examples/meteor-dodge.game.json",
   "tap-bloom": "./examples/tap-bloom.game.json",
   "space-dodge": "./examples/space-dodge.game.json",
+  "creator-star-catch": "./examples/creator-star-catch.game.json",
 });
 
 const canvas = document.querySelector("#sandboxCanvas");
@@ -51,7 +52,6 @@ async function load() {
   const resident = await residency.activate(spec);
   if (generation !== loadGeneration || resident.stale) return;
 
-  const stats = assetLoader.stats();
   const preload = resident.current;
   const assetNote = preload.uniqueImages
     ? ` · images ${preload.uniqueImages} · decoded ${formatBytes(preload.decodedBytes)}`
