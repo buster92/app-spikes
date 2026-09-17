@@ -52,6 +52,8 @@ Phone playtesting exposed several concrete tuning issues:
 
 The current branch addresses those directly: larger/slower Snake controls plus fixed grid rows, animated swipe-enabled Match-3 resolution, Flash Memory capped to 3→5 inputs, one-time progression rewards, a visible Tap Rush countdown, addition/subtraction in Bigger Wins at higher levels, a moving follow-target version of Hold Steady, and a new Bus Jam microgame with passenger/bus color sorting and limited waiting slots.
 
+Hold Steady also emits haptic pulses where the browser exposes vibration support. The moving target is the primary challenge because mobile-web vibration support is device/browser dependent and should not be required for the game to work.
+
 This is still anecdotal and from a tiny sample, so it is not product validation. It is enough evidence to keep testing the loop rather than expanding into platform infrastructure.
 
 ## Progression / competition ideas to test later
