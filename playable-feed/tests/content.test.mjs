@@ -14,6 +14,7 @@ const expectedFiles = [
   "ux-feedback.css",
   "expansion.css",
   "playtest-tuning.css",
+  "playtest-round2.css",
   "ux-feedback.js",
   "icons/playloop-icon.svg",
   "icons/playloop-192.png",
@@ -28,6 +29,7 @@ const expectedFiles = [
   "src/games.js",
   "src/extra-games-register.js",
   "src/playtest-tuning.js",
+  "src/playtest-round2.js",
   "src/progression.js",
 ];
 
@@ -56,10 +58,11 @@ test("index contains the core feed, result, onboarding, records and analytics su
   assert.match(html, /interaction-fixes\.css/);
   assert.match(html, /expansion\.css/);
   assert.match(html, /playtest-tuning\.css/);
+  assert.match(html, /playtest-round2\.css/);
   assert.match(html, /icons\/playloop-icon\.svg/);
   assert.match(html, /icons\/apple-touch-icon\.png/);
   assert.match(html, /src\/bootstrap\.js/);
-  assert.match(html, /15 mechanics/);
+  assert.match(html, /16 mechanics/);
 });
 
 test("manifest has standalone metadata and standard install icons", async () => {
@@ -82,6 +85,7 @@ test("service worker caches the expanded offline shell", async () => {
     "interaction-fixes.css",
     "expansion.css",
     "playtest-tuning.css",
+    "playtest-round2.css",
     "icons/playloop-icon.svg",
     "icons/playloop-192.png",
     "icons/playloop-512.png",
@@ -91,6 +95,7 @@ test("service worker caches the expanded offline shell", async () => {
     "src/games.js",
     "src/extra-games-register.js",
     "src/playtest-tuning.js",
+    "src/playtest-round2.js",
     "src/progression.js",
     "manifest.webmanifest",
   ]) {
@@ -134,7 +139,8 @@ test("expanded games register before phone tuning and app startup", async () => 
   const bootstrap = await readFile(resolve(root, "src/bootstrap.js"), "utf8");
   const extras = await readFile(resolve(root, "src/extra-games-register.js"), "utf8");
   assert.ok(bootstrap.indexOf("extra-games-register.js") < bootstrap.indexOf("playtest-tuning.js"));
-  assert.ok(bootstrap.indexOf("playtest-tuning.js") < bootstrap.indexOf("app.js"));
+  assert.ok(bootstrap.indexOf("playtest-tuning.js") < bootstrap.indexOf("playtest-round2.js"));
+  assert.ok(bootstrap.indexOf("playtest-round2.js") < bootstrap.indexOf("app.js"));
   for (const gameId of ["dodge-stream", "jump-rush", "micro-snake", "micro-match"]) {
     assert.ok(extras.includes(`id: "${gameId}"`), `missing ${gameId}`);
   }
@@ -145,7 +151,7 @@ test("expanded games register before phone tuning and app startup", async () => 
   }
 });
 
-test("phone tuning slows snake, enables match swipes and caps memory load", async () => {
+test("first phone tuning slows snake, enables match swipes and caps memory load", async () => {
   const tuning = await readFile(resolve(root, "src/playtest-tuning.js"), "utf8");
   assert.match(tuning, /500, 465, 430, 395, 360/);
   assert.match(tuning, /readyMs: 900/);
@@ -154,6 +160,32 @@ test("phone tuning slows snake, enables match swipes and caps memory load", asyn
   assert.match(tuning, /targetLength = \[0, 3, 3, 4, 4, 5\]/);
   assert.match(tuning, /finish\("complete"/);
   assert.match(tuning, /finish\("fail"/);
+});
+
+test("second phone tuning adds timer, arithmetic, moving hold and Bus Jam telemetry", async () => {
+  const tuning = await readFile(resolve(root, "src/playtest-round2.js"), "utf8");
+  const css = await readFile(resolve(root, "playtest-round2.css"), "utf8");
+  for (const marker of [
+    "tap_rush_start",
+    "tap_rush_timeout",
+    "bigger_wins_start",
+    "hold_start",
+    "hold_lost",
+    "hold_complete",
+    "bus_jam_start",
+    "bus_board",
+    "bus_depart",
+    "bus_waiting_overflow",
+  ]) {
+    assert.ok(tuning.includes(marker), `missing round-two telemetry ${marker}`);
+  }
+  assert.match(tuning, /id: "bus-jam"/);
+  assert.match(tuning, /Higher levels mix in \+ and −/);
+  assert.match(tuning, /moveRadius/);
+  assert.match(css, /grid-template-rows: repeat\(8, minmax\(0, 1fr\)\)/);
+  assert.match(css, /tap-rush-track/);
+  assert.match(css, /hold-follow-arena/);
+  assert.match(css, /bus-jam-game/);
 });
 
 test("local progression persists records and logs record milestones", async () => {
