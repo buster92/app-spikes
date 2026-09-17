@@ -1,6 +1,13 @@
 import { HARD_LIMITS } from "./game-spec.js";
 import { SandboxRuntime } from "./runtime-core.js";
 
+export const HOST_EFFECT_LIMITS = Object.freeze({
+  haptic: 8,
+  sound: 12,
+  emit: 32,
+  spawn: 128,
+});
+
 function hasTag(entity, tag) {
   return Boolean(tag) && entity?.tags?.includes(tag);
 }
@@ -29,6 +36,51 @@ function overlaps(a, b) {
 }
 
 export class SafeSandboxRuntime extends SandboxRuntime {
+  constructor(spec, options = {}) {
+    const downstreamEffect = options.onEffect || (() => {});
+    super(spec, { ...options, onEffect: () => {} });
+    this.downstreamEffect = downstreamEffect;
+    this.effectWindowStartedAtMs = 0;
+    this.effectWindowCounts = new Map();
+    this.suppressedHostEffects = 0;
+    this.onEffect = (effect) => this.forwardHostEffect(effect);
+  }
+
+  forwardHostEffect(effect) {
+    const type = effect?.type;
+    if (!type || type === "complete" || type === "fail") {
+      this.downstreamEffect(effect);
+      return;
+    }
+
+    if (this.elapsedMs - this.effectWindowStartedAtMs >= 1000) {
+      this.effectWindowStartedAtMs = this.elapsedMs;
+      this.effectWindowCounts.clear();
+    }
+
+    const limit = HOST_EFFECT_LIMITS[type];
+    if (!limit) {
+      this.downstreamEffect(effect);
+      return;
+    }
+
+    const count = this.effectWindowCounts.get(type) || 0;
+    if (count >= limit) {
+      this.suppressedHostEffects += 1;
+      return;
+    }
+    this.effectWindowCounts.set(type, count + 1);
+    this.downstreamEffect(effect);
+  }
+
+  safetyStats() {
+    return {
+      suppressedHostEffects: this.suppressedHostEffects,
+      effectWindowStartedAtMs: this.effectWindowStartedAtMs,
+      effectWindowCounts: Object.fromEntries(this.effectWindowCounts),
+    };
+  }
+
   normalizeEntity(entity) {
     const normalized = super.normalizeEntity(entity);
     if (entity?.kind === "sprite") {
