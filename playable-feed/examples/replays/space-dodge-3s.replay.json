@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v0",
+  "gameId": "space-dodge",
+  "seed": 42,
+  "durationMs": 3000,
+  "inputs": [
+    { "atMs": 0, "type": "pointerDown", "x": 30, "y": 500 },
+    { "atMs": 500, "type": "pointerMove", "x": 60, "y": 500, "dx": 30, "dy": 0 },
+    { "atMs": 1000, "type": "pointerMove", "x": 110, "y": 500, "dx": 50, "dy": 0 },
+    { "atMs": 1500, "type": "pointerMove", "x": 170, "y": 500, "dx": 60, "dy": 0 },
+    { "atMs": 2000, "type": "pointerMove", "x": 235, "y": 500, "dx": 65, "dy": 0 },
+    { "atMs": 2500, "type": "pointerMove", "x": 300, "y": 500, "dx": 65, "dy": 0 }
+  ],
+  "captureAtMs": [0, 1000, 2000, 3000]
+}
