@@ -202,7 +202,25 @@ Requirements:
 - process timers in deterministic order;
 - keep collision-role normalization stable;
 - keep rule/action order stable;
+- keep runtime entity insertion order stable;
 - do not use platform random, locale or floating wall-clock state in creator rules.
+
+### Runtime entity identity
+
+Spawn identity is replay-visible state and must not depend on map replacement behavior.
+
+For a spawn action with an explicit `id`:
+
+- if that id is not currently live, the spawn may use it;
+- if that id is already live, execution fails deterministically with `spawn_id_collision`;
+- destroying the prior entity frees the fixed id for a later intentional respawn.
+
+For a spawn action without an explicit id, the runtime uses monotonically increasing `spawn-N` ids. Before selecting an id it skips:
+
+1. ids that are currently live; and
+2. fixed spawn ids declared anywhere in the GameSpec rules.
+
+This prevents a generated spawn from consuming a name that a later rule expects to use explicitly. KMP must collect the same fixed ids recursively through `if` branches and apply the same monotonic skip behavior. It must never silently replace a live entity because a spawn id collides.
 
 Pixel-identical rendering across platforms is not required. Equivalent logical state is.
 
@@ -276,7 +294,8 @@ Before making KMP the production runtime, create shared golden fixtures from the
 
 Golden cases should cover:
 
-- seeded spawn positions;
+- seeded spawn positions and generated-id collision skipping;
+- explicit fixed spawn id collision failure;
 - timer ordering;
 - collision role normalization;
 - sprite atlas metadata preservation;
