@@ -34,6 +34,12 @@ function fakeLoader({ failGameIds = [] } = {}) {
   };
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 test("referencedImageRefs deduplicates atlas use and ignores unused assets", () => {
   const spec = {
     assets: [
@@ -77,6 +83,39 @@ test("failed prefetch never evicts the visible game's assets", async () => {
   assert.deepEqual(loader.stats().refs, ["sha256:visible"]);
 });
 
+test("a stale slow decode is evicted after a newer game becomes active", async () => {
+  const gates = { slow: deferred(), fast: deferred() };
+  const resident = new Set();
+  const loader = {
+    async preload(spec) {
+      await gates[spec.id].promise;
+      for (const ref of referencedImageRefs(spec)) resident.add(ref);
+      return { uniqueImages: 1, decodedBytes: resident.size * 1024 };
+    },
+    releaseExcept(refs) {
+      const keep = new Set(refs);
+      for (const ref of [...resident]) if (!keep.has(ref)) resident.delete(ref);
+    },
+    stats() {
+      return { refs: [...resident].sort() };
+    },
+  };
+
+  const residency = createAssetResidencyController(loader);
+  const slowRun = residency.activate(game("slow", ["sha256:slow"]));
+  const fastRun = residency.activate(game("fast", ["sha256:fast"]));
+
+  gates.fast.resolve();
+  const fastResult = await fastRun;
+  assert.equal(fastResult.stale, false);
+  assert.deepEqual(loader.stats().refs, ["sha256:fast"]);
+
+  gates.slow.resolve();
+  const slowResult = await slowRun;
+  assert.equal(slowResult.stale, true);
+  assert.deepEqual(loader.stats().refs, ["sha256:fast"]);
+});
+
 test("releaseAll leaves no decoded creator images resident", async () => {
   const loader = fakeLoader();
   const residency = createAssetResidencyController(loader);
@@ -84,4 +123,5 @@ test("releaseAll leaves no decoded creator images resident", async () => {
   residency.releaseAll();
   assert.deepEqual(loader.stats().refs, []);
   assert.deepEqual(residency.stats().activeRefs, []);
+  assert.deepEqual(residency.stats().desiredRefs, []);
 });
