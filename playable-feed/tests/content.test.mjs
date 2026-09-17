@@ -16,7 +16,9 @@ const expectedFiles = [
   "playtest-tuning.css",
   "playtest-round2.css",
   "round3.css",
+  "bus-feedback.css",
   "ux-feedback.js",
+  "CREATOR-NETWORK-HYPOTHESIS.md",
   "icons/playloop-icon.svg",
   "icons/playloop-192.png",
   "icons/playloop-512.png",
@@ -32,6 +34,7 @@ const expectedFiles = [
   "src/playtest-tuning.js",
   "src/playtest-round2.js",
   "src/bus-jam-v2.js",
+  "src/bus-jam-v3.js",
   "src/navigation-guard.js",
   "src/progression.js",
   "src/round3-ui.js",
@@ -51,7 +54,7 @@ test("index contains feed, result, records and round-three surfaces", async () =
   }
   for (const asset of [
     "styles.css", "interaction-fixes.css", "expansion.css", "playtest-tuning.css",
-    "playtest-round2.css", "round3.css", "src/bootstrap.js",
+    "playtest-round2.css", "round3.css", "bus-feedback.css", "src/bootstrap.js",
   ]) {
     assert.ok(html.includes(asset), `index should load ${asset}`);
   }
@@ -72,13 +75,13 @@ test("manifest has standalone metadata and standard install icons", async () => 
 test("service worker caches the current offline shell", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
   for (const asset of [
-    "index.html", "round3.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
-    "src/playtest-round2.js", "src/bus-jam-v2.js", "src/navigation-guard.js",
+    "index.html", "round3.css", "bus-feedback.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
+    "src/playtest-round2.js", "src/bus-jam-v2.js", "src/bus-jam-v3.js", "src/navigation-guard.js",
     "src/progression.js", "src/round3-ui.js", "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
-  assert.match(sw, /playloop-spike-v10/);
+  assert.match(sw, /playloop-spike-v11/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {
@@ -101,11 +104,12 @@ test("expanded games register and tuning load before app startup", async () => {
   const bootstrap = await readFile(resolve(root, "src/bootstrap.js"), "utf8");
   for (const module of [
     "extra-games-register.js", "playtest-tuning.js", "playtest-round2.js", "bus-jam-v2.js",
-    "navigation-guard.js", "app.js", "progression.js", "round3-ui.js",
+    "bus-jam-v3.js", "navigation-guard.js", "app.js", "progression.js", "round3-ui.js",
   ]) {
     assert.ok(bootstrap.includes(module), `bootstrap should import ${module}`);
   }
-  assert.ok(bootstrap.indexOf("bus-jam-v2.js") < bootstrap.indexOf("app.js"));
+  assert.ok(bootstrap.indexOf("bus-jam-v2.js") < bootstrap.indexOf("bus-jam-v3.js"));
+  assert.ok(bootstrap.indexOf("bus-jam-v3.js") < bootstrap.indexOf("app.js"));
   assert.ok(bootstrap.indexOf("navigation-guard.js") < bootstrap.indexOf("app.js"));
   assert.ok(bootstrap.indexOf("round3-ui.js") > bootstrap.indexOf("progression.js"));
 });
@@ -137,6 +141,18 @@ test("round three uses directional bus escape and protects game-owned swipes", a
   assert.match(bus, /Free buses in their arrow direction/);
   assert.match(guard, /data-game-swipe-control/);
   assert.match(guard, /ownedControl && gameIsActive/);
+});
+
+test("Bus Jam makes boarding causality visible before departure", async () => {
+  const bus = await readFile(resolve(root, "src/bus-jam-v3.js"), "utf8");
+  const css = await readFile(resolve(root, "bus-feedback.css"), "utf8");
+  for (const token of ["bus_boarding_animation_start", "bus_parking_animation_start", "bus_passenger_boarded"]) {
+    assert.ok(bus.includes(token), `boarding feedback should include ${token}`);
+  }
+  assert.match(bus, /passenger →/);
+  assert.match(css, /busPassengerBoard/);
+  assert.match(css, /is-boarding-bus/);
+  assert.match(css, /is-serving/);
 });
 
 test("round three exposes likes and visible reinforcement", async () => {
