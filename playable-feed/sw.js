@@ -18,6 +18,7 @@ const ASSETS = [
   "./src/bootstrap.js",
   "./src/app.js",
   "./src/analytics.js",
+  "./src/experiments.js",
   "./src/feed.js",
   "./src/games.js",
   "./src/extra-games-register.js",
