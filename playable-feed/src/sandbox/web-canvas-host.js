@@ -64,7 +64,8 @@ export function mountGameSpec(canvas, spec, options = {}) {
   let last = performance.now();
 
   const effects = [];
-  const runtime = new SafeSandboxRuntime(spec, {
+  const RuntimeClass = options.RuntimeClass || SafeSandboxRuntime;
+  const runtime = new RuntimeClass(spec, {
     seed: options.seed || 1,
     onEvent: options.onEvent || (() => {}),
     onEffect: (effect) => {
@@ -234,10 +235,22 @@ export function mountGameSpec(canvas, spec, options = {}) {
   };
   document.addEventListener("visibilitychange", visibilityHandler);
 
-  runtime.start();
-  if (runtime.status === "running") runtime.step(0);
-  render();
-  schedule();
+  const detachHostListeners = () => {
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    for (const [name, handler] of Object.entries(handlers)) canvas.removeEventListener(name, handler);
+  };
+
+  try {
+    runtime.start();
+    if (runtime.status === "running") runtime.step(0);
+    render();
+    schedule();
+  } catch (error) {
+    destroyed = true;
+    cancelScheduled();
+    detachHostListeners();
+    throw error;
+  }
 
   return {
     runtime,
@@ -249,8 +262,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
       if (destroyed) return;
       destroyed = true;
       cancelScheduled();
-      document.removeEventListener("visibilitychange", visibilityHandler);
-      for (const [name, handler] of Object.entries(handlers)) canvas.removeEventListener(name, handler);
+      detachHostListeners();
     },
   };
 }
