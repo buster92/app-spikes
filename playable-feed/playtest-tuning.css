@@ -1,17 +1,23 @@
 /* Phone playtest tuning: larger snake controls and tactile Match-3 motion. */
 
 .snake-game-phone {
-  gap: 12px;
-  padding-inline: 8px;
+  gap: 9px;
+  padding-inline: 6px;
+}
+
+/* Shrink the board slightly so bigger controls still fit above the game copy on
+   iPhone-sized viewports. The playtest showed the old control row clipping. */
+.snake-game-phone .snake-grid {
+  width: min(66vw, 242px);
 }
 
 .snake-controls-phone {
-  width: min(88vw, 310px);
-  gap: 10px;
+  width: min(78vw, 272px);
+  gap: 8px;
 }
 
 .snake-controls-phone .snake-control {
-  min-height: 62px;
+  min-height: 58px;
   border-radius: 17px;
   font-size: 28px;
   touch-action: manipulation;
@@ -24,7 +30,7 @@
 }
 
 .snake-game-phone .snake-status {
-  min-height: 18px;
+  min-height: 16px;
 }
 
 .match-game-phone {
@@ -77,8 +83,9 @@
 }
 
 @media (max-width: 390px) {
-  .snake-controls-phone { width: min(92vw, 300px); }
-  .snake-controls-phone .snake-control { min-height: 58px; }
+  .snake-game-phone .snake-grid { width: min(64vw, 228px); }
+  .snake-controls-phone { width: min(80vw, 258px); }
+  .snake-controls-phone .snake-control { min-height: 56px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
