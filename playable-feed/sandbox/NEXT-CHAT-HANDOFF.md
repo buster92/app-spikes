@@ -10,7 +10,7 @@ This file exists so a fresh conversation can continue the Playloop creator-runti
 - Branch: `feature/gamespec-sandbox-v0`
 - Pull request: **#3 — Add portable Playloop GameSpec sandbox and creator runtime**
 - Base: `main`
-- Known head when this file was refreshed: `cdccba097505f00dc4f338985fe8b016f2158a46`
+- Known head immediately before this metadata-only handoff refresh: `bfc430103b5e2ca671651ab9f79688ca6b8c72f4`
 - PR was open and mergeable.
 - Do not work directly on `main` for this milestone.
 - GitHub Actions are intentionally disabled; do not enable hosted CI unless the user explicitly changes that decision.
