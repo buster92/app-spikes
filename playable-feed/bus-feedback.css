@@ -1,0 +1,63 @@
+/* Bus Jam cause/effect feedback: make passenger boarding and bus departure readable. */
+
+.bus-escape-person.is-boarding {
+  z-index: 4;
+  animation: busPassengerBoard .30s cubic-bezier(.2,.8,.2,1) forwards;
+}
+
+.bus-escape-bus.is-boarding-bus {
+  animation: busBoardPulse .30s ease both;
+}
+
+.bus-escape-bus.is-parking {
+  animation: busMoveToParking .26s ease forwards;
+}
+
+.bus-escape-slot.is-serving {
+  animation: busParkingServe .30s ease both;
+}
+
+.bus-escape-status.is-action {
+  color: rgba(255,255,255,.92);
+  font-weight: 950;
+}
+
+@keyframes busPassengerBoard {
+  0% { transform: scale(1.17) translateY(0); opacity: 1; }
+  55% { transform: scale(.92) translateY(18px); opacity: 1; }
+  100% { transform: scale(.48) translateY(46px); opacity: 0; }
+}
+
+@keyframes busBoardPulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  55% { transform: scale(1.06); filter: brightness(1.22); }
+  100% { transform: scale(1); filter: brightness(1.08); }
+}
+
+@keyframes busMoveToParking {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: translateY(-34%) scale(.72); opacity: 0; }
+}
+
+@keyframes busParkingServe {
+  0% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(1.12); opacity: 1; }
+  100% { transform: translateY(-14px) scale(.78); opacity: 0; }
+}
+
+/* The bus leaves only after the boarding beat has been shown. */
+.bus-escape-bus.dir-up.is-exiting,
+.bus-escape-bus.dir-down.is-exiting,
+.bus-escape-bus.dir-left.is-exiting,
+.bus-escape-bus.dir-right.is-exiting {
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bus-escape-person.is-boarding,
+  .bus-escape-bus.is-boarding-bus,
+  .bus-escape-bus.is-parking,
+  .bus-escape-slot.is-serving {
+    animation-duration: .01ms;
+  }
+}

@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check src/analytics.js && node --check src/games.js && node --check src/feed.js && node --check src/app.js && node --check sw.js"
+    "check": "node --check src/analytics.js && node --check src/games.js && node --check src/extra-games-register.js && node --check src/playtest-tuning.js && node --check src/playtest-round2.js && node --check src/bus-jam-v2.js && node --check src/bus-jam-v3.js && node --check src/navigation-guard.js && node --check src/progression.js && node --check src/round3-ui.js && node --check src/bootstrap.js && node --check src/feed.js && node --check src/app.js && node --check ux-feedback.js && node --check sw.js"
   }
 }

@@ -1,0 +1,120 @@
+/* Playtest-driven UX tuning.
+   Keep continuation gesture-first and make the lane hazard immediately legible. */
+
+/* The core loop should feel like a feed, not a sequence of confirmation dialogs. */
+#nextButton {
+  display: none;
+}
+
+.result-actions {
+  margin-top: 14px;
+}
+
+.result-actions #retryButton {
+  min-width: 112px;
+}
+
+.swipe-continue {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  margin-top: 18px;
+  color: rgba(255,255,255,.82);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.swipe-continue-arrow {
+  display: block;
+  font-size: 30px;
+  line-height: .8;
+  color: var(--game-accent-2);
+  animation: swipeContinue 1.05s ease-in-out infinite;
+}
+
+.swipe-continue small {
+  color: rgba(255,255,255,.42);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: none;
+}
+
+/* Fire and XP are passive progress indicators. Stats is the only interactive
+   control in this group, so label it instead of using an ambiguous arrow. */
+.stats-button {
+  width: auto;
+  min-width: 60px;
+  padding: 0 11px;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* Lane Dodge: the first playtest read the falling object as something to catch.
+   Make player vs hazard semantics explicit before adding tutorial friction. */
+.lane-player {
+  color: #5ff2b0;
+  filter: drop-shadow(0 0 10px rgba(95,242,176,.5));
+}
+
+.lane-player::after {
+  content: "YOU";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 2px);
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(5,18,14,.78);
+  color: #9effd0;
+  font-size: 8px;
+  font-weight: 1000;
+  letter-spacing: .1em;
+  text-shadow: none;
+}
+
+.lane-obstacle {
+  color: #ff596f;
+  filter: drop-shadow(0 0 13px rgba(255,70,95,.6));
+}
+
+.lane-obstacle::after {
+  content: "AVOID";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -2px);
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(38,5,10,.84);
+  color: #ff9cab;
+  font-size: 8px;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-shadow: none;
+}
+
+.lane-hint {
+  top: 46%;
+  width: min(92%, 280px);
+  color: rgba(255,255,255,.68);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.45;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+@keyframes swipeContinue {
+  0%, 100% { transform: translateY(4px); opacity: .5; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-continue-arrow { animation: none; }
+}

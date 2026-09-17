@@ -1,0 +1,255 @@
+/* Third phone-playtest pass: clearer bus puzzle, explicit likes and rewards. */
+
+/* The previous tiny record pill was easy to miss; round3 mirrors record events
+   into the larger reward burst instead. */
+.record-toast { display: none !important; }
+
+.reward-burst {
+  position: absolute;
+  z-index: 80;
+  top: calc(max(14px, env(safe-area-inset-top)) + 64px);
+  left: 50%;
+  width: min(calc(100% - 34px), 360px);
+  padding: 13px 17px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 18px;
+  background: rgba(13,14,24,.96);
+  box-shadow: 0 20px 55px rgba(0,0,0,.46), 0 0 36px color-mix(in srgb, var(--game-accent-2) 18%, transparent);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -12px) scale(.96);
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1);
+}
+.reward-burst.is-visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.reward-burst strong {
+  display: block;
+  color: var(--game-accent-2);
+  font-size: 13px;
+  font-weight: 1000;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.reward-burst span {
+  display: block;
+  margin-top: 4px;
+  color: white;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.like-button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 14px;
+  background: rgba(255,255,255,.055);
+  color: rgba(255,255,255,.78);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.like-button.is-liked {
+  border-color: color-mix(in srgb, #ff5f86 52%, white 8%);
+  background: color-mix(in srgb, #ff5f86 17%, rgba(255,255,255,.045));
+  color: #ff89a6;
+}
+
+/* Directional Bus Jam */
+.bus-escape-game {
+  align-content: center;
+  gap: 7px;
+  padding: 5px 7px;
+}
+.bus-escape-label {
+  width: min(100%, 330px);
+  color: rgba(255,255,255,.46);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .14em;
+}
+.bus-escape-passengers {
+  width: min(100%, 330px);
+  min-height: 42px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 5px 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 13px;
+  background: rgba(255,255,255,.025);
+}
+.bus-escape-person {
+  --person-color: #fff;
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 31px;
+  opacity: .72;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.28));
+  transition: transform .15s ease, opacity .15s ease;
+}
+.bus-escape-person::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 7px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--person-color);
+}
+.bus-escape-person::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  bottom: 0;
+  width: 17px;
+  height: 19px;
+  border-radius: 9px 9px 5px 5px;
+  background: var(--person-color);
+}
+.bus-escape-person.is-next {
+  opacity: 1;
+  transform: scale(1.17);
+  margin-right: 5px;
+}
+.bus-escape-person.is-next::before,
+.bus-escape-person.is-next::after {
+  box-shadow: 0 0 13px color-mix(in srgb, var(--person-color) 55%, transparent);
+}
+
+.bus-escape-parking {
+  width: min(100%, 330px);
+  min-height: 38px;
+  display: flex;
+  gap: 7px;
+}
+.bus-escape-slot {
+  --bus-color: transparent;
+  width: 52px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255,255,255,.13);
+  border-radius: 10px;
+  color: rgba(255,255,255,.7);
+  font-size: 17px;
+  font-weight: 1000;
+}
+.bus-escape-slot.is-filled {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--bus-color) 55%, white 7%);
+  background: color-mix(in srgb, var(--bus-color) 58%, #11131b);
+  color: white;
+}
+
+.bus-escape-tip {
+  width: min(100%, 330px);
+  color: rgba(255,255,255,.64);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+.bus-escape-board {
+  --bus-grid-size: 3;
+  width: min(76vw, 310px);
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--bus-grid-size), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--bus-grid-size), minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 21px;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+    rgba(255,255,255,.025);
+  background-size: calc(100% / var(--bus-grid-size)) calc(100% / var(--bus-grid-size));
+  overflow: hidden;
+}
+.bus-escape-bus {
+  --bus-color: #ff6678;
+  position: relative;
+  align-self: center;
+  justify-self: center;
+  width: 90%;
+  height: 62%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--bus-color) 65%, white 12%);
+  border-radius: 10px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--bus-color) 88%, white 8%), var(--bus-color));
+  color: white;
+  box-shadow: 0 7px 13px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.24);
+  cursor: pointer;
+  transition: transform .15s ease, opacity .15s ease, filter .15s ease;
+  overflow: hidden;
+}
+.bus-escape-bus.dir-up,
+.bus-escape-bus.dir-down { width: 62%; height: 90%; }
+.bus-escape-bus strong {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(20px, 6vw, 30px);
+  line-height: 1;
+  text-shadow: 0 2px 5px rgba(0,0,0,.35);
+}
+.bus-windows {
+  position: absolute;
+  inset: 7px;
+  display: flex;
+  gap: 3px;
+  opacity: .42;
+}
+.bus-windows i {
+  flex: 1;
+  border-radius: 3px;
+  background: rgba(15,23,42,.72);
+}
+.dir-up .bus-windows,
+.dir-down .bus-windows { flex-direction: column; }
+.bus-escape-bus.is-free { filter: brightness(1.04); }
+.bus-escape-bus.is-hint {
+  box-shadow: 0 0 0 3px rgba(255,255,255,.7), 0 0 22px color-mix(in srgb, var(--bus-color) 60%, transparent);
+  animation: busHint 1s ease-in-out infinite alternate;
+}
+.bus-escape-bus.is-blocked { animation: busBlocked .24s ease; }
+.bus-escape-bus.dir-up.is-exiting { transform: translateY(-150%); opacity: 0; }
+.bus-escape-bus.dir-down.is-exiting { transform: translateY(150%); opacity: 0; }
+.bus-escape-bus.dir-left.is-exiting { transform: translateX(-150%); opacity: 0; }
+.bus-escape-bus.dir-right.is-exiting { transform: translateX(150%); opacity: 0; }
+.bus-escape-status {
+  width: min(100%, 330px);
+  color: rgba(255,255,255,.55);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
+@keyframes busBlocked {
+  0%,100% { transform: translateX(0); }
+  30% { transform: translateX(-6px); }
+  65% { transform: translateX(6px); }
+}
+@keyframes busHint {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.18); }
+}
+
+@media (max-height: 720px) {
+  .bus-escape-board { width: min(62vw, 250px); }
+  .bus-escape-passengers { min-height: 36px; }
+  .bus-escape-person { transform: scale(.9); transform-origin: bottom; }
+  .bus-escape-person.is-next { transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reward-burst,
+  .bus-escape-bus,
+  .bus-escape-person { transition: none; animation: none; }
+}

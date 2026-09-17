@@ -1,0 +1,94 @@
+/* Phone playtest tuning: larger snake controls and tactile Match-3 motion. */
+
+.snake-game-phone {
+  gap: 9px;
+  padding-inline: 6px;
+}
+
+/* Shrink the board slightly so bigger controls still fit above the game copy on
+   iPhone-sized viewports. The playtest showed the old control row clipping. */
+.snake-game-phone .snake-grid {
+  width: min(66vw, 242px);
+}
+
+.snake-controls-phone {
+  width: min(78vw, 272px);
+  gap: 8px;
+}
+
+.snake-controls-phone .snake-control {
+  min-height: 58px;
+  border-radius: 17px;
+  font-size: 28px;
+  touch-action: manipulation;
+  box-shadow: inset 0 1px rgba(255,255,255,.06);
+}
+
+.snake-controls-phone .snake-control:active {
+  transform: scale(.92);
+  background: color-mix(in srgb, var(--game-accent-2) 22%, rgba(255,255,255,.06));
+}
+
+.snake-game-phone .snake-status {
+  min-height: 16px;
+}
+
+.match-game-phone {
+  gap: 8px;
+}
+
+.match-hint {
+  margin-top: -2px;
+  color: rgba(255,255,255,.48);
+  font-size: 10px;
+  font-weight: 750;
+  text-align: center;
+  letter-spacing: .02em;
+}
+
+.match-game-phone .match-grid {
+  touch-action: none;
+}
+
+.match-game-phone .match-cell {
+  position: relative;
+  will-change: transform, opacity, filter;
+  transition:
+    transform .13s cubic-bezier(.2,.85,.25,1),
+    opacity .15s ease,
+    filter .15s ease,
+    background .12s ease,
+    outline-color .1s ease;
+}
+
+.match-cell.is-swapping {
+  z-index: 4;
+  transform: translate(var(--swap-x, 0), var(--swap-y, 0)) scale(1.04);
+  filter: brightness(1.25);
+}
+
+.match-cell.is-clearing {
+  transform: scale(.42) rotate(10deg);
+  opacity: .15;
+  filter: brightness(1.7);
+}
+
+.match-cell.is-dropping {
+  animation: matchDrop .15s cubic-bezier(.2,.8,.25,1);
+}
+
+@keyframes matchDrop {
+  from { transform: translateY(-14px) scale(.92); opacity: .45; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@media (max-width: 390px) {
+  .snake-game-phone .snake-grid { width: min(64vw, 228px); }
+  .snake-controls-phone { width: min(80vw, 258px); }
+  .snake-controls-phone .snake-control { min-height: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-cell.is-dropping { animation: none; }
+  .match-game-phone .match-cell { transition-duration: .001ms; }
+}

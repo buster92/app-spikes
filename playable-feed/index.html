@@ -10,31 +10,90 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./interaction-fixes.css">
+  <link rel="stylesheet" href="./ux-feedback.css">
+  <link rel="stylesheet" href="./expansion.css">
+  <link rel="stylesheet" href="./playtest-tuning.css">
+  <link rel="stylesheet" href="./playtest-round2.css">
+  <link rel="stylesheet" href="./round3.css">
+  <link rel="stylesheet" href="./bus-feedback.css">
   <title>Playloop — playable feed spike</title>
+  <script>
+    (() => {
+      const key = "playloop.events.v1";
+      const maxEvents = 2500;
+      const safeRead = () => {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || "[]");
+          return Array.isArray(value) ? value : [];
+        } catch {
+          return [];
+        }
+      };
+      const writeError = (name, payload = {}) => {
+        try {
+          const events = safeRead();
+          const currentSession = [...events].reverse().find((event) => event?.name === "session_start" && event?.session_id)?.session_id || null;
+          events.push({
+            schema: 1,
+            name,
+            event_id: `evt_error_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            session_id: currentSession,
+            ts: new Date().toISOString(),
+            page_url: location.href,
+            user_agent: navigator.userAgent,
+            ...payload,
+          });
+          localStorage.setItem(key, JSON.stringify(events.slice(-maxEvents)));
+        } catch {
+          // Error logging must never make a broken game fail harder.
+        }
+      };
+
+      window.addEventListener("error", (event) => {
+        writeError("client_error", {
+          message: String(event.message || "Unknown error"),
+          source: event.filename || null,
+          line: event.lineno || null,
+          column: event.colno || null,
+          stack: event.error?.stack ? String(event.error.stack).slice(0, 4000) : null,
+        });
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        const reason = event.reason;
+        writeError("client_unhandled_rejection", {
+          message: reason?.message ? String(reason.message) : String(reason ?? "Unknown rejection"),
+          stack: reason?.stack ? String(reason.stack).slice(0, 4000) : null,
+        });
+      });
+    })();
+  </script>
 </head>
 <body>
   <main id="appShell" class="app-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">P</span><span>PLAYLOOP</span></div>
       <div class="top-actions">
-        <span id="streakLabel" class="streak" aria-live="polite"></span>
-        <span id="xpLabel" class="xp-pill">0 XP</span>
-        <button id="statsButton" class="icon-button" type="button" aria-label="Open playtest analytics">↗</button>
+        <span id="streakLabel" class="streak" aria-live="polite" aria-label="Current streak"></span>
+        <span id="xpLabel" class="xp-pill" aria-label="Current XP">0 XP</span>
+        <button id="statsButton" class="icon-button stats-button" type="button" aria-label="Open playtest stats">Stats</button>
       </div>
     </header>
+
+    <div id="recordToast" class="record-toast" aria-live="polite" hidden>NEW BEST</div>
 
     <section id="feedStage" class="feed-stage" aria-label="Playable game feed">
       <article id="gameCard" class="game-card">
         <div class="game-meta-row">
           <span id="gameCategory" class="category-pill">REACTION</span>
-          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/11</span></div>
+          <div class="meta-right"><span id="difficultyLabel">LV 1</span><span id="feedProgress">1/16</span></div>
         </div>
 
         <div id="gameHost" class="game-host" aria-live="polite"></div>
 
         <div class="game-copy">
           <div class="title-row"><h1 id="gameTitle">Tap Rush</h1><span id="cycleLabel">SET 1</span></div>
-          <p id="gameInstruction">Hit every target before time runs out</p>
+          <p id="gameInstruction">Hit every target before the visible timer runs out</p>
         </div>
 
         <div id="resultOverlay" class="result-overlay" hidden>
@@ -42,6 +101,11 @@
             <span id="resultWord" class="result-word">NICE</span>
             <strong id="resultScore" class="result-score">+80 XP</strong>
             <span id="resultDetail" class="result-detail">Clean run</span>
+            <div class="swipe-continue" aria-hidden="true">
+              <span class="swipe-continue-arrow">↑</span>
+              <span>Swipe up for next game</span>
+              <small>or retry this one</small>
+            </div>
             <div class="result-actions">
               <button id="retryButton" class="secondary-button" type="button">Retry</button>
               <button id="nextButton" class="primary-button" type="button">Next ↑</button>
@@ -59,9 +123,9 @@
         <p class="eyebrow">PLAYABLE FEED SPIKE</p>
         <h2>Swipe. Play. Repeat.</h2>
         <p>Every card is a tiny game. No login, no tutorial, no waiting.</p>
-        <div class="onboarding-chips"><span>11 mechanics</span><span>Endless variants</span><span>Behavior logging</span></div>
+        <div class="onboarding-chips"><span>16 mechanics</span><span>Local records</span><span>Behavior logging</span></div>
         <button id="startButton" class="primary-button start-button" type="button">Start playing</button>
-        <small>Playtest events stay on this device until you export them.</small>
+        <small>Event logs can be exported or cleared. Personal records and liked games stay on this device.</small>
       </div>
     </div>
 
@@ -73,13 +137,19 @@
         <button id="closeStats" class="icon-button" type="button" aria-label="Close analytics">×</button>
       </div>
       <div id="statsBody" class="stats-grid"></div>
-      <p class="privacy-note">Events include game impressions, first interaction, outcomes, skips, retries, swipe behavior, difficulty changes and timing. No account or personal profile is collected.</p>
+      <section class="records-section" aria-labelledby="recordsHeading">
+        <p class="eyebrow">PERSONAL RECORDS</p>
+        <h3 id="recordsHeading">Your best run</h3>
+        <div id="recordsBody" class="records-grid"></div>
+      </section>
+      <p class="privacy-note">Events include game impressions, first interaction, outcomes, likes, skips, retries, swipe behavior, difficulty changes, reward/record milestones, timing, and client runtime errors. No account or personal profile is collected.</p>
       <div class="sheet-actions">
         <button id="exportButton" class="primary-button" type="button">Export JSON</button>
-        <button id="clearButton" class="secondary-button" type="button">Clear local data</button>
+        <button id="clearButton" class="secondary-button" type="button">Clear event log</button>
       </div>
     </aside>
   </main>
-  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/bootstrap.js"></script>
+  <script type="module" src="./ux-feedback.js"></script>
 </body>
 </html>
