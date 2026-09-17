@@ -8,10 +8,6 @@ export const HOST_EFFECT_LIMITS = Object.freeze({
   spawn: 128,
 });
 
-function hasTag(entity, tag) {
-  return Boolean(tag) && entity?.tags?.includes(tag);
-}
-
 function overlaps(a, b) {
   if (!a || !b) return false;
   if (a.kind === "circle" && b.kind === "circle") {
@@ -120,36 +116,6 @@ export class SafeSandboxRuntime extends SandboxRuntime {
       }
     }
     this.lastCollisions = current;
-  }
-
-  normalizeRuleEvent(rule, type, event) {
-    if (type !== "collision" || !rule?.aTag || !rule?.bTag) return event;
-    const a = this.entities.get(event.a);
-    const b = this.entities.get(event.b);
-    const direct = hasTag(a, rule.aTag) && hasTag(b, rule.bTag);
-    if (direct) return event;
-    const reverse = hasTag(a, rule.bTag) && hasTag(b, rule.aTag);
-    return reverse ? { ...event, a: event.b, b: event.a } : event;
-  }
-
-  dispatch(type, event) {
-    if (this.status !== "running") return;
-    this.onEvent({ type, elapsedMs: this.elapsedMs, ...event });
-
-    for (const rule of this.spec.rules || []) {
-      if (this.status !== "running") return;
-      const normalizedEvent = this.normalizeRuleEvent(rule, type, event);
-
-      if (typeof this.matchEventForRule === "function") {
-        const matchedEvent = this.matchEventForRule(rule, type, normalizedEvent);
-        if (!matchedEvent) continue;
-        this.executeActions(rule.actions, matchedEvent);
-        continue;
-      }
-
-      if (typeof this.ruleMatches !== "function" || !this.ruleMatches(rule, type, normalizedEvent)) continue;
-      this.executeActions(rule.actions, normalizedEvent);
-    }
   }
 
   step(deltaMs) {
