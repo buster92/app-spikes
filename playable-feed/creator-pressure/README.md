@@ -68,7 +68,7 @@ From `playable-feed`:
 
 ```bash
 npm run pressure:v3:cases
-npm run pressure:v3 -- creator-pressure/v3-cases.json path/to/submissions
+npm run pressure:v3 -- path/to/submissions
 ```
 
 The second command accepts one or more JSON files or directories. A JSON file may contain one submission envelope or an array of envelopes.
