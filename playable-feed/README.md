@@ -141,6 +141,24 @@ The first creator framework should be constrained and declarative. AI should gen
 
 The full hypothesis and proposed validation order are documented in [`CREATOR-NETWORK-HYPOTHESIS.md`](./CREATOR-NETWORK-HYPOTHESIS.md).
 
+## GameSpec sandbox v0
+
+A first portable sandbox now exists on the `feature/gamespec-sandbox-v0` workstream. It deliberately separates game content from application code so the same model can later move into Kotlin Multiplatform.
+
+The prototype includes:
+
+- a machine-readable [`GameSpec v0 JSON Schema`](./sandbox/game-spec-v0.schema.json)
+- bounded runtime validation and package-size profiling
+- a DOM-free rules/runtime core with deterministic random, timers, entity movement, collisions and input events
+- a thin Canvas adapter for web
+- a zero-asset example game loaded from JSON at runtime
+- a standalone [`sandbox-demo.html`](./sandbox-demo.html) proving a game can execute without being compiled into the existing 16-game registry
+- local tests for validation, deterministic execution, completion and collision behavior
+
+The current instant tier caps a GameSpec at 16 KB and declared assets at 256 KB, with a 300 KB combined instant-play threshold. Games cannot execute arbitrary JavaScript, access the network/DOM/storage, or invoke social/payment APIs. Assets are designed to use trusted content-addressed references and the social shell remains responsible for likes, comments, follows, challenges and tips.
+
+The sandbox contract, moderation path, lightweight package strategy and KMP mapping are documented in [`sandbox/GAMESPEC-V0.md`](./sandbox/GAMESPEC-V0.md).
+
 ## Expansion gate
 
 Do **not** immediately build 20+ additional mechanics, accounts, publishing infrastructure, global leaderboards, remote analytics, ranking/personalization, downloadable content or a creator backend.
@@ -151,6 +169,6 @@ The next gates are:
 2. repeat sessions appear, not just one long novelty session
 3. likes/telemetry reveal which mechanics actually carry the feed
 4. a cheap passive-preview experiment shows lower-fatigue consumption can extend sessions
-5. a tiny declarative GameSpec can generate useful variations for 2–3 existing mechanics
+5. use the GameSpec sandbox to have an external AI generate several genuinely different games without touching Playloop source code
 
 Only after those signals should the spike become a platform.
