@@ -1,3 +1,5 @@
+import { ExperimentRegistry } from "./experiments.js";
+
 const EVENTS_KEY = "playloop.events.v1";
 const USER_KEY = "playloop.anon.v1";
 const RECORDS_KEY = "playloop.records.v1";
@@ -37,6 +39,10 @@ export class Analytics {
     this.sequence = 0;
     this.events = readJson(EVENTS_KEY, []);
     if (!Array.isArray(this.events)) this.events = [];
+    this.experiments = new ExperimentRegistry({
+      identity: this.anonId,
+      search: globalThis.location?.search || "",
+    });
     this.log("session_start", {
       referrer: document.referrer || null,
       viewport_w: window.innerWidth,
@@ -59,6 +65,7 @@ export class Analytics {
 
   log(name, properties = {}) {
     this.syncFromStorage();
+    const experimentContext = this.experiments?.context?.() || {};
     const event = {
       schema: 1,
       name,
@@ -69,6 +76,7 @@ export class Analytics {
       ts: new Date().toISOString(),
       session_ms: Math.round(performance.now() - this.sessionPerfStart),
       ...properties,
+      ...(Object.keys(experimentContext).length ? { experiment_context: experimentContext } : {}),
     };
 
     this.events.push(event);
@@ -81,6 +89,14 @@ export class Analytics {
       console.debug("[playloop]", name, event);
     }
     return event;
+  }
+
+  experimentVariant(experimentId, properties = {}) {
+    return this.experiments.expose(
+      experimentId,
+      (name, eventProperties) => this.log(name, eventProperties),
+      properties,
+    );
   }
 
   recent(limit = 100) {
@@ -124,6 +140,7 @@ export class Analytics {
       schema: 1,
       product: "playable-feed-spike",
       summary: this.summary(),
+      experiment_context: this.experiments.context(),
       personal_records: readJson(RECORDS_KEY, null),
       liked_games: readJson(LIKES_KEY, {}),
       events: this.events,
