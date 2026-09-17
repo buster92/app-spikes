@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "runtime": "playloop-2d-v2",
+  "gameId": "pattern-echo-v2",
+  "seed": 42,
+  "durationMs": 3650,
+  "inputs": [
+    { "atMs": 2900, "type": "tap", "x": 105, "y": 220 },
+    { "atMs": 3150, "type": "tap", "x": 255, "y": 370 },
+    { "atMs": 3400, "type": "tap", "x": 255, "y": 220 },
+    { "atMs": 3650, "type": "tap", "x": 105, "y": 370 }
+  ],
+  "captureAtMs": [0, 2700, 3650]
+}
