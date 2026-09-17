@@ -143,9 +143,13 @@ function validateCollectionRead(expression, collectionNames, path, errors) {
   }
 }
 
-function walkExpressions(value, collectionNames, path, errors) {
+function walkExpressions(value, collectionNames, path, errors, depth = 0) {
+  if (depth > HARD_LIMITS.maxExpressionDepth) {
+    errors.push(`${path}: expression is too deeply nested`);
+    return;
+  }
   if (Array.isArray(value)) {
-    value.forEach((item, index) => walkExpressions(item, collectionNames, `${path}[${index}]`, errors));
+    value.forEach((item, index) => walkExpressions(item, collectionNames, `${path}[${index}]`, errors, depth + 1));
     return;
   }
   if (!isObject(value)) return;
@@ -153,11 +157,13 @@ function walkExpressions(value, collectionNames, path, errors) {
     validateCollectionRead(value, collectionNames, path, errors);
     const read = value.collection;
     if (read?.op === "at" && Object.hasOwn(read, "index")) {
-      walkExpressions(read.index, collectionNames, `${path}.collection.index`, errors);
+      walkExpressions(read.index, collectionNames, `${path}.collection.index`, errors, depth + 1);
     }
     return;
   }
-  for (const [key, child] of Object.entries(value)) walkExpressions(child, collectionNames, `${path}.${key}`, errors);
+  for (const [key, child] of Object.entries(value)) {
+    walkExpressions(child, collectionNames, `${path}.${key}`, errors, depth + 1);
+  }
 }
 
 function validateCollectionAction(action, type, collectionNames, path, errors) {
