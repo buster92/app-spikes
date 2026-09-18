@@ -25,7 +25,9 @@ export class SocialService {
     const profile = state.profiles.find((item) => item.id === profileId);
     if (!profile) throw new SocialDomainError("unknown_profile", `Unknown profile ${profileId}`);
     const actorId = this.actorId();
-    const posts = state.posts.filter((post) => post.creatorId === profileId && post.status === "published");
+    const posts = state.posts
+      .filter((post) => post.creatorId === profileId && post.status === "published")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
     const followers = new Set(state.follows.filter((follow) => follow.followedId === profileId).map((follow) => follow.followerId)).size;
     return { profile, posts, followers, following: state.follows.some((follow) => follow.followerId === actorId && follow.followedId === profileId) };
   }
@@ -34,6 +36,15 @@ export class SocialService {
     const post = this.state().posts.find((item) => item.id === postId);
     if (!post) throw new SocialDomainError("unknown_post", `Unknown or deleted post ${postId}`);
     return post;
+  }
+
+  challenge(challengeId) {
+    const state = this.state();
+    const challenge = state.challenges.find((item) => item.id === challengeId);
+    if (!challenge) throw new SocialDomainError("invalid_challenge", "Challenge no longer exists");
+    const source = state.posts.find((item) => item.id === challenge.sourcePostId);
+    if (!source || !samePlayableRef(source.playableRef, challenge.playableRef)) throw new SocialDomainError("playable_mismatch", "Challenge playable no longer matches its source post");
+    return challenge;
   }
 
   feed(scope = "discover") {
@@ -113,7 +124,7 @@ export class SocialService {
     }
     if (targetActorId && !state.profiles.some((profile) => profile.id === targetActorId)) throw new SocialDomainError("unknown_profile", "Challenge target is unknown");
     if (targetActorId === this.actorId()) throw new SocialDomainError("invalid_challenge_actor", "You cannot challenge yourself");
-    const challenge = { id: this.idFactory("challenge"), challengerId: this.actorId(), targetActorId, sourcePostId: postId, playableRef: post.playableRef, challengerResultId: resultId, responseResultId: null, state: "open", createdAt: this.now() };
+    const challenge = { id: this.idFactory("challenge"), challengerId: this.actorId(), targetActorId, responderActorId: null, sourcePostId: postId, playableRef: post.playableRef, challengerResultId: resultId, responseResultId: null, state: "open", createdAt: this.now() };
     const transaction = this.repository.transaction((draft) => draft.challenges.push(challenge));
     this.log("social_challenge_created", { challenge_id: challenge.id, post_id: postId, game_id: post.playableRef.gameId, targeted: Boolean(targetActorId), verification: result.verification });
     return { challenge, persisted: transaction.persisted };
@@ -121,24 +132,26 @@ export class SocialService {
 
   challenges() {
     const actorId = this.actorId();
-    return this.state().challenges.filter((challenge) => challenge.challengerId === actorId || challenge.targetActorId === actorId || challenge.targetActorId === null).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return this.state().challenges
+      .filter((challenge) => challenge.challengerId === actorId
+        || challenge.targetActorId === actorId
+        || challenge.responderActorId === actorId
+        || (challenge.state === "open" && challenge.targetActorId === null))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   }
 
   challengeCapabilities(challenge) {
     const actorId = this.actorId();
     const isOutbound = challenge.challengerId === actorId;
     const isInbound = challenge.targetActorId === actorId;
-    const isOpenAvailable = challenge.targetActorId === null && !isOutbound;
+    const isResponder = challenge.responderActorId === actorId;
+    const isOpenAvailable = challenge.state === "open" && challenge.targetActorId === null && !isOutbound;
     const canRespond = challenge.state === "open" && !isOutbound && (isInbound || isOpenAvailable);
-    return { isOutbound, isInbound, isOpenAvailable, canRespond, canCancel: challenge.state === "open" && isOutbound, canViewOutcome: challenge.state === "completed" };
+    return { isOutbound, isInbound, isResponder, isOpenAvailable, canRespond, canCancel: challenge.state === "open" && isOutbound, canViewOutcome: challenge.state === "completed" && (isOutbound || isInbound || isResponder) };
   }
 
   openChallenge(challengeId) {
-    const state = this.state();
-    const challenge = state.challenges.find((item) => item.id === challengeId);
-    if (!challenge) throw new SocialDomainError("invalid_challenge", "Challenge no longer exists");
-    const post = state.posts.find((item) => item.id === challenge.sourcePostId);
-    if (!post || !samePlayableRef(post.playableRef, challenge.playableRef)) throw new SocialDomainError("playable_mismatch", "Challenge playable no longer matches its source post");
+    const challenge = this.challenge(challengeId);
     this.log("social_challenge_opened", { challenge_id: challengeId, state: challenge.state, game_id: challenge.playableRef.gameId });
     return challenge;
   }
@@ -160,7 +173,7 @@ export class SocialService {
     const comparison = compareResults(post.resultPolicy, response, challenger);
     const transaction = this.repository.transaction((draft) => {
       const item = draft.challenges.find((entry) => entry.id === challengeId);
-      if (item.targetActorId === null) item.targetActorId = response.actorId;
+      item.responderActorId = response.actorId;
       item.responseResultId = responseResultId;
       item.state = "completed";
     });
@@ -169,7 +182,7 @@ export class SocialService {
   }
 
   cancelChallenge(challengeId) {
-    const challenge = this.openChallenge(challengeId);
+    const challenge = this.challenge(challengeId);
     if (!this.challengeCapabilities(challenge).canCancel) throw new SocialDomainError("invalid_challenge_actor", "Only the challenger can cancel an open challenge");
     const transaction = this.repository.transaction((draft) => { draft.challenges.find((item) => item.id === challengeId).state = "cancelled"; });
     this.log("social_challenge_cancelled", { challenge_id: challengeId, post_id: challenge.sourcePostId });
