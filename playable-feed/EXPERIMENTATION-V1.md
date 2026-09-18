@@ -24,6 +24,8 @@ Rules:
 8. Creator GameSpecs cannot select, read, or affect product experiment assignment.
 9. Once an experiment has produced real exposures, its id, variant set, and weights are immutable. Material changes require a new experiment id; changing weights under the same id can move an existing anonymous identity to a different variant.
 10. Surface metadata cannot override canonical exposure or analytics-envelope fields; reserved keys are stripped before logging.
+11. Active exposure records are retention-protected for the current session. Rolling event truncation and local event-history clearing must keep the canonical exposure record while downstream events continue to carry that experiment context.
+12. Product-shell event writers must use the central analytics pipeline after startup so experiment context, session identity, retention limits, and attribution rules are applied consistently. Pre-startup crash logging may use the minimal fallback because no experiment can have been exposed yet.
 
 Example integration:
 
