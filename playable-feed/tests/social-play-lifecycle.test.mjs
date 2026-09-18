@@ -33,4 +33,6 @@ test("runtime callbacks buffer before start and never turn runtime faults into n
   assert.equal(runtimeCallbackDisposition({ activePlay: play, play, runtimeStarted: true, kind: "error" }), "handle");
   assert.equal(runtimeCallbackDisposition({ activePlay: play, play, runtimeStarted: true, runtimeFailureLogged: true, kind: "finish" }), "ignore");
   assert.equal(runtimeCallbackDisposition({ activePlay: {}, play, runtimeStarted: true, kind: "finish" }), "ignore");
+  assert.equal(runtimeCallbackDisposition({ activePlay: play, play, runtimeStarted: true, finished: true, kind: "error" }), "ignore");
+  assert.equal(runtimeCallbackDisposition({ activePlay: play, play, runtimeStarted: true, finished: true, kind: "finish" }), "ignore");
 });
