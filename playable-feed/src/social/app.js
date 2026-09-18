@@ -149,13 +149,13 @@ async function mountActivePlayable() {
   try {
     const controller = await playableHost.mount(canvas, source.playableRef, source.resultPolicy, {
       onError: (error) => {
-        const disposition = runtimeCallbackDisposition({ activePlay: ui.play, play, runtimeStarted: play.runtimeStarted, runtimeFailureLogged: play.runtimeFailureLogged, kind: "error" });
+        const disposition = runtimeCallbackDisposition({ activePlay: ui.play, play, runtimeStarted: play.runtimeStarted, runtimeFailureLogged: play.runtimeFailureLogged, finished: play.finished, kind: "error" });
         if (disposition === "ignore") return;
         if (disposition === "buffer") { play.pendingRuntimeError ||= error; return; }
         reportRuntimeFailure(play, source, status, error);
       },
       onFinish: (normalized, snapshot) => {
-        const disposition = runtimeCallbackDisposition({ activePlay: ui.play, play, runtimeStarted: play.runtimeStarted, runtimeFailureLogged: play.runtimeFailureLogged, kind: "finish" });
+        const disposition = runtimeCallbackDisposition({ activePlay: ui.play, play, runtimeStarted: play.runtimeStarted, runtimeFailureLogged: play.runtimeFailureLogged, finished: play.finished, kind: "finish" });
         if (disposition === "ignore") return;
         if (disposition === "buffer") { play.pendingFinish ||= { normalized, snapshot }; return; }
         finishPlay(play, normalized, snapshot);
