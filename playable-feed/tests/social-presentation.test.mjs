@@ -66,7 +66,7 @@ test("challenge presentation distinguishes pending outbound and completed open r
     policy: source.resultPolicy, comparison: null,
     capabilities: { isOutbound: true, canRespond: false, canViewOutcome: false },
   });
-  assert.equal(outbound.status, "@"+target.handle === outbound.status ? outbound.status : `Waiting for @${target.handle}`);
+  assert.equal(outbound.status, `Waiting for @${target.handle}`);
   assert.equal(outbound.canPlay, false);
 
   const completedOpen = challengePresentation({
