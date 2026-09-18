@@ -19,21 +19,36 @@ const ATTRIBUTION_EVENTS = new Set([
   ...LOAD_RENDER_ERROR_EVENTS,
 ]);
 
-function eventOrderValue(event) {
-  if (event?.session_ms != null) {
-    const sessionMs = Number(event.session_ms);
-    if (Number.isFinite(sessionMs)) return sessionMs;
-  }
-  const timestamp = Date.parse(event?.ts || "");
-  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+function finiteNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function validTimestamp(value) {
+  const timestamp = Date.parse(value || "");
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function compareEvents(a, b) {
-  const byTime = eventOrderValue(a) - eventOrderValue(b);
-  if (byTime !== 0) return byTime;
-  const aSequence = Number(a?.sequence);
-  const bSequence = Number(b?.sequence);
-  if (Number.isFinite(aSequence) && Number.isFinite(bSequence)) return aSequence - bSequence;
+  const aSequence = finiteNumber(a?.sequence);
+  const bSequence = finiteNumber(b?.sequence);
+  if (aSequence != null && bSequence != null && aSequence !== bSequence) {
+    return aSequence - bSequence;
+  }
+
+  const aSessionMs = finiteNumber(a?.session_ms);
+  const bSessionMs = finiteNumber(b?.session_ms);
+  if (aSessionMs != null && bSessionMs != null && aSessionMs !== bSessionMs) {
+    return aSessionMs - bSessionMs;
+  }
+
+  const aTimestamp = validTimestamp(a?.ts);
+  const bTimestamp = validTimestamp(b?.ts);
+  if (aTimestamp != null && bTimestamp != null && aTimestamp !== bTimestamp) {
+    return aTimestamp - bTimestamp;
+  }
+
   const byReportOrder = String(a?.__report_order || "").localeCompare(String(b?.__report_order || ""));
   if (byReportOrder !== 0) return byReportOrder;
   return String(a?.event_id || "").localeCompare(String(b?.event_id || ""));
@@ -147,11 +162,12 @@ function exposureGroups(events, experimentId) {
 }
 
 function sessionResult(sessionId, exposure, sessionEvents, experimentId, variantId) {
-  const exposureOrder = eventOrderValue(exposure);
-  const attributed = sessionEvents
-    .filter((event) => eventOrderValue(event) >= exposureOrder)
-    .filter((event) => matchesContext(event, experimentId, variantId))
-    .sort(compareEvents);
+  const exposureIndex = sessionEvents.indexOf(exposure);
+  const afterExposure = exposureIndex >= 0
+    ? sessionEvents.slice(exposureIndex + 1)
+    : sessionEvents;
+  const attributed = afterExposure
+    .filter((event) => matchesContext(event, experimentId, variantId));
 
   const feedStarted = firstByName(attributed, "feed_started");
   const firstInteraction = firstByName(attributed, "game_first_interaction");
@@ -169,9 +185,6 @@ function sessionResult(sessionId, exposure, sessionEvents, experimentId, variant
   const loadRenderError = attributed.some((event) => LOAD_RENDER_ERROR_EVENTS.has(event?.name));
   const gamesSeen = attributed.filter((event) => event?.name === "game_impression").length;
 
-  const afterExposure = sessionEvents
-    .filter((event) => eventOrderValue(event) >= exposureOrder)
-    .sort(compareEvents);
   const unattributedMetricEvents = afterExposure.filter(
     (event) => ATTRIBUTION_EVENTS.has(event?.name) && !matchesContext(event, experimentId, variantId),
   );
