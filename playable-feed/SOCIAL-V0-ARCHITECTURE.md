@@ -68,7 +68,7 @@ Likes and follows are unique actor/object relationships. `setLike` and `setFollo
 
 ### Challenge
 
-A challenge captures challenger, optional target/open semantics, source post, exact `PlayableRef`, challenger result, optional response result, state and time. Completing it requires:
+A challenge captures challenger, optional target/open semantics, an explicit responder once completed, source post, exact `PlayableRef`, challenger result, optional response result, state and time. Target and responder are distinct: an open challenge may have no target but still records who eventually answered it. Completing it requires:
 
 1. an open challenge;
 2. a response from the expected actor;
@@ -78,7 +78,7 @@ A challenge captures challenger, optional target/open semantics, source post, ex
 
 Challenge creation has the symmetric binding: its result must belong to the challenger, be completed, name the exact source post and match every `PlayableRef` field. Another post's result is rejected even when it uses the same playable revision and seed.
 
-The local UI can simulate the targeted actor for an outbound challenge so the asynchronous state machine can be exercised on one device. This is clearly local behavior, not messaging, delivery or server verification.
+The local UI never impersonates the target of an outbound challenge. Outbound challenges remain pending/cancellable in v0. A deterministic seeded inbound challenge exercises the responder path using the actual local actor; delivery and remote response require a future backend/authenticated recipient.
 
 ## Trusted shell versus GameSpec
 
@@ -119,7 +119,7 @@ Recommendation ranking is intentionally replaceable at `SocialService.feed`; no 
 
 The v0 flow is approved catalog → exact preview/run → completed benchmark → bounded caption → publication. Publishing rejects unknown playables, missing/wrong/failed benchmarks and invalid post data. It stores the approved immutable ref, never arbitrary pasted GameSpec or JavaScript.
 
-The preview attempt remains attached to the source post where it actually ran. Publication creates a new benchmark record for the new post with `sourceResultId` pointing to that attempt. This preserves provenance while ensuring the published benchmark belongs to its own post.
+The preview run is a transient bounded `PlayAttempt`, not a social result and not attached to any existing post. Publication revalidates that trusted local attempt, then atomically creates the new post and its post-owned benchmark `PlayResult`.
 
 Bundled catalog hashes were produced by the existing `buildPublicationEnvelope` path. `PlayableHost` recomputes them before each execution, so changing a fixture without updating trusted refs visibly fails instead of silently changing a challenge.
 
@@ -128,9 +128,9 @@ Bundled catalog hashes were produced by the existing `buildPublicationEnvelope` 
 Social modules receive the existing `Analytics` instance and call its central `log` method. They never write the analytics event store. Events include:
 
 - `social_feed_viewed`, `social_feed_scope_changed`, `social_post_impression`;
-- `social_post_play_started`, `social_post_play_result`;
+- `social_post_play_requested`, `social_post_play_started`, `social_post_play_failed`, `social_post_play_result`;
 - `social_like_changed`, `social_follow_changed`, `social_profile_opened`;
-- `social_challenge_created`, `social_challenge_opened`, `social_challenge_completed`;
+- `social_challenge_created`, `social_challenge_opened`, `social_challenge_completed`, `social_challenge_cancelled`;
 - `social_publish_started`, `social_publish_completed`, `social_publish_failed`.
 
 Metadata is ids, booleans, policy/runtime types and bounded status values. Captions, arbitrary creator text and GameSpecs are excluded. Because events use the central pipeline, active experiment context propagates automatically.
@@ -163,9 +163,9 @@ Create first records a transient bounded benchmark attempt directly against an a
 
 Transient publication attempts have their own bounded contract and contain no result/post identity. Publication revalidates the contract and requires a completed `trusted_shell_local` attempt observed through the current device's PlayableHost; fixture/unverified attempts cannot become creator benchmarks.
 
-Challenge capability is derived centrally for the current actor. Inbound targeted and other-creator open challenges can be answered; outbound and own open challenges cannot. Completing an open challenge atomically binds `targetActorId` to the actual responder, so completed history validates independently of whichever actor later loads it. Normal product result recording always uses the current actor, so this local shell cannot impersonate seeded creators. An open challenge may be cancelled only by its challenger.
+Challenge capability is derived centrally for the current actor. Inbound targeted and other-creator open challenges can be answered; outbound and own open challenges cannot. `targetActorId` keeps its original meaning, while completed challenges persist a separate `responderActorId`; targeted responses must match the target and open challenges retain their open provenance. Completed history therefore validates independently of whichever actor later loads it. Normal product result recording always uses the current actor, so this local shell cannot impersonate seeded creators. An open challenge may be cancelled only by its challenger.
 
-An impression requires 50% visibility for 350 ms, while the document is visible and no playable/result/outcome modal obscures the feed. Any interruption cancels dwell; closing it requires a fresh full interval. Social play telemetry carries a bounded `presentation` value and follows request → successful mounted start → terminal result, or request → one bounded failure. Superseded mounts emit neither start nor failure; post-mount runtime faults emit one runtime failure. A later successful full-state persistence write clears a prior session-only warning because the repository persists its entire snapshot.
+An impression requires 50% visibility for 350 ms, while the document is visible and no playable/result/outcome modal obscures the feed. Any interruption cancels dwell; closing it requires a fresh full interval. Social play telemetry carries a bounded `presentation` value and follows request → successful mounted start → terminal player result, or request → one bounded technical failure. Superseded mounts emit neither start nor failure. Runtime callbacks that fire synchronously during mounting are buffered until the mounted-start event is established, and a technical runtime fault never falls through into persisted player-result state. A later successful full-state persistence write clears a prior session-only warning because the repository persists its entire snapshot.
 
 ## Known v0 limitations
 
