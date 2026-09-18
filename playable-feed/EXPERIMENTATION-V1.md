@@ -98,6 +98,31 @@ Guardrails:
 
 Do not optimize raw session duration by itself. A longer session can mean stronger engagement, confusion, a stuck game, or simply leaving the tab open.
 
+## Quick experiment report
+
+Use the dependency-free report CLI against one or more exported Playloop JSON files:
+
+```bash
+npm run report:experiment -- playloop-events-1.json
+npm run report:experiment -- run-a.json run-b.json --experiment onboarding_value_prop_v1
+npm run report:experiment -- run-a.json run-b.json --format json --out report.json
+```
+
+The default Markdown output keeps the decision surface compact:
+
+- raw exposed-session count per variant;
+- feed-start and first-interaction conversion;
+- reach 3 / 5 / 10;
+- median time to feed start and first interaction;
+- median games seen;
+- client-error, pre-feed-exit, immediate-skip, and load/render-error guardrails;
+- directional percentage-point deltas versus control when a control variant exists;
+- forced/conflicted/malformed/duplicate exposure exclusions and missing-attribution diagnostics.
+
+Multiple exports may overlap; events with the same event id are deduplicated before analysis. Metrics are computed only from non-forced sessions with one unambiguous variant, and downstream events must carry matching experiment context. A session with conflicting variants is excluded instead of being guessed into a cohort.
+
+The generated report is descriptive. It never converts a small sample into a significance claim or an automatic ship/stop decision.
+
 ## Analysis discipline
 
 Do not call a result a win from a handful of manual playtests. The local prototype is useful for checking event correctness and obvious UX direction, not statistical confidence.
