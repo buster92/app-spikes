@@ -80,3 +80,17 @@ test("challenge presentation distinguishes pending outbound and completed open r
   assert.match(completedOpen.title, /answered/);
   assert.equal(completedOpen.canViewOutcome, true);
 });
+
+
+test("follow visibility is derived from current actor relationship, not profile flags", () => {
+  const state = createSeedState();
+  const post = state.posts[0];
+  const creator = state.profiles.find((item) => item.id === post.creatorId);
+  const benchmark = state.results.find((item) => item.id === post.creatorResultId);
+  const selfCard = postPresentation({ post, creator, benchmark, liked: false, following: false, isSelf: true });
+  const remoteCard = postPresentation({ post, creator, benchmark, liked: false, following: false, isSelf: false });
+  assert.equal(selfCard.canFollow, false);
+  assert.equal(remoteCard.canFollow, true);
+  const selfResult = resultPresentation({ post, creator, playerResult: { ...benchmark, actorId: "actor_local" }, benchmark, comparison: null, isSelf: true });
+  assert.equal(selfResult.showFollow, false);
+});
