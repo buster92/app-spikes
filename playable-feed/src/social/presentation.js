@@ -102,3 +102,10 @@ export function publishValidation({ gameId, caption, benchmarkAttempt }) {
   if (!benchmarkAttempt) errors.push("Complete the playable to establish your benchmark");
   return { valid: errors.length === 0, errors };
 }
+
+
+export function activePlayStatus({ mode, presentation = "creator", caption = null } = {}) {
+  if (mode === "publish") return "Complete this run to set your creator benchmark.";
+  if (presentation === "anonymous") return "Play the same exact game version and seed.";
+  return typeof caption === "string" && caption.trim() ? caption.trim() : "Play the exact challenge.";
+}
