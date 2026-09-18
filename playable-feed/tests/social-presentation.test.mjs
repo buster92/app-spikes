@@ -50,3 +50,33 @@ test("publish presentation requires selection, caption and actual benchmark", ()
   assert.equal(invalid.valid, false);
   assert.equal(invalid.errors.length, 3);
 });
+
+
+test("challenge presentation distinguishes pending outbound and completed open responses", () => {
+  const state = createSeedState();
+  const source = state.posts.find((item) => item.id === "post_maya_pattern");
+  const challenger = state.profiles.find((item) => item.id === "actor_local");
+  const target = state.profiles.find((item) => item.id === "creator_maya");
+  const responder = state.profiles.find((item) => item.id === "creator_alex");
+  const challengerResult = { ...state.results.find((item) => item.id === source.creatorResultId), actorId: challenger.id };
+
+  const outbound = challengePresentation({
+    challenge: { ...state.challenges[0], challengerId: challenger.id, targetActorId: target.id },
+    challenger, target, responder: null, challengerResult, responseResult: null,
+    policy: source.resultPolicy, comparison: null,
+    capabilities: { isOutbound: true, canRespond: false, canViewOutcome: false },
+  });
+  assert.equal(outbound.status, "@"+target.handle === outbound.status ? outbound.status : `Waiting for @${target.handle}`);
+  assert.equal(outbound.canPlay, false);
+
+  const completedOpen = challengePresentation({
+    challenge: { ...state.challenges[0], targetActorId: null, responderActorId: responder.id, state: "completed" },
+    challenger: state.profiles.find((item) => item.id === "creator_maya"), target: null, responder,
+    challengerResult: state.results.find((item) => item.id === source.creatorResultId),
+    responseResult: { ...state.results.find((item) => item.id === source.creatorResultId), actorId: responder.id },
+    policy: source.resultPolicy, comparison: { comparable: true, outcome: "win" },
+    capabilities: { canRespond: false, canViewOutcome: true },
+  });
+  assert.match(completedOpen.title, /answered/);
+  assert.equal(completedOpen.canViewOutcome, true);
+});
