@@ -16,6 +16,14 @@ export function isActiveMountedPlay({ activePlay, play, controller }) {
   return isActivePlayRequest({ activePlay, play }) && Boolean(controller);
 }
 
+export function runtimeCallbackDisposition({ activePlay, play, runtimeStarted, runtimeFailureLogged = false, kind }) {
+  if (!["error", "finish"].includes(kind)) throw new TypeError("Unsupported runtime callback kind");
+  if (!isActivePlayRequest({ activePlay, play })) return "ignore";
+  if (!runtimeStarted) return "buffer";
+  if (kind === "finish" && runtimeFailureLogged) return "ignore";
+  return "handle";
+}
+
 export function mountFailureReason(error) {
   if (error?.code === "unavailable_playable") return "unavailable_playable";
   if (error?.code === "playable_mismatch") return "playable_mismatch";
