@@ -5,7 +5,7 @@ const playable = (id) => BUNDLED_PLAYABLES.find((item) => item.id === id);
 
 export function createSeedState() {
   const profiles = [
-    { id: "actor_local", handle: "local_creator", displayName: "Local Creator", avatar: "Y", bio: "Building small games that become conversations.", badge: "Creator", isLocal: true },
+    { id: "actor_local", handle: "local_creator", displayName: "Local Creator", avatar: "Y", bio: "Building small games that become conversations.", badge: "Creator" },
     { id: "creator_maya", handle: "mayamakes", displayName: "Maya Chen", avatar: "M", bio: "Tiny puzzles, unreasonable confidence.", badge: "Puzzle maker" },
     { id: "creator_alex", handle: "alexloops", displayName: "Alex Rivera", avatar: "A", bio: "One more run is always the answer.", badge: "Speed runner" },
     { id: "creator_nova", handle: "nova_play", displayName: "Nova Okafor", avatar: "N", bio: "I make calm things unexpectedly competitive." },
