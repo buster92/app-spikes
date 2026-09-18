@@ -16,7 +16,7 @@ export function nextPersistenceWarning(outcome, subject = "change") {
   return persistencePresentation(outcome?.persisted, subject).warning;
 }
 
-export function postPresentation({ post, creator, benchmark, liked, following, mode = "creator" }) {
+export function postPresentation({ post, creator, benchmark, liked, following, isSelf = false, mode = "creator" }) {
   if (mode === "anonymous") return {
     creatorLabel: null, creatorName: null, caption: null,
     benchmarkLabel: null, challengeLabel: "Ready when you are",
@@ -30,12 +30,12 @@ export function postPresentation({ post, creator, benchmark, liked, following, m
     challengeLabel: benchmark ? `Can you beat ${formatMetric(post.resultPolicy, benchmark)}?` : "Set the first result",
     liked: liked === true,
     following: following === true,
-    canFollow: creator.isLocal !== true,
+    canFollow: !isSelf,
     showSocialActions: true,
   };
 }
 
-export function resultPresentation({ post, creator, playerResult, benchmark, comparison, mode = "creator", persisted = true }) {
+export function resultPresentation({ post, creator, playerResult, benchmark, comparison, isSelf = false, mode = "creator", persisted = true }) {
   const player = formatMetric(post.resultPolicy, playerResult);
   if (mode === "anonymous") return {
     headline: playerResult.status === "completed" ? "Run complete" : "Run ended",
@@ -49,7 +49,7 @@ export function resultPresentation({ post, creator, playerResult, benchmark, com
   if (comparison?.comparable && comparison.outcome === "loss") headline = `@${creator.handle} is still ahead${comparison.delta ? ` by ${formatDelta(post.resultPolicy.kind, comparison.delta)}` : ""}`;
   if (comparison?.comparable && comparison.outcome === "tie") headline = `You tied @${creator.handle}`;
   if (!comparison?.comparable && comparison?.reason === "incomplete") headline = "Finish the run to compare results";
-  return { headline, playerLabel: `You: ${player}`, benchmarkLabel: creatorMetric ? `@${creator.handle}: ${creatorMetric}` : null, canChallenge: playerResult.status === "completed" && playerResult.metric !== null, showFollow: creator.isLocal !== true, showLike: true, verificationLabel: verificationLabel(playerResult), persistenceWarning: persistencePresentation(persisted, "result").warning };
+  return { headline, playerLabel: `You: ${player}`, benchmarkLabel: creatorMetric ? `@${creator.handle}: ${creatorMetric}` : null, canChallenge: playerResult.status === "completed" && playerResult.metric !== null, showFollow: !isSelf, showLike: true, verificationLabel: verificationLabel(playerResult), persistenceWarning: persistencePresentation(persisted, "result").warning };
 }
 
 function formatDelta(kind, delta) {
