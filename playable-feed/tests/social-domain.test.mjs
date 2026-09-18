@@ -59,3 +59,9 @@ test("transient play attempts have no social identity and strip unknown fields",
   assert.equal("arbitrary" in attempt, false);
   assert.deepEqual(attempt.replayEvidence, { kind: "local_snapshot", elapsedMs: 1200 });
 });
+
+
+test("profile normalization does not persist local-session identity flags", () => {
+  const profile = validateProfile({ id: "actor_test", handle: "actor_test", displayName: "Actor Test", avatar: "A", isLocal: true });
+  assert.equal("isLocal" in profile, false);
+});
