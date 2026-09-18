@@ -9,6 +9,8 @@ The repository now contains two related but distinct experiments:
 
 The handcrafted PWA remains useful evidence about feed behavior and fatigue. The creator-runtime work under `sandbox/` is the foundation for the broader product direction: a social platform where posts can combine video/passive media with bounded playable experiences that followers can play, challenge and remix.
 
+The durable product vision is documented in [`PRODUCT-VISION.md`](./PRODUCT-VISION.md): games as a social content format, not a game catalog; AI as an increasingly invisible facilitator; creators competing on meaningful `plays`, challenges and remixes; and a longer-term path for interactive brand content.
+
 Accounts, comments, follows, ranking, payments and other social capabilities belong to the trusted Playloop shell/backend. They are deliberately **not** capabilities exposed to creator GameSpec content.
 
 ## Original consumer validation question
