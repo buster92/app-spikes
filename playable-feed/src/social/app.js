@@ -6,7 +6,7 @@ import { challengeOutcomePresentation, challengePresentation, nextPersistenceWar
 import { PlayableHost } from "./playable-host.js";
 import { compareResults } from "./domain.js";
 import { observePostImpressions, QualifiedImpressionTracker, shouldObservePostImpressions } from "./impressions.js";
-import { isActiveMountedPlay, mountFailureReason, socialEventProperties } from "./play-lifecycle.js";
+import { isActiveMountedPlay, isActivePlayRequest, mountFailureReason, socialEventProperties } from "./play-lifecycle.js";
 
 const analytics = new Analytics();
 const repository = new LocalSocialRepository();
@@ -153,11 +153,12 @@ async function mountActivePlayable() {
     analytics.log("social_post_play_started", socialEventProperties(presentationMode, { post_id: source.id || null, game_id: source.playableRef.gameId, runtime: source.playableRef.runtime, source: play.mode }));
     if (status) status.textContent = presentationMode === "creator" ? source.caption : "Play the same exact game version and seed.";
   } catch (error) {
+    if (!isActivePlayRequest({ activePlay: ui.play, play })) return;
     if (!play.mountFailureLogged) {
       play.mountFailureLogged = true;
       analytics.log("social_post_play_failed", socialEventProperties(presentationMode, { post_id: source.id || null, game_id: source.playableRef.gameId, reason: mountFailureReason(error), source: play.mode }));
     }
-    if (ui.play === play && status) status.textContent = `Playable unavailable: ${error.message}`;
+    if (status) status.textContent = `Playable unavailable: ${error.message}`;
   }
 }
 
