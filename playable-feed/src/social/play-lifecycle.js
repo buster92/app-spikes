@@ -8,8 +8,12 @@ export function socialEventProperties(presentation, properties = {}) {
   return { ...properties, presentation: socialPresentation(presentation) };
 }
 
+export function isActivePlayRequest({ activePlay, play }) {
+  return activePlay === play;
+}
+
 export function isActiveMountedPlay({ activePlay, play, controller }) {
-  return activePlay === play && Boolean(controller);
+  return isActivePlayRequest({ activePlay, play }) && Boolean(controller);
 }
 
 export function mountFailureReason(error) {
