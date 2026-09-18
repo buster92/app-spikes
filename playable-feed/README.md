@@ -83,6 +83,20 @@ Game-specific telemetry records things such as Snake turns/eats/collisions, Matc
 
 The Stats sheet currently summarizes Seen, Attempts, Completed, Failed, Skipped, Retries, Avg active and Session, plus local personal records.
 
+## Experiment report
+
+Exported Playloop event logs can be aggregated into a compact experiment report without a backend or analytics vendor.
+
+```bash
+npm run report:experiment -- playloop-events-1.json
+npm run report:experiment -- run-a.json run-b.json --experiment onboarding_value_prop_v1
+npm run report:experiment -- run-a.json run-b.json --format json --out report.json
+```
+
+The Markdown report is intentionally optimized for a fast product read. Per variant it shows exposed-session count, feed-start and first-interaction rates, reach 3/5/10, median time to feed start, median time to first interaction, median games seen, and guardrails for client errors, pre-feed exits, immediate skips, and load/render failures.
+
+Analysis is session-based rather than event-based. Forced QA exposures are excluded, repeated exports are deduplicated by event id, conflicting variant assignments are excluded, duplicate exposure records are collapsed, and post-exposure KPI events missing matching experiment context are surfaced as a data-quality warning. The report shows directional percentage-point differences versus control when available, but deliberately does not declare a winner or infer statistical significance.
+
 ## First consumer metrics to inspect
 
 - games seen per session
