@@ -289,6 +289,47 @@ A single social product may support:
 
 The important shift is that **interaction itself becomes publishable content**.
 
+
+## Bounded does not mean creatively small
+
+A critical architectural principle is that the creator framework can become **very expressive** without becoming unsafe.
+
+The goal is not to keep Playloop limited to a handful of simplistic mini-game templates forever. The goal is to keep creator content inside a **bounded authority model**.
+
+A useful distinction:
+
+- **Creative surface area can grow large.**
+- **Security authority should remain small.**
+
+The runtime can eventually expose richer composition primitives, state machines, physics-like interactions, animation systems, dialogue, progression, deterministic multiplayer/challenges, reusable components, scene structure, audio, richer assets, and higher-level genre helpers.
+
+But creator-authored content should still not gain arbitrary authority over:
+
+- network access;
+- filesystem;
+- accounts;
+- payments;
+- unrestricted device APIs;
+- host DOM/UI;
+- arbitrary native code;
+- unrestricted executable code;
+- other users' data or social actions.
+
+The long-term architectural target is therefore:
+
+> **Maximum creative freedom inside a constrained, deterministic, inspectable and secure execution model.**
+
+This is important because product quality depends on avoiding the opposite failure mode: a framework so safe and narrow that every creator produces the same few games.
+
+The challenge is to continuously expand **expressiveness**, not **authority**.
+
+That suggests an evolution strategy:
+
+`small trusted kernel → more reviewed primitives/composition → larger design space → same security boundary`
+
+The success condition is that creators eventually feel they can build what they imagine, while the platform can still reason about safety, performance, portability, replay, moderation, and verification.
+
+
 ## Product principles implied by the vision
 
 1. **AI is infrastructure, not the product identity.**
