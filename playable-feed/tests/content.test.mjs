@@ -85,7 +85,7 @@ test("service worker caches the current offline shell", async () => {
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
-  assert.match(sw, /playloop-spike-v13/);
+  assert.match(sw, /playloop-spike-v14/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {

@@ -16,10 +16,11 @@ function runtimeClassFor(runtime) {
 
 export function normalizeRuntimeResult(policy, snapshot) {
   const completed = snapshot?.status === "complete";
-  const rawScore = Number(snapshot?.result?.score ?? 0);
-  let metric = Math.max(0, Math.round(Number.isFinite(rawScore) ? rawScore : 0));
-  if (policy.kind.includes("time")) metric = Math.max(0, Math.round(Number(snapshot?.result?.elapsedMs ?? snapshot?.elapsedMs ?? 0)));
-  if (policy.kind.includes("moves")) metric = Math.max(0, Math.round(Number(snapshot?.variables?.moves ?? rawScore ?? 0)));
+  const value = policy.kind.includes("time") ? snapshot?.result?.elapsedMs
+    : policy.kind.includes("moves") ? snapshot?.variables?.moves
+      : snapshot?.result?.score;
+  const numeric = typeof value === "number" && Number.isFinite(value) ? value : null;
+  const metric = completed && numeric !== null ? Math.max(0, Math.round(numeric)) : null;
   return { status: completed ? "completed" : "failed", metric };
 }
 

@@ -72,6 +72,12 @@ test("publishing approved playable stores immutable ref, lineage and makes post 
   assert.deepEqual(published.post.lineage, lineage);
   assert.ok(service.feed("discover").some((post) => post.id === published.post.id));
   assert.ok(service.profile("actor_local").posts.some((post) => post.id === published.post.id));
+  const original = service.state().results.find((item) => item.id === run.result.id);
+  const copied = service.state().results.find((item) => item.id === published.post.creatorResultId);
+  assert.equal(original.postId, source.id);
+  assert.notEqual(copied.id, original.id);
+  assert.equal(copied.postId, published.post.id);
+  assert.equal(copied.sourceResultId, original.id);
 });
 
 test("publishing rejects unapproved content and missing completed benchmark", () => {
@@ -103,6 +109,38 @@ test("challenge response cannot silently change revision or actor", () => {
   assert.throws(() => service.completeChallenge(challenge.id, wrongActor.result.id), (error) => error.code === "invalid_challenge_actor");
 });
 
+test("challenge creation rejects failed and same-playable attempts from another post", () => {
+  const { service } = setup();
+  const patternPosts = service.state().posts.filter((item) => item.playableRef.gameId === "pattern-echo-v2");
+  assert.equal(patternPosts.length, 2);
+  const failed = service.recordResult({ postId: patternPosts[0].id, playableRef: patternPosts[0].playableRef, status: "failed", metric: null });
+  assert.throws(() => service.createChallenge({ postId: patternPosts[0].id, resultId: failed.result.id }), (error) => error.code === "invalid_challenge_result");
+  const completed = service.recordResult({ postId: patternPosts[0].id, playableRef: patternPosts[0].playableRef, status: "completed", metric: 1000 });
+  assert.throws(() => service.createChallenge({ postId: patternPosts[1].id, resultId: completed.result.id }), (error) => error.code === "invalid_challenge_result");
+  assert.equal(service.createChallenge({ postId: patternPosts[0].id, resultId: completed.result.id }).challenge.sourcePostId, patternPosts[0].id);
+});
+
+test("challenge response cannot come from another post with the same playable", () => {
+  const { service } = setup();
+  const patternPosts = service.state().posts.filter((item) => item.playableRef.gameId === "pattern-echo-v2");
+  const run = service.recordResult({ postId: patternPosts[0].id, playableRef: patternPosts[0].playableRef, status: "completed", metric: 1000 });
+  const challenge = service.createChallenge({ postId: patternPosts[0].id, resultId: run.result.id, targetActorId: "creator_alex" }).challenge;
+  const unrelated = service.recordResult({ postId: patternPosts[1].id, playableRef: patternPosts[1].playableRef, status: "completed", metric: 900, actorId: "creator_alex" });
+  assert.throws(() => service.completeChallenge(challenge.id, unrelated.result.id), (error) => error.code === "playable_mismatch");
+});
+
+test("failed persistence preserves usable in-memory mutations and honest status", () => {
+  const repository = new LocalSocialRepository({ storage: { getItem: () => null, setItem: () => { throw new Error("quota"); } } });
+  const service = new SocialService({ repository, actorProvider: new CurrentActorProvider(repository), now: () => "2026-09-18T10:00:00.000Z", idFactory: (prefix) => `${prefix}_memory` });
+  const source = service.post("post_alex_meteor");
+  const liked = service.setLike(source.id, true);
+  const run = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
+  assert.equal(liked.persisted, false); assert.equal(run.persisted, false);
+  assert.equal(service.isLiked(source.id), true);
+  assert.equal(service.state().results.some((item) => item.id === run.result.id), true);
+  assert.equal(run.result.verification, "trusted_shell_local");
+});
+
 test("social analytics stay centralized, preserve context and exclude caption text", () => {
   const { service, events } = setup();
   const source = service.post("post_alex_meteor");
@@ -114,4 +152,6 @@ test("social analytics stay centralized, preserve context and exclude caption te
   assert.ok(events.some((event) => event.name === "social_publish_completed"));
   assert.ok(events.every((event) => event.experiment_context.social_frame_v1 === "creator"));
   assert.equal(service.state().posts.at(-1).caption, caption);
+  service.feed("discover"); service.profile("creator_alex");
+  assert.equal(events.some((event) => event.name === "social_feed_viewed" || event.name === "social_profile_opened"), false);
 });

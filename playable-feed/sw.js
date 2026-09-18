@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v13";
+const CACHE = "playloop-spike-v14";
 const ASSETS = [
   "./",
   "./index.html",
@@ -47,6 +47,7 @@ const ASSETS = [
   "./src/social/catalog.js",
   "./src/social/domain.js",
   "./src/social/fixtures.js",
+  "./src/social/impressions.js",
   "./src/social/playable-host.js",
   "./src/social/presentation.js",
   "./src/social/repository.js",

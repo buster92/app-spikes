@@ -33,4 +33,10 @@ test("runtime normalization uses only trusted policy-specific terminal fields", 
   assert.deepEqual(normalizeRuntimeResult({ kind: "higher_score" }, snapshot), { status: "completed", metric: 47 });
   assert.deepEqual(normalizeRuntimeResult({ kind: "lower_time" }, snapshot), { status: "completed", metric: 6300 });
   assert.deepEqual(normalizeRuntimeResult({ kind: "lower_moves" }, snapshot), { status: "completed", metric: 18 });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "completion_then_score" }, snapshot), { status: "completed", metric: 47 });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "completion_then_time" }, snapshot), { status: "completed", metric: 6300 });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "higher_score" }, { status: "complete", result: {} }), { status: "completed", metric: null });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "lower_time" }, { status: "complete", result: {} }), { status: "completed", metric: null });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "lower_moves" }, { status: "complete", variables: {} }), { status: "completed", metric: null });
+  assert.deepEqual(normalizeRuntimeResult({ kind: "higher_score" }, { status: "failed", result: { score: 99 } }), { status: "failed", metric: null });
 });

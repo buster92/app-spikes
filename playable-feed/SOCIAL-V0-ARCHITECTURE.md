@@ -14,6 +14,7 @@ The default PWA route now opens creator-framed Discover. `?legacy=1` preserves t
 - `src/social/service.js` owns feed, profile, Like, Follow, result, challenge and publish use cases.
 - `src/social/repository.js` owns the versioned local schema, safe parsing, recovery and atomic in-memory updates.
 - `src/social/fixtures.js` creates the deterministic first-run social world.
+- `src/social/impressions.js` owns qualified-exposure tracking independently from DOM rendering.
 - `src/social/catalog.js` is the trusted shell's approved bundled-playable registry.
 - `src/social/playable-host.js` resolves a `PlayableRef`, recomputes the existing publication envelope, selects the versioned runtime and normalizes terminal runtime state.
 - `src/social/presentation.js` converts domain state into testable copy/CTA state.
@@ -50,7 +51,7 @@ The web host resolves only a trusted bundled catalog entry, lazy-fetches its Gam
 
 ### PlayResult and ResultPolicy
 
-A result records actor, post, exact `PlayableRef`, completion/failure, normalized metric, time and explicit verification state. V0 results are `trusted_shell_local`: the trusted shell produced them, but no server or anti-cheat verifier has approved them.
+A result records actor, post, exact `PlayableRef`, completion/failure, normalized metric, time and explicit verification state. The closed v0 states are `unverified` for seeded/demo results whose execution was not observed by this client, and `trusted_shell_local` for runs observed through `PlayableHost` on this device but not approved by a server or anti-cheat verifier. Seed fixture benchmarks are never presented as trusted local runs.
 
 Trusted policies are a closed enum:
 
@@ -71,8 +72,11 @@ A challenge captures challenger, optional target/open semantics, source post, ex
 
 1. an open challenge;
 2. a response from the expected actor;
-3. the exact challenge playable identity and seed;
-4. comparison through the source post's trusted policy.
+3. a completed response owned by that actor and the challenge's exact source post;
+4. the exact challenge playable identity and seed;
+5. comparison through the source post's trusted policy.
+
+Challenge creation has the symmetric binding: its result must belong to the challenger, be completed, name the exact source post and match every `PlayableRef` field. Another post's result is rejected even when it uses the same playable revision and seed.
 
 The local UI can simulate the targeted actor for an outbound challenge so the asynchronous state machine can be exercised on one device. This is clearly local behavior, not messaging, delivery or server verification.
 
@@ -89,11 +93,15 @@ Only an opened modal owns an active runtime. Feed cards render metadata/poster s
 `playloop.social.v1` stores schema version 1. The repository:
 
 - parses once at startup behind one adapter;
-- validates profiles, posts, results and challenges plus cross-references;
-- discards invalid Like/Follow edges;
+- validates unique profile ids/handles, post/result/challenge ids and Like/Follow relationships;
+- validates benchmark ownership, result/post playable equality, challenge attempt/response ownership and remix lineage;
+- rejects a malformed persisted snapshot rather than preserving believable but ambiguous relationships;
 - restores deterministic fixtures if JSON or schema is malformed;
 - seeds only when no valid state exists;
+- guards access to the browser `localStorage` getter itself;
 - catches storage/quota failures and keeps the current in-memory session usable.
+
+Every mutation returns `persisted`. The UI uses one shared non-blocking warning when a Like, Follow, result, challenge, completion or publication exists only for the current session. It never claims that a benchmark or post was stored when device persistence is unavailable.
 
 Likes, follows, created posts, results and challenges survive reload when storage is available. A future remote repository should implement the same use cases with server idempotency/versioning; it should not expose HTTP details to the domain/UI.
 
@@ -111,6 +119,8 @@ Recommendation ranking is intentionally replaceable at `SocialService.feed`; no 
 
 The v0 flow is approved catalog → exact preview/run → completed benchmark → bounded caption → publication. Publishing rejects unknown playables, missing/wrong/failed benchmarks and invalid post data. It stores the approved immutable ref, never arbitrary pasted GameSpec or JavaScript.
 
+The preview attempt remains attached to the source post where it actually ran. Publication creates a new benchmark record for the new post with `sourceResultId` pointing to that attempt. This preserves provenance while ensuring the published benchmark belongs to its own post.
+
 Bundled catalog hashes were produced by the existing `buildPublicationEnvelope` path. `PlayableHost` recomputes them before each execution, so changing a fixture without updating trusted refs visibly fails instead of silently changing a challenge.
 
 ## Analytics
@@ -125,9 +135,15 @@ Social modules receive the existing `Analytics` instance and call its central `l
 
 Metadata is ids, booleans, policy/runtime types and bounded status values. Captions, arbitrary creator text and GameSpecs are excluded. Because events use the central pipeline, active experiment context propagates automatically.
 
+`social_post_impression` means a card reached at least 50% visibility continuously for 350 ms. `IntersectionObserver` supplies the normal signal; a geometry-based viewport check is the conservative compatibility fallback. Exposure is deduplicated by post id for the page session, including across rerenders and Discover/Profile. Rendering a card alone emits nothing. Feed/profile view events are also deduplicated per surface during a page session.
+
+## Anonymous experiment control
+
+`?presentation=anonymous` uses the same post, `PlayableRef`, runtime and GameSpec, but removes creator identity, caption/challenge framing, benchmark/opponent framing, Like, Follow and Challenge actions before and after play. It retains neutral game framing, the player's result, Retry and Continue. Presentation changes social treatment, never playable execution.
+
 ## Offline/PWA
 
-Cache generation `playloop-spike-v13` includes the full static social import graph and the five approved zero-asset GameSpecs. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
+Cache generation `playloop-spike-v14` includes the full static social import graph and the five approved zero-asset GameSpecs. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
 
 ## Replacement and extension points
 

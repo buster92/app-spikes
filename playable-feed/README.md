@@ -17,6 +17,8 @@ npm run serve
 
 Open `http://localhost:8080`. State is stored under the versioned `playloop.social.v1` local record and survives reload. Use `http://localhost:8080/?legacy=1` for the original anonymous handcrafted-feed playtest/control surface. Creator Lab remains at `/creator-lab.html`.
 
+Use `http://localhost:8080/?presentation=anonymous` for the experiment control: it runs the exact same post/playable data without creator identity, caption, benchmark-opponent framing or social CTAs. If browser storage is blocked, the app remains usable for the session and displays a non-persistent-mode warning.
+
 The Create flow intentionally uses only approved bundled GameSpecs. A creator must complete the selected playable to establish the benchmark; captions cannot provide a fake score. Posts and challenges retain the exact runtime, content-addressed manifest/spec refs and seed.
 
 Architecture and extension boundaries are documented in [`SOCIAL-V0-ARCHITECTURE.md`](./SOCIAL-V0-ARCHITECTURE.md).

@@ -68,7 +68,7 @@ export function validatePlayResult(result) {
   if (!["completed", "failed"].includes(status)) throw new SocialDomainError("invalid_result", "Result status must be completed or failed");
   const metric = result.metric === null || result.metric === undefined ? null : Number(result.metric);
   if (metric !== null && (!Number.isFinite(metric) || metric < 0)) throw new SocialDomainError("invalid_result", "Result metric must be finite and non-negative");
-  const verification = result.verification || "trusted_shell_local";
+  const verification = result.verification || "unverified";
   if (!["unverified", "trusted_shell_local"].includes(verification)) throw new SocialDomainError("invalid_result", "Result verification state is unsupported");
   return {
     ...result,
@@ -79,7 +79,14 @@ export function validatePlayResult(result) {
     status,
     metric,
     verification,
+    sourceResultId: result.sourceResultId ? requiredId(result.sourceResultId, "result.sourceResultId") : null,
   };
+}
+
+export function resultHasRequiredMetric(policyInput, resultInput) {
+  validateResultPolicy(policyInput);
+  const result = validatePlayResult(resultInput);
+  return result.status === "completed" && result.metric !== null;
 }
 
 function compareScalar(player, benchmark, lowerWins) {

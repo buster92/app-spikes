@@ -23,7 +23,7 @@ export function createSeedState() {
   ];
   const results = resultRows.map(([id, actorId, postId, gameId, status, metric], index) => ({
     id, actorId, postId, playableRef: playableRefFor(playable(gameId)), status, metric,
-    createdAt: at(17 - index), verification: "trusted_shell_local", replayEvidence: null,
+    createdAt: at(17 - index), verification: "unverified", replayEvidence: null,
   }));
   const posts = [
     { id: "post_maya_pattern", creatorId: "creator_maya", createdAt: at(17), caption: "I finally got this pattern under seven seconds. Can you?", playableRef: playableRefFor(playable("pattern-echo-v2")), resultPolicy: { kind: "completion_then_lower_time" }, creatorResultId: "result_maya_pattern", status: "published", lineage: null, preview: { kind: "poster", tone: "violet" } },

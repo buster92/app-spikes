@@ -1,5 +1,5 @@
 import { bundledPlayable, playableRefFor } from "./catalog.js";
-import { compareResults, samePlayableRef, SocialDomainError, validatePlayResult, validatePost } from "./domain.js";
+import { compareResults, resultHasRequiredMetric, samePlayableRef, SocialDomainError, validatePlayResult, validatePost } from "./domain.js";
 
 function defaultId(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -27,7 +27,6 @@ export class SocialService {
     const actorId = this.actorId();
     const posts = state.posts.filter((post) => post.creatorId === profileId && post.status === "published");
     const followers = new Set(state.follows.filter((follow) => follow.followedId === profileId).map((follow) => follow.followerId)).size;
-    this.log("social_profile_opened", { profile_id: profileId, is_self: profileId === actorId });
     return { profile, posts, followers, following: state.follows.some((follow) => follow.followerId === actorId && follow.followedId === profileId) };
   }
 
@@ -48,7 +47,6 @@ export class SocialService {
       throw new SocialDomainError("invalid_feed_scope", `Unsupported feed scope ${scope}`);
     }
     posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
-    this.log("social_feed_viewed", { scope, post_count: posts.length });
     return posts;
   }
 
@@ -107,7 +105,9 @@ export class SocialService {
     const state = this.state();
     const post = this.post(postId);
     const result = state.results.find((item) => item.id === resultId && item.actorId === this.actorId());
-    if (!result || !samePlayableRef(result.playableRef, post.playableRef)) throw new SocialDomainError("invalid_challenge_result", "Challenge requires your result from this exact playable revision and seed");
+    if (!result || result.postId !== postId || !samePlayableRef(result.playableRef, post.playableRef) || !resultHasRequiredMetric(post.resultPolicy, result)) {
+      throw new SocialDomainError("invalid_challenge_result", "Challenge requires your completed result from this exact post, playable revision, and seed");
+    }
     if (targetActorId && !state.profiles.some((profile) => profile.id === targetActorId)) throw new SocialDomainError("unknown_profile", "Challenge target is unknown");
     const challenge = { id: this.idFactory("challenge"), challengerId: this.actorId(), targetActorId, sourcePostId: postId, playableRef: post.playableRef, challengerResultId: resultId, responseResultId: null, state: "open", createdAt: this.now() };
     const transaction = this.repository.transaction((draft) => draft.challenges.push(challenge));
@@ -132,14 +132,17 @@ export class SocialService {
 
   completeChallenge(challengeId, responseResultId) {
     const state = this.state();
-    const challenge = this.openChallenge(challengeId);
+    const challenge = state.challenges.find((item) => item.id === challengeId);
+    if (!challenge) throw new SocialDomainError("invalid_challenge", "Challenge no longer exists");
     if (challenge.state !== "open") throw new SocialDomainError("invalid_challenge", "Challenge is not open");
     const response = state.results.find((item) => item.id === responseResultId);
     const challenger = state.results.find((item) => item.id === challenge.challengerResultId);
-    if (!response || !challenger || !samePlayableRef(response.playableRef, challenge.playableRef)) throw new SocialDomainError("playable_mismatch", "Challenge response must use the exact challenge playable revision and seed");
+    const post = this.post(challenge.sourcePostId);
+    if (!response || !challenger || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(post.resultPolicy, response)) {
+      throw new SocialDomainError("playable_mismatch", "Challenge response must be a completed attempt on the exact source post, playable revision, and seed");
+    }
     const expectedActor = challenge.targetActorId || this.actorId();
     if (response.actorId !== expectedActor) throw new SocialDomainError("invalid_challenge_actor", "Challenge response actor does not match the target");
-    const post = this.post(challenge.sourcePostId);
     const comparison = compareResults(post.resultPolicy, response, challenger);
     const transaction = this.repository.transaction((draft) => {
       const item = draft.challenges.find((entry) => entry.id === challengeId);
@@ -158,13 +161,19 @@ export class SocialService {
       const playableRef = playableRefFor(catalog);
       const state = this.state();
       const benchmark = state.results.find((item) => item.id === benchmarkResultId && item.actorId === this.actorId());
-      if (!benchmark || !samePlayableRef(benchmark.playableRef, playableRef) || benchmark.status !== "completed") throw new SocialDomainError("benchmark_required", "Complete this playable before publishing its challenge");
+      if (!benchmark || !samePlayableRef(benchmark.playableRef, playableRef) || !resultHasRequiredMetric(catalog.policy, benchmark)) throw new SocialDomainError("benchmark_required", "Complete this playable before publishing its challenge");
       const postId = this.idFactory("post");
-      const post = validatePost({ id: postId, creatorId: this.actorId(), createdAt: this.now(), caption, playableRef, resultPolicy: catalog.policy, creatorResultId: benchmark.id, status: "published", lineage, preview: { kind: "poster", tone: "violet" } });
+      const publishedBenchmark = validatePlayResult({
+        ...benchmark,
+        id: this.idFactory("result"),
+        postId,
+        createdAt: this.now(),
+        sourceResultId: benchmark.id,
+      });
+      const post = validatePost({ id: postId, creatorId: this.actorId(), createdAt: this.now(), caption, playableRef, resultPolicy: catalog.policy, creatorResultId: publishedBenchmark.id, status: "published", lineage, preview: { kind: "poster", tone: "violet" } });
       const transaction = this.repository.transaction((draft) => {
         draft.posts.push(post);
-        const result = draft.results.find((item) => item.id === benchmark.id);
-        result.postId = postId;
+        draft.results.push(publishedBenchmark);
       });
       this.log("social_publish_completed", { post_id: post.id, game_id: gameId, runtime: playableRef.runtime, policy: post.resultPolicy.kind, has_lineage: Boolean(lineage) });
       return { post, persisted: transaction.persisted };
