@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isActiveMountedPlay, mountFailureReason, socialEventProperties, socialPresentation } from "../src/social/play-lifecycle.js";
+import { isActiveMountedPlay, isActivePlayRequest, mountFailureReason, socialEventProperties, socialPresentation } from "../src/social/play-lifecycle.js";
 
 test("social play telemetry is attributable without activating an experiment", () => {
   assert.equal(socialPresentation("anonymous"), "anonymous");
@@ -8,8 +8,11 @@ test("social play telemetry is attributable without activating an experiment", (
   assert.deepEqual(socialEventProperties("anonymous", { post_id: "post_1" }), { post_id: "post_1", presentation: "anonymous" });
 });
 
-test("stale or unresolved mounts cannot qualify as started", () => {
+test("superseded play requests cannot qualify as starts or failures", () => {
   const play = {}; const replacement = {};
+  assert.equal(isActivePlayRequest({ activePlay: play, play }), true);
+  assert.equal(isActivePlayRequest({ activePlay: replacement, play }), false);
+  assert.equal(isActivePlayRequest({ activePlay: null, play }), false);
   assert.equal(isActiveMountedPlay({ activePlay: play, play, controller: { destroy() {} } }), true);
   assert.equal(isActiveMountedPlay({ activePlay: replacement, play, controller: { destroy() {} } }), false);
   assert.equal(isActiveMountedPlay({ activePlay: play, play, controller: null }), false);
