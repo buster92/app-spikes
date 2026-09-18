@@ -2,7 +2,7 @@ import { Analytics } from "../analytics.js";
 import { BUNDLED_PLAYABLES, bundledPlayable, playableRefFor } from "./catalog.js";
 import { CurrentActorProvider, LocalSocialRepository } from "./repository.js";
 import { SocialService } from "./service.js";
-import { challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, publishValidation, resultPresentation, verificationLabel } from "./presentation.js";
+import { activePlayStatus, challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, publishValidation, resultPresentation, verificationLabel } from "./presentation.js";
 import { PlayableHost } from "./playable-host.js";
 import { compareResults } from "./domain.js";
 import { observePostImpressions, QualifiedImpressionTracker, shouldObservePostImpressions } from "./impressions.js";
@@ -164,7 +164,7 @@ async function mountActivePlayable() {
     if (!isActiveMountedPlay({ activePlay: ui.play, play, controller })) return;
     play.runtimeStarted = true;
     analytics.log("social_post_play_started", socialEventProperties(presentationMode, { post_id: source.id || null, game_id: source.playableRef.gameId, runtime: source.playableRef.runtime, source: play.mode }));
-    if (status) status.textContent = presentationMode === "creator" ? source.caption : "Play the same exact game version and seed.";
+    if (status) status.textContent = activePlayStatus({ mode: play.mode, presentation: presentationMode, caption: source.caption });
 
     if (play.pendingRuntimeError) {
       const error = play.pendingRuntimeError;
