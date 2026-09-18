@@ -16,9 +16,9 @@ export function isActiveMountedPlay({ activePlay, play, controller }) {
   return isActivePlayRequest({ activePlay, play }) && Boolean(controller);
 }
 
-export function runtimeCallbackDisposition({ activePlay, play, runtimeStarted, runtimeFailureLogged = false, kind }) {
+export function runtimeCallbackDisposition({ activePlay, play, runtimeStarted, runtimeFailureLogged = false, finished = false, kind }) {
   if (!["error", "finish"].includes(kind)) throw new TypeError("Unsupported runtime callback kind");
-  if (!isActivePlayRequest({ activePlay, play })) return "ignore";
+  if (!isActivePlayRequest({ activePlay, play }) || finished) return "ignore";
   if (!runtimeStarted) return "buffer";
   if (kind === "finish" && runtimeFailureLogged) return "ignore";
   return "handle";
