@@ -26,7 +26,7 @@ The application service depends on repository and actor-provider behavior, not o
 
 ### CreatorProfile
 
-Profiles have stable ids, unique-style handles, display names, bounded avatar representation, optional bio/badge and an `isLocal` marker. Post and follower counts are derived from repository relationships rather than duplicated counters.
+Profiles have stable ids, unique-style handles, display names, bounded avatar representation and optional bio/badge. Whether a profile is the current user is derived only from the actor provider, never persisted as a second profile identity flag. Post and follower counts are derived from repository relationships rather than duplicated counters.
 
 ### PlayablePost
 
