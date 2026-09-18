@@ -388,8 +388,10 @@ export function renderExperimentMarkdown(report) {
       "",
       "**Valid exposed sessions:** " + experiment.valid_exposed_sessions,
       "",
-      "| Variant | Exposed | Feed start | First interaction | Reach 3 | Reach 5 | Reach 10 | Median feed start | Median first interaction | Median games seen |",
-      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "### At a glance",
+      "",
+      "| Variant | Exposed | Feed start | First interaction | Reach 3 |",
+      "| --- | ---: | ---: | ---: | ---: |",
     );
 
     for (const variant of experiment.variants) {
@@ -398,11 +400,25 @@ export function renderExperimentMarkdown(report) {
           + " | " + variant.exposed_sessions
           + " | " + formatPercent(variant.feed_start)
           + " | " + formatPercent(variant.first_interaction)
-          + " | " + formatPercent(variant.reach_3)
-          + " | " + formatPercent(variant.reach_5)
-          + " | " + formatPercent(variant.reach_10)
+          + " | " + formatPercent(variant.reach_3) + " |",
+      );
+    }
+
+    lines.push(
+      "",
+      "### Timing & depth",
+      "",
+      "| Variant | Median feed start | Median first interaction | Reach 5 | Reach 10 | Median games seen |",
+      "| --- | ---: | ---: | ---: | ---: | ---: |",
+    );
+
+    for (const variant of experiment.variants) {
+      lines.push(
+        "| " + variant.variant_id
           + " | " + formatMs(variant.median_feed_start_ms)
           + " | " + formatMs(variant.median_first_interaction_ms)
+          + " | " + formatPercent(variant.reach_5)
+          + " | " + formatPercent(variant.reach_10)
           + " | " + formatNumber(variant.median_games_seen) + " |",
       );
     }
