@@ -42,6 +42,6 @@ export function createSeedState() {
     results,
     likes: [{ actorId: "actor_local", postId: "post_maya_pattern" }],
     follows: [{ followerId: "actor_local", followedId: "creator_maya" }, { followerId: "actor_local", followedId: "creator_alex" }],
-    challenges: [{ id: "challenge_seed_open", challengerId: "creator_maya", targetActorId: "actor_local", sourcePostId: "post_maya_pattern", playableRef: playableRefFor(playable("pattern-echo-v2")), challengerResultId: "result_maya_pattern", responseResultId: null, state: "open", createdAt: at(18) }],
+    challenges: [{ id: "challenge_seed_open", challengerId: "creator_maya", targetActorId: "actor_local", responderActorId: null, sourcePostId: "post_maya_pattern", playableRef: playableRefFor(playable("pattern-echo-v2")), challengerResultId: "result_maya_pattern", responseResultId: null, state: "open", createdAt: at(18) }],
   };
 }
