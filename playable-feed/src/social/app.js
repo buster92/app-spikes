@@ -146,7 +146,7 @@ async function mountActivePlayable() {
         if (status) status.textContent = `Runtime error: ${error.message}`;
         analytics.log("social_post_play_failed", socialEventProperties(presentationMode, { post_id: source.id || null, game_id: source.playableRef.gameId, reason: "runtime_error", source: play.mode }));
       },
-      onFinish: (normalized, snapshot) => finishPlay(normalized, snapshot),
+      onFinish: (normalized, snapshot) => finishPlay(play, normalized, snapshot),
     });
     if (!isActiveMountedPlay({ activePlay: ui.play, play, controller })) return;
     play.runtimeStarted = true;
@@ -162,10 +162,10 @@ async function mountActivePlayable() {
   }
 }
 
-function finishPlay(normalized, snapshot) {
-  if (!ui.play || ui.play.finished) return;
+function finishPlay(play, normalized, snapshot) {
+  if (!isActivePlayRequest({ activePlay: ui.play, play }) || play.finished) return;
   try {
-    const play = ui.play; const source = play.postId ? post(play.postId) : play.source;
+    const source = play.postId ? post(play.postId) : play.source;
     if (!play.postId) {
       play.result = normalized; play.finished = true; play.persisted = true;
       if (normalized.status === "completed" && normalized.metric !== null) ui.benchmarkAttempt = service.createBenchmarkAttempt({ playableRef: source.playableRef, policy: source.resultPolicy, status: normalized.status, metric: normalized.metric, replayEvidence: { kind: "local_snapshot", elapsedMs: Math.round(snapshot?.elapsedMs || 0) } });
