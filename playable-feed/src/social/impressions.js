@@ -8,10 +8,11 @@ export class QualifiedImpressionTracker {
     this.cancel = cancel;
     this.logged = new Set();
     this.pending = new Map();
+    this.documentVisible = true;
   }
 
   update({ postId, ratio, metadata }) {
-    if (!postId || this.logged.has(postId)) return;
+    if (!postId || this.logged.has(postId) || !this.documentVisible) return;
     if (ratio < this.threshold) {
       this.#cancel(postId);
       return;
@@ -37,6 +38,11 @@ export class QualifiedImpressionTracker {
     for (const postId of this.pending.keys()) this.#cancel(postId);
   }
 
+  setDocumentVisible(visible) {
+    this.documentVisible = visible === true;
+    if (!this.documentVisible) this.resetVisible();
+  }
+
   dispose() { this.resetVisible(); }
 }
 
@@ -51,13 +57,21 @@ function metadataFor(element) {
 
 export function observePostImpressions({ root, tracker, Observer = globalThis.IntersectionObserver } = {}) {
   const cards = [...root.querySelectorAll("[data-post-id][data-game-id]")];
+  const documentRef = root.ownerDocument || globalThis.document;
   tracker.resetVisible();
+  tracker.setDocumentVisible(documentRef?.visibilityState !== "hidden");
   if (typeof Observer === "function") {
     const observer = new Observer((entries) => {
       for (const entry of entries) tracker.update({ postId: entry.target.dataset.postId, ratio: entry.intersectionRatio, metadata: metadataFor(entry.target) });
     }, { threshold: [0, tracker.threshold, 1] });
     cards.forEach((card) => observer.observe(card));
-    return () => { observer.disconnect(); tracker.resetVisible(); };
+    const visibilityChanged = () => {
+      const visible = documentRef.visibilityState !== "hidden";
+      tracker.setDocumentVisible(visible);
+      if (visible) cards.forEach((card) => { observer.unobserve(card); observer.observe(card); });
+    };
+    documentRef.addEventListener("visibilitychange", visibilityChanged);
+    return () => { documentRef.removeEventListener("visibilitychange", visibilityChanged); observer.disconnect(); tracker.resetVisible(); };
   }
 
   let frame = null;
@@ -74,10 +88,17 @@ export function observePostImpressions({ root, tracker, Observer = globalThis.In
   const requestEvaluation = () => { if (frame === null) frame = requestAnimationFrame(evaluate); };
   addEventListener("scroll", requestEvaluation, { passive: true });
   addEventListener("resize", requestEvaluation);
+  const visibilityChanged = () => {
+    const visible = documentRef.visibilityState !== "hidden";
+    tracker.setDocumentVisible(visible);
+    if (visible) requestEvaluation();
+  };
+  documentRef.addEventListener("visibilitychange", visibilityChanged);
   requestEvaluation();
   return () => {
     removeEventListener("scroll", requestEvaluation);
     removeEventListener("resize", requestEvaluation);
+    documentRef.removeEventListener("visibilitychange", visibilityChanged);
     if (frame !== null) cancelAnimationFrame(frame);
     tracker.resetVisible();
   };

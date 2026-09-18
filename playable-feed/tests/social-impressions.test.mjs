@@ -23,3 +23,18 @@ test("visibility loss and rerender cancel dwell without duplicating prior impres
   const { tracker, events, flush } = harness(); tracker.update(exposure); tracker.resetVisible(); flush(); assert.equal(events.length, 0);
   tracker.update(exposure); flush(); tracker.resetVisible(); tracker.update(exposure); flush(); assert.equal(events.length, 1);
 });
+
+test("backgrounding cancels dwell and requires a fresh visible interval", () => {
+  const { tracker, events, flush } = harness();
+  tracker.update(exposure);
+  tracker.setDocumentVisible(false);
+  flush();
+  assert.equal(events.length, 0);
+  tracker.update(exposure);
+  flush();
+  assert.equal(events.length, 0);
+  tracker.setDocumentVisible(true);
+  tracker.update(exposure);
+  flush();
+  assert.deepEqual(events, [exposure.metadata]);
+});

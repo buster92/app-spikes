@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v14";
+const CACHE = "playloop-spike-v15";
 const ASSETS = [
   "./",
   "./index.html",
@@ -88,6 +88,8 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => event.request.mode === "navigate"
+        ? caches.match("./index.html")
+        : caches.match(event.request))
   );
 });

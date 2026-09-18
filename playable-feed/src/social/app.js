@@ -77,7 +77,9 @@ function challengesView() {
     const challengerResult = result(item.challengerResultId); const responseResult = result(item.responseResultId);
     const comparison = responseResult ? compareResults(source.resultPolicy, responseResult, challengerResult) : null;
     const view = challengePresentation({ challenge: item, challenger, target, challengerResult, responseResult, policy: source.resultPolicy, comparison });
-    return `<article class="challenge-card"><strong>${escapeHtml(view.title)}</strong><p>${escapeHtml(view.status)}${view.response ? ` · response ${escapeHtml(view.response)}` : ""}</p><small>${escapeHtml(bundledPlayable(item.playableRef.gameId)?.title || item.playableRef.gameId)} · ${escapeHtml(verificationLabel(challengerResult))}</small><p><button class="social-button ${view.canPlay ? "primary" : ""}" data-challenge="${item.id}">${view.canPlay ? "Play exact challenge" : "View outcome"}</button></p></article>`;
+    const action = view.canPlay ? `<p><button class="social-button primary" data-challenge="${item.id}">Play exact challenge</button></p>`
+      : view.canViewOutcome ? `<p><button class="social-button" data-challenge="${item.id}">View outcome</button></p>` : "";
+    return `<article class="challenge-card"><strong>${escapeHtml(view.title)}</strong><p>${escapeHtml(view.status)}${view.response ? ` · response ${escapeHtml(view.response)}` : ""}</p><small>${escapeHtml(bundledPlayable(item.playableRef.gameId)?.title || item.playableRef.gameId)} · ${escapeHtml(verificationLabel(challengerResult))}</small>${action}</article>`;
   }).join("")}</section>`;
 }
 

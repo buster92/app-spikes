@@ -143,7 +143,7 @@ Metadata is ids, booleans, policy/runtime types and bounded status values. Capti
 
 ## Offline/PWA
 
-Cache generation `playloop-spike-v14` includes the full static social import graph and the five approved zero-asset GameSpecs. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
+Cache generation `playloop-spike-v15` includes the full static social import graph and the five approved zero-asset GameSpecs. Same-origin navigation failures fall back to the cached index shell, so documented query-string entry points reopen offline. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
 
 ## Replacement and extension points
 

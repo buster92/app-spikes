@@ -46,6 +46,10 @@ function hasSourceRect(entity) {
   return ["sourceX", "sourceY", "sourceWidth", "sourceHeight"].every((key) => Number.isFinite(entity?.[key]));
 }
 
+export function resolveRuntimeSeed(seed) {
+  return seed ?? 1;
+}
+
 export function mountGameSpec(canvas, spec, options = {}) {
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Canvas 2D rendering is unavailable");
@@ -66,7 +70,7 @@ export function mountGameSpec(canvas, spec, options = {}) {
   const effects = [];
   const RuntimeClass = options.RuntimeClass || SafeSandboxRuntime;
   const runtime = new RuntimeClass(spec, {
-    seed: options.seed || 1,
+    seed: resolveRuntimeSeed(options.seed),
     onEvent: options.onEvent || (() => {}),
     onEffect: (effect) => {
       effects.push(effect);

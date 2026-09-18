@@ -59,8 +59,8 @@ export function challengePresentation({ challenge, challenger, target, challenge
   const benchmark = formatMetric(policy, challengerResult);
   const status = challenge.state === "completed"
     ? `Completed · ${comparison?.outcome || "recorded"}`
-    : `Beat ${benchmark}`;
-  return { title, status, response: responseResult ? formatMetric(policy, responseResult) : null, canPlay: challenge.state === "open" };
+    : challenge.state === "cancelled" ? "Cancelled" : `Beat ${benchmark}`;
+  return { title, status, response: responseResult ? formatMetric(policy, responseResult) : null, canPlay: challenge.state === "open", canViewOutcome: challenge.state === "completed" };
 }
 
 export function challengeOutcomePresentation({ challenger, responder, challengerResult, responseResult, policy, comparison, playableTitle }) {

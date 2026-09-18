@@ -8,6 +8,7 @@ import { BUNDLED_PLAYABLES, playableRefFor } from "../src/social/catalog.js";
 import { buildPublicationEnvelope } from "../src/sandbox/transport.js";
 import { samePlayableRef } from "../src/social/domain.js";
 import { normalizeRuntimeResult } from "../src/social/playable-host.js";
+import { resolveRuntimeSeed } from "../src/sandbox/web-canvas-host.js";
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,4 +40,9 @@ test("runtime normalization uses only trusted policy-specific terminal fields", 
   assert.deepEqual(normalizeRuntimeResult({ kind: "lower_time" }, { status: "complete", result: {} }), { status: "completed", metric: null });
   assert.deepEqual(normalizeRuntimeResult({ kind: "lower_moves" }, { status: "complete", variables: {} }), { status: "completed", metric: null });
   assert.deepEqual(normalizeRuntimeResult({ kind: "higher_score" }, { status: "failed", result: { score: 99 } }), { status: "failed", metric: null });
+});
+
+test("runtime mounting preserves a valid zero seed", () => {
+  assert.equal(resolveRuntimeSeed(0), 0);
+  assert.equal(resolveRuntimeSeed(undefined), 1);
 });

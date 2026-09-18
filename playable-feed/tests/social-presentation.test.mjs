@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { challengeOutcomePresentation, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
+import { challengeOutcomePresentation, challengePresentation, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
 import { createSeedState } from "../src/social/fixtures.js";
 
 test("result presentation explains a valid social comparison without color", () => {
@@ -31,6 +31,15 @@ test("completed challenge outcome and non-durable copy are explicit", () => {
   assert.match(view.title, /outcome/); assert.match(view.challengerLabel, /@/); assert.match(view.responderLabel, /@/); assert.match(view.verification, /Unverified/);
   assert.match(persistencePresentation(false, "result").warning, /this session/);
   assert.equal(persistencePresentation(true, "result").warning, null);
+});
+
+test("cancelled challenges have status copy without a dead action", () => {
+  const state = createSeedState(); const challenge = { ...state.challenges[0], state: "cancelled" };
+  const source = state.posts.find((item) => item.id === challenge.sourcePostId);
+  const view = challengePresentation({ challenge, challenger: state.profiles.find((item) => item.id === challenge.challengerId), target: null, challengerResult: state.results.find((item) => item.id === challenge.challengerResultId), responseResult: null, policy: source.resultPolicy, comparison: null });
+  assert.equal(view.status, "Cancelled");
+  assert.equal(view.canPlay, false);
+  assert.equal(view.canViewOutcome, false);
 });
 
 test("publish presentation requires selection, caption and actual benchmark", () => {
