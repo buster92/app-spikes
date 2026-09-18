@@ -6,7 +6,7 @@ The default app is now a working local-first social-playable foundation. It open
 
 The complete v0 loop is usable on one device:
 
-`creator post → follow → exact playable → local result comparison → Like / Challenge → response → publish`
+`creator post → follow → exact playable → local result comparison → Like / outbound Challenge; inbound Challenge → response; publish`
 
 Run it locally:
 
@@ -28,10 +28,11 @@ Architecture and extension boundaries are documented in [`SOCIAL-V0-ARCHITECTURE
 1. Open the app and confirm Discover contains creator posts.
 2. Open a creator profile and follow them.
 3. Confirm their posts appear in Following.
-4. Play a creator challenge and inspect the result comparison.
-5. Like it, create a Challenge, then open/complete it from Challenges.
-6. Open Create, choose a playable, complete the benchmark and publish a caption.
-7. Confirm the post appears on your profile, reload, and verify the social state remains.
+4. Play a creator post and inspect the result comparison.
+5. Like it and create an outbound Challenge; confirm it remains pending/cancellable rather than impersonating the remote creator.
+6. Open Challenges and complete the seeded inbound challenge from another creator.
+7. Open Create, choose a playable, complete the benchmark and publish a caption.
+8. Confirm the new post appears first on your profile, reload, and verify the social state remains.
 
 ## Two validation tracks
 
