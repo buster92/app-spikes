@@ -205,6 +205,7 @@ export function validateChallenge(challenge) {
     id: requiredId(challenge.id, "challenge.id"),
     challengerId: requiredId(challenge.challengerId, "challenge.challengerId"),
     targetActorId: challenge.targetActorId === undefined || challenge.targetActorId === null ? null : requiredId(challenge.targetActorId, "challenge.targetActorId"),
+    responderActorId: challenge.responderActorId === undefined || challenge.responderActorId === null ? null : requiredId(challenge.responderActorId, "challenge.responderActorId"),
     sourcePostId: requiredId(challenge.sourcePostId, "challenge.sourcePostId"),
     playableRef: validatePlayableRef(challenge.playableRef),
     challengerResultId: requiredId(challenge.challengerResultId, "challenge.challengerResultId"),
