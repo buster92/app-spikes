@@ -16,11 +16,13 @@ function uniqueMap(items, key, label) {
   return map;
 }
 
-function normalizeEdgeList(candidate, { label, key, validate }) {
+function normalizeEdgeList(candidate, { label, key, normalize, validate }) {
   if (!Array.isArray(candidate)) throw new Error(`${label} must be an array`);
   const values = candidate.map((item) => {
-    if (!item || typeof item !== "object" || !validate(item)) throw new Error(`${label} has invalid references`);
-    return { ...item };
+    if (!item || typeof item !== "object") throw new Error(`${label} has invalid references`);
+    const value = normalize(item);
+    if (!validate(value)) throw new Error(`${label} has invalid references`);
+    return value;
   });
   uniqueMap(values, key, label);
   return values;
@@ -71,21 +73,23 @@ export function normalizeSocialState(candidate) {
     const challengerResult = resultById.get(challenge.challengerResultId);
     if (!profileById.has(challenge.challengerId)) throw new Error(`challenge ${challenge.id} has unknown challenger`);
     if (challenge.targetActorId && !profileById.has(challenge.targetActorId)) throw new Error(`challenge ${challenge.id} has unknown target`);
+    if (challenge.responderActorId && !profileById.has(challenge.responderActorId)) throw new Error(`challenge ${challenge.id} has unknown responder`);
     if (challenge.targetActorId === challenge.challengerId) throw new Error(`challenge ${challenge.id} targets its challenger`);
+    if (challenge.responderActorId === challenge.challengerId) throw new Error(`challenge ${challenge.id} responder is its challenger`);
     if (!sourcePost || !samePlayableRef(challenge.playableRef, sourcePost.playableRef)) throw new Error(`challenge ${challenge.id} source playable is incoherent`);
     if (!challengerResult || challengerResult.actorId !== challenge.challengerId || challengerResult.postId !== challenge.sourcePostId || !samePlayableRef(challengerResult.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, challengerResult)) throw new Error(`challenge ${challenge.id} challenger result is incoherent`);
     const response = challenge.responseResultId ? resultById.get(challenge.responseResultId) : null;
-    if (challenge.state === "open" && response) throw new Error(`open challenge ${challenge.id} cannot have a response`);
-    if (challenge.state === "completed" && (!response || !challenge.targetActorId)) throw new Error(`completed challenge ${challenge.id} requires a response and responder`);
-    if (challenge.state === "cancelled" && response) throw new Error(`cancelled challenge ${challenge.id} cannot have a response`);
+    if (challenge.state === "open" && (response || challenge.responderActorId)) throw new Error(`open challenge ${challenge.id} cannot have a response or responder`);
+    if (challenge.state === "completed" && (!response || !challenge.responderActorId)) throw new Error(`completed challenge ${challenge.id} requires a response and responder`);
+    if (challenge.state === "cancelled" && (response || challenge.responderActorId)) throw new Error(`cancelled challenge ${challenge.id} cannot have a response or responder`);
     if (response) {
-      const expectedActor = challenge.targetActorId;
-      if (response.actorId !== expectedActor || response.actorId === challenge.challengerId || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, response)) throw new Error(`challenge ${challenge.id} response is incoherent`);
+      if (challenge.targetActorId && challenge.responderActorId !== challenge.targetActorId) throw new Error(`challenge ${challenge.id} responder does not match target`);
+      if (response.actorId !== challenge.responderActorId || response.actorId === challenge.challengerId || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, response)) throw new Error(`challenge ${challenge.id} response is incoherent`);
     }
   }
 
-  const likes = normalizeEdgeList(candidate.likes, { label: "like", key: (like) => `${like.actorId}|${like.postId}`, validate: (like) => profileById.has(like.actorId) && postById.has(like.postId) });
-  const follows = normalizeEdgeList(candidate.follows, { label: "follow", key: (follow) => `${follow.followerId}|${follow.followedId}`, validate: (follow) => profileById.has(follow.followerId) && profileById.has(follow.followedId) && follow.followerId !== follow.followedId });
+  const likes = normalizeEdgeList(candidate.likes, { label: "like", key: (like) => `${like.actorId}|${like.postId}`, normalize: (like) => ({ actorId: like.actorId, postId: like.postId }), validate: (like) => profileById.has(like.actorId) && postById.has(like.postId) });
+  const follows = normalizeEdgeList(candidate.follows, { label: "follow", key: (follow) => `${follow.followerId}|${follow.followedId}`, normalize: (follow) => ({ followerId: follow.followerId, followedId: follow.followedId }), validate: (follow) => profileById.has(follow.followerId) && profileById.has(follow.followedId) && follow.followerId !== follow.followedId });
   return { schemaVersion: SOCIAL_SCHEMA_VERSION, actorId: candidate.actorId, profiles, posts, results, challenges, likes, follows };
 }
 
