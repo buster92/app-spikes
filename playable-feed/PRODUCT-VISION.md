@@ -186,6 +186,56 @@ It is:
 
 That would move branded engagement from merely watching a campaign toward participating in it.
 
+
+## Interactive game marketing
+
+The gaming industry itself is a particularly strong adjacent use case.
+
+Publishers already use trailers, demos, playable ads, festival demos, influencer campaigns and branded web experiences to promote upcoming releases. The opportunity is **not** that game companies can finally make interactive marketing; they already can.
+
+The potential shift is making interactive promotion **social-native, lightweight and repeatable**.
+
+Instead of only:
+
+`announcement → trailer → wishlist/preorder`
+
+a campaign could become:
+
+`announcement → playable social post → score/result → challenge/share → wishlist/preorder`
+
+Examples:
+
+- a fighting game publisher posts a 20-second combo challenge using one character from an upcoming release;
+- a racing game publishes a tiny time-trial challenge themed around a new track or car;
+- an RPG publishes a dialogue/choice encounter introducing a companion or faction;
+- a horror game publishes a short survival or reaction challenge around one monster;
+- a sports game publishes a penalty, free-throw or reaction challenge tied to a cover athlete;
+- a strategy game publishes a one-turn tactical puzzle using simplified versions of the real game's mechanics;
+- an indie studio lets creators and fans remix a bounded promotional challenge before launch.
+
+The important product property is that the user does not have to leave the social context, download a demo, or commit to a full game before interacting with the IP.
+
+This creates a new promotional funnel:
+
+`impression → play → complete/retry → challenge/share → follow/wishlist → launch conversion`
+
+It also creates a different kind of trailer. A traditional trailer says:
+
+> "Watch what this game feels like."
+
+A playable post can say:
+
+> **"Try a tiny piece of what this game feels like."**
+
+That distinction could be especially valuable before launch, when publishers are trying to turn awareness into memory, conversation and intent.
+
+### Strategic caution
+
+A Playloop promotional game should not attempt to reproduce the full commercial game. The value is the opposite: extracting one recognizable fantasy, mechanic, character, challenge or piece of IP into a small social object that can be understood and played immediately.
+
+If producing these posts becomes close to the cost and iteration speed of producing ordinary social creative, publishers could run many interactive campaign experiments rather than treating every playable promotion as a bespoke mini-project.
+
+
 ## Adjacent platform signals
 
 These signals should be treated as evidence that large platforms see value in gaming/interaction outside traditional game distribution — **not as proof that Playloop itself has demand.**
