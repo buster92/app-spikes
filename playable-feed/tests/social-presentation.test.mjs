@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
+import { activePlayStatus, challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
 import { createSeedState } from "../src/social/fixtures.js";
 
 test("result presentation explains a valid social comparison without color", () => {
@@ -93,4 +93,12 @@ test("follow visibility is derived from current actor relationship, not profile 
   assert.equal(remoteCard.canFollow, true);
   const selfResult = resultPresentation({ post, creator, playerResult: { ...benchmark, actorId: "actor_local" }, benchmark, comparison: null, isSelf: true });
   assert.equal(selfResult.showFollow, false);
+});
+
+
+test("active play status never leaks missing post copy into Create", () => {
+  assert.equal(activePlayStatus({ mode: "publish", presentation: "creator" }), "Complete this run to set your creator benchmark.");
+  assert.equal(activePlayStatus({ mode: "post", presentation: "anonymous", caption: "Hidden creator copy" }), "Play the same exact game version and seed.");
+  assert.equal(activePlayStatus({ mode: "post", presentation: "creator", caption: "Beat this" }), "Beat this");
+  assert.equal(activePlayStatus({ mode: "post", presentation: "creator", caption: null }), "Play the exact challenge.");
 });
