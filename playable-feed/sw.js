@@ -1,4 +1,4 @@
-const CACHE = "playloop-spike-v12";
+const CACHE = "playloop-spike-v13";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const ASSETS = [
   "./playtest-round2.css",
   "./round3.css",
   "./bus-feedback.css",
+  "./social.css",
   "./ux-feedback.js",
   "./icons/playloop-icon.svg",
   "./icons/playloop-192.png",
@@ -29,6 +30,32 @@ const ASSETS = [
   "./src/navigation-guard.js",
   "./src/progression.js",
   "./src/round3-ui.js",
+  "./src/sandbox/asset-contract.js",
+  "./src/sandbox/game-spec.js",
+  "./src/sandbox/game-spec-v1.js",
+  "./src/sandbox/game-spec-v2.js",
+  "./src/sandbox/game-spec-v3.js",
+  "./src/sandbox/publication-policy.js",
+  "./src/sandbox/runtime-core.js",
+  "./src/sandbox/safe-runtime.js",
+  "./src/sandbox/runtime-v1.js",
+  "./src/sandbox/runtime-v2.js",
+  "./src/sandbox/runtime-v3.js",
+  "./src/sandbox/transport.js",
+  "./src/sandbox/web-canvas-host.js",
+  "./src/social/app.js",
+  "./src/social/catalog.js",
+  "./src/social/domain.js",
+  "./src/social/fixtures.js",
+  "./src/social/playable-host.js",
+  "./src/social/presentation.js",
+  "./src/social/repository.js",
+  "./src/social/service.js",
+  "./examples/meteor-dodge.game.json",
+  "./examples/tap-bloom.game.json",
+  "./examples/pattern-echo-v2.game.json",
+  "./examples/bus-escape-v3.game.json",
+  "./examples/sokoban-push-v3.game.json",
   "./manifest.webmanifest"
 ];
 

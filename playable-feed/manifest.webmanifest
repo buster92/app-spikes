@@ -1,7 +1,7 @@
 {
-  "name": "Playloop — Playable Feed Spike",
+  "name": "Playloop — Social Playables",
   "short_name": "Playloop",
-  "description": "A swipeable feed of instant playable microgames.",
+  "description": "Creator posts you can play, beat and challenge.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
