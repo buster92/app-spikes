@@ -60,11 +60,18 @@ export function normalizeSocialState(candidate) {
       if (!resultHasRequiredMetric(post.resultPolicy, benchmark)) throw new Error(`post ${post.id} benchmark is not publication eligible`);
     }
     if (post.lineage) {
+      if (post.lineage.originalPostId === post.id || post.lineage.parentPostId === post.id) throw new Error(`post ${post.id} lineage cannot reference itself`);
       const original = postById.get(post.lineage.originalPostId);
       const parent = post.lineage.parentPostId ? postById.get(post.lineage.parentPostId) : null;
       if (!original || !profileById.has(post.lineage.originalCreatorId) || original.creatorId !== post.lineage.originalCreatorId) throw new Error(`post ${post.id} has broken original lineage`);
       if (post.lineage.parentPostId && !parent) throw new Error(`post ${post.id} has broken parent lineage`);
-      if (parent?.lineage && parent.lineage.originalPostId !== post.lineage.originalPostId) throw new Error(`post ${post.id} lineage disagrees with parent`);
+      if (parent && parent.id !== original.id) {
+        if (!parent.lineage
+          || parent.lineage.originalPostId !== original.id
+          || parent.lineage.originalCreatorId !== post.lineage.originalCreatorId) {
+          throw new Error(`post ${post.id} lineage disagrees with parent`);
+        }
+      }
     }
   }
 
