@@ -1,5 +1,7 @@
 # Creator network hypothesis
 
+> The broader north-star framing — playable experiences as a first-class content medium, AI as an invisible facilitator, creator `plays`, brand use cases, and adjacent LinkedIn/Netflix signals — is captured in [`PRODUCT-VISION.md`](./PRODUCT-VISION.md).
+
 ## Observation
 
 The microgame feed is fun and can sustain repeated play, but the current loop is high-attention: reaction, memory, timing, puzzle solving, and frequent touch input. After roughly 15 minutes it can become mentally tiring even when the individual games are still enjoyable.
