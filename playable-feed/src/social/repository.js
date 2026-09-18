@@ -76,10 +76,10 @@ export function normalizeSocialState(candidate) {
     if (!challengerResult || challengerResult.actorId !== challenge.challengerId || challengerResult.postId !== challenge.sourcePostId || !samePlayableRef(challengerResult.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, challengerResult)) throw new Error(`challenge ${challenge.id} challenger result is incoherent`);
     const response = challenge.responseResultId ? resultById.get(challenge.responseResultId) : null;
     if (challenge.state === "open" && response) throw new Error(`open challenge ${challenge.id} cannot have a response`);
-    if (challenge.state === "completed" && !response) throw new Error(`completed challenge ${challenge.id} requires a response`);
+    if (challenge.state === "completed" && (!response || !challenge.targetActorId)) throw new Error(`completed challenge ${challenge.id} requires a response and responder`);
     if (challenge.state === "cancelled" && response) throw new Error(`cancelled challenge ${challenge.id} cannot have a response`);
     if (response) {
-      const expectedActor = challenge.targetActorId || candidate.actorId;
+      const expectedActor = challenge.targetActorId;
       if (response.actorId !== expectedActor || response.actorId === challenge.challengerId || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, response)) throw new Error(`challenge ${challenge.id} response is incoherent`);
     }
   }

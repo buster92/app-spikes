@@ -6,7 +6,7 @@ The v0 proves one complete social interaction:
 
 `creator → playable post → creator context → exact play → comparable local result → Like / Follow / Challenge → continue`
 
-The default PWA route now opens creator-framed Discover. `?legacy=1` preserves the original anonymous handcrafted feed as an explicit playtest/control surface. Both presentations keep game execution separate from feed presentation, which makes the same-playable anonymous-vs-creator-framed experiment possible without forking game logic.
+The default PWA route now opens creator-framed Discover. `?legacy=1` preserves the original anonymous handcrafted feed as an explicit playtest/control surface. `?presentation=anonymous` is a QA control presentation, not a randomized experiment assignment; it reuses the exact same playable while removing creator treatment. Both presentations keep game execution separate from feed presentation, leaving a future anonymous-vs-creator experiment possible without forking game logic.
 
 ## Modules
 
@@ -139,11 +139,11 @@ Metadata is ids, booleans, policy/runtime types and bounded status values. Capti
 
 ## Anonymous experiment control
 
-`?presentation=anonymous` uses the same post, `PlayableRef`, runtime and GameSpec, but removes creator identity, caption/challenge framing, benchmark/opponent framing, Like, Follow and Challenge actions before and after play. It retains neutral game framing, the player's result, Retry and Continue. Presentation changes social treatment, never playable execution.
+`?presentation=anonymous` uses the same post, `PlayableRef`, runtime and GameSpec, but removes creator identity, caption/challenge framing, benchmark/opponent framing, Like, Follow and Challenge actions before and after play. It retains neutral game framing, the player's result, Retry and Continue. Presentation changes social treatment, never playable execution. Relevant social funnel events carry `presentation: "creator" | "anonymous"`; the query string does not emit experiment exposure or activate random assignment. A future experiment should use the existing experiment registry/override infrastructure.
 
 ## Offline/PWA
 
-Cache generation `playloop-spike-v15` includes the full static social import graph and the five approved zero-asset GameSpecs. Same-origin navigation failures fall back to the cached index shell, so documented query-string entry points reopen offline. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
+Cache generation `playloop-spike-v16` includes the full static social import graph and the five approved zero-asset GameSpecs. Same-origin navigation failures fall back to the cached index shell, so documented query-string entry points reopen offline. The existing offline dependency-graph test walks transitive JS imports. Runtime specs are also explicitly cached because they are fetched data rather than JS imports.
 
 ## Replacement and extension points
 
@@ -161,9 +161,11 @@ Cache generation `playloop-spike-v15` includes the full static social import gra
 
 Create first records a transient bounded benchmark attempt directly against an approved immutable `PlayableRef`. Publishing then atomically creates the new post and its post-owned `PlayResult`; no existing social post or synthetic source result is required. Persisted results always have a real post, actor, exact playable identity, canonical timestamp, bounded verification state, and only the supported `local_snapshot` replay marker. Preview metadata is likewise limited to a poster/tone variant.
 
-Challenge capability is derived centrally for the current actor. Inbound targeted and other-creator open challenges can be answered; outbound and own open challenges cannot. Normal product result recording always uses the current actor, so this local shell cannot impersonate seeded creators. An open challenge may be cancelled only by its challenger.
+Transient publication attempts have their own bounded contract and contain no result/post identity. Publication revalidates the contract and requires a completed `trusted_shell_local` attempt observed through the current device's PlayableHost; fixture/unverified attempts cannot become creator benchmarks.
 
-An impression requires 50% visibility for 350 ms, while the document is visible and no playable/result/outcome modal obscures the feed. Any interruption cancels dwell; closing it requires a fresh full interval. The play funnel distinguishes request, successful mounted start, and bounded load/runtime failure. A later successful full-state persistence write clears a prior session-only warning because the repository persists its entire snapshot.
+Challenge capability is derived centrally for the current actor. Inbound targeted and other-creator open challenges can be answered; outbound and own open challenges cannot. Completing an open challenge atomically binds `targetActorId` to the actual responder, so completed history validates independently of whichever actor later loads it. Normal product result recording always uses the current actor, so this local shell cannot impersonate seeded creators. An open challenge may be cancelled only by its challenger.
+
+An impression requires 50% visibility for 350 ms, while the document is visible and no playable/result/outcome modal obscures the feed. Any interruption cancels dwell; closing it requires a fresh full interval. Social play telemetry carries a bounded `presentation` value and follows request → successful mounted start → terminal result, or request → one bounded failure. Superseded mounts emit neither start nor failure; post-mount runtime faults emit one runtime failure. A later successful full-state persistence write clears a prior session-only warning because the repository persists its entire snapshot.
 
 ## Known v0 limitations
 

@@ -25,8 +25,9 @@ export function normalizeRuntimeResult(policy, snapshot) {
 }
 
 export class PlayableHost {
-  constructor({ fetchImpl = globalThis.fetch } = {}) {
+  constructor({ fetchImpl = globalThis.fetch, mountImpl = mountGameSpec } = {}) {
     this.fetchImpl = fetchImpl;
+    this.mountImpl = mountImpl;
     this.controller = null;
     this.generation = 0;
   }
@@ -45,17 +46,17 @@ export class PlayableHost {
     const resolved = { runtime: envelope.feedDescriptor.runtime, gameId: envelope.feedDescriptor.gameId, manifestVersion: envelope.feedDescriptor.manifestVersion, manifestRef: envelope.feedDescriptor.manifestRef, specRef: envelope.feedDescriptor.specRef, seed: playableRef.seed };
     if (!samePlayableRef(resolved, playableRef)) throw new SocialDomainError("playable_mismatch", "Bundled playable does not match the post's immutable reference");
     if (generation !== this.generation) return null;
-    try {
-      this.controller = mountGameSpec(canvas, spec, {
-        RuntimeClass: runtimeClassFor(spec.runtime), seed: playableRef.seed, imageSmoothing: false,
-        onRuntimeError: (error) => onError?.(error),
-        onFinish: (snapshot) => onFinish?.(normalizeRuntimeResult(policy, snapshot), snapshot),
-      });
-      return this.controller;
-    } catch (error) {
-      onError?.(error);
-      throw error;
+    const controller = this.mountImpl(canvas, spec, {
+      RuntimeClass: runtimeClassFor(spec.runtime), seed: playableRef.seed, imageSmoothing: false,
+      onRuntimeError: (error) => onError?.(error),
+      onFinish: (snapshot) => onFinish?.(normalizeRuntimeResult(policy, snapshot), snapshot),
+    });
+    if (generation !== this.generation) {
+      controller?.destroy?.();
+      return null;
     }
+    this.controller = controller;
+    return this.controller;
   }
 
   destroy() {

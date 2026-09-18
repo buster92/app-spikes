@@ -1,5 +1,5 @@
 import { bundledPlayable, playableRefFor } from "./catalog.js";
-import { compareResults, resultHasRequiredMetric, samePlayableRef, SocialDomainError, validatePlayResult, validatePost } from "./domain.js";
+import { attemptHasRequiredMetric, compareResults, resultHasRequiredMetric, samePlayableRef, SocialDomainError, validatePlayAttempt, validatePlayResult, validatePost } from "./domain.js";
 
 function defaultId(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -84,12 +84,12 @@ export class SocialService {
     return { following: desired, changed: transaction.value, persisted: transaction.persisted };
   }
 
-  recordResult({ postId, playableRef, status, metric, replayEvidence = null }) {
+  recordResult({ postId, playableRef, status, metric, replayEvidence = null, presentation = "creator" }) {
     const post = this.post(postId);
     if (!samePlayableRef(post.playableRef, playableRef)) throw new SocialDomainError("playable_mismatch", "Result does not target the post's immutable playable revision and seed");
     const result = validatePlayResult({ id: this.idFactory("result"), actorId: this.actorId(), postId, playableRef, status, metric, createdAt: this.now(), verification: "trusted_shell_local", replayEvidence });
     const transaction = this.repository.transaction((state) => state.results.push(result));
-    this.log("social_post_play_result", { post_id: postId, game_id: playableRef.gameId, runtime: playableRef.runtime, outcome: status, policy: post.resultPolicy.kind, verification: result.verification });
+    this.log("social_post_play_result", { post_id: postId, game_id: playableRef.gameId, runtime: playableRef.runtime, outcome: status, policy: post.resultPolicy.kind, verification: result.verification, presentation: presentation === "anonymous" ? "anonymous" : "creator" });
     return { result, persisted: transaction.persisted };
   }
 
@@ -160,6 +160,7 @@ export class SocialService {
     const comparison = compareResults(post.resultPolicy, response, challenger);
     const transaction = this.repository.transaction((draft) => {
       const item = draft.challenges.find((entry) => entry.id === challengeId);
+      if (item.targetActorId === null) item.targetActorId = response.actorId;
       item.responseResultId = responseResultId;
       item.state = "completed";
     });
@@ -176,9 +177,9 @@ export class SocialService {
   }
 
   createBenchmarkAttempt({ playableRef, policy, status, metric, replayEvidence = null }) {
-    const attempt = validatePlayResult({ id: "attempt_local", actorId: this.actorId(), postId: "post_placeholder", playableRef, status, metric, createdAt: this.now(), verification: "trusted_shell_local", replayEvidence });
-    if (!resultHasRequiredMetric(policy, attempt)) throw new SocialDomainError("benchmark_required", "Complete this playable before publishing its challenge");
-    return { playableRef: attempt.playableRef, status: attempt.status, metric: attempt.metric, createdAt: attempt.createdAt, verification: attempt.verification, replayEvidence: attempt.replayEvidence };
+    const attempt = validatePlayAttempt({ playableRef, status, metric, createdAt: this.now(), verification: "trusted_shell_local", replayEvidence });
+    if (!attemptHasRequiredMetric(policy, attempt)) throw new SocialDomainError("benchmark_required", "Complete this playable before publishing its challenge");
+    return attempt;
   }
 
   publish({ gameId, caption, benchmarkAttempt, lineage = null }) {
@@ -187,18 +188,20 @@ export class SocialService {
       const catalog = bundledPlayable(gameId);
       if (!catalog) throw new SocialDomainError("unapproved_playable", "Choose an approved bundled playable");
       const playableRef = playableRefFor(catalog);
-      if (!benchmarkAttempt || !samePlayableRef(benchmarkAttempt.playableRef, playableRef) || benchmarkAttempt.status !== "completed" || benchmarkAttempt.metric === null || !Number.isFinite(benchmarkAttempt.metric)) throw new SocialDomainError("benchmark_required", "Complete this playable before publishing its challenge");
+      if (!benchmarkAttempt) throw new SocialDomainError("benchmark_required", "Complete this playable on this device before publishing its challenge");
+      const attempt = validatePlayAttempt(benchmarkAttempt);
+      if (!samePlayableRef(attempt.playableRef, playableRef) || !attemptHasRequiredMetric(catalog.policy, attempt) || attempt.verification !== "trusted_shell_local") throw new SocialDomainError("benchmark_required", "Complete this playable on this device before publishing its challenge");
       const postId = this.idFactory("post");
       const publishedBenchmark = validatePlayResult({
         id: this.idFactory("result"),
         actorId: this.actorId(),
         postId,
         playableRef,
-        status: benchmarkAttempt.status,
-        metric: benchmarkAttempt.metric,
+        status: attempt.status,
+        metric: attempt.metric,
         createdAt: this.now(),
-        verification: benchmarkAttempt.verification,
-        replayEvidence: benchmarkAttempt.replayEvidence,
+        verification: attempt.verification,
+        replayEvidence: attempt.replayEvidence,
       });
       const post = validatePost({ id: postId, creatorId: this.actorId(), createdAt: this.now(), caption, playableRef, resultPolicy: catalog.policy, creatorResultId: publishedBenchmark.id, status: "published", lineage, preview: { kind: "poster", tone: "violet" } });
       const transaction = this.repository.transaction((draft) => {

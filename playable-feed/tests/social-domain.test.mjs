@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareResults, playableRefKey, samePlayableRef, validateChallenge, validatePlayableRef, validatePlayResult, validatePost, validateResultPolicy } from "../src/social/domain.js";
+import { compareResults, playableRefKey, samePlayableRef, validateChallenge, validatePlayAttempt, validatePlayableRef, validatePlayResult, validatePost, validateResultPolicy } from "../src/social/domain.js";
 import { BUNDLED_PLAYABLES, playableRefFor } from "../src/social/catalog.js";
 
 const ref = playableRefFor(BUNDLED_PLAYABLES[0]);
@@ -50,4 +50,12 @@ test("social timestamps, replay evidence and previews are bounded", () => {
   const normalized = validatePost({ id: "post_x", creatorId: "creator_x", createdAt: "2026-09-18T00:00:00.000Z", caption: "Valid", playableRef: ref, resultPolicy: { kind: "higher_score" }, status: "published", preview: { kind: "poster", tone: "violet", ignored: true }, ignored: true });
   assert.deepEqual(normalized.preview, { kind: "poster", tone: "violet" });
   assert.equal("ignored" in normalized, false);
+});
+
+test("transient play attempts have no social identity and strip unknown fields", () => {
+  const attempt = validatePlayAttempt({ playableRef: ref, status: "completed", metric: 47, createdAt: "2026-09-18T00:00:00.000Z", verification: "trusted_shell_local", replayEvidence: { kind: "local_snapshot", elapsedMs: 1200 }, postId: "post_fake", id: "result_fake", arbitrary: true });
+  assert.equal("postId" in attempt, false);
+  assert.equal("id" in attempt, false);
+  assert.equal("arbitrary" in attempt, false);
+  assert.deepEqual(attempt.replayEvidence, { kind: "local_snapshot", elapsedMs: 1200 });
 });

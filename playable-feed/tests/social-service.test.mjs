@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CurrentActorProvider, LocalSocialRepository } from "../src/social/repository.js";
+import { CurrentActorProvider, LocalSocialRepository, normalizeSocialState } from "../src/social/repository.js";
 import { SocialService } from "../src/social/service.js";
 
 class MemoryStorage { constructor() { this.value = null; } getItem() { return this.value; } setItem(_key, value) { this.value = value; } }
@@ -96,6 +96,15 @@ test("publishing rejects unapproved content and missing completed benchmark", ()
   assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "No fake score", benchmarkAttempt: null }), (error) => error.code === "benchmark_required");
 });
 
+test("publishing rejects unverified or malformed benchmark attempts", () => {
+  const { service } = setup();
+  const source = service.post("post_alex_meteor");
+  const base = { playableRef: source.playableRef, status: "completed", metric: 47, createdAt: "2026-09-18T10:00:00.000Z", verification: "unverified", replayEvidence: null };
+  assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "Fixture score", benchmarkAttempt: base }), (error) => error.code === "benchmark_required");
+  assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "Bad attempt", benchmarkAttempt: { ...base, verification: "trusted_shell_local", metric: null } }), (error) => error.code === "benchmark_required");
+  assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "Wrong game", benchmarkAttempt: { ...base, verification: "trusted_shell_local", playableRef: { ...base.playableRef, seed: 999 } } }), (error) => error.code === "benchmark_required");
+});
+
 test("inbound challenge captures exact reference and can be completed by the local actor", () => {
   const { service } = setup();
   const challenge = service.openChallenge("challenge_seed_open"); const source = service.post(challenge.sourcePostId);
@@ -103,6 +112,20 @@ test("inbound challenge captures exact reference and can be completed by the loc
   const completed = service.completeChallenge(challenge.id, response.result.id);
   assert.equal(completed.comparison.outcome, "win");
   assert.equal(service.openChallenge(challenge.id).responseResultId, response.result.id);
+  assert.equal(service.openChallenge(challenge.id).targetActorId, "actor_local");
+});
+
+test("open challenge completion binds responder and remains valid under another current actor", () => {
+  const { repository, service } = setup();
+  repository.transaction((state) => { state.challenges[0].targetActorId = null; });
+  const challenge = service.openChallenge("challenge_seed_open");
+  const source = service.post(challenge.sourcePostId);
+  const response = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 6200 });
+  service.completeChallenge(challenge.id, response.result.id);
+  const completed = service.state().challenges.find((item) => item.id === challenge.id);
+  assert.equal(completed.targetActorId, "actor_local");
+  const historical = { ...service.state(), actorId: "creator_alex" };
+  assert.doesNotThrow(() => normalizeSocialState(historical));
 });
 
 test("challenge response cannot silently change revision or actor", () => {

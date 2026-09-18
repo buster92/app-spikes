@@ -106,10 +106,34 @@ export function validatePlayResult(result) {
   };
 }
 
+export function validatePlayAttempt(attempt) {
+  if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) throw new SocialDomainError("invalid_attempt", "Play attempt is required");
+  const status = attempt.status;
+  if (!["completed", "failed"].includes(status)) throw new SocialDomainError("invalid_attempt", "Attempt status must be completed or failed");
+  const metric = attempt.metric === null || attempt.metric === undefined ? null : Number(attempt.metric);
+  if (metric !== null && (!Number.isFinite(metric) || metric < 0)) throw new SocialDomainError("invalid_attempt", "Attempt metric must be finite and non-negative");
+  const verification = attempt.verification || "unverified";
+  if (!["unverified", "trusted_shell_local"].includes(verification)) throw new SocialDomainError("invalid_attempt", "Attempt verification state is unsupported");
+  return {
+    playableRef: validatePlayableRef(attempt.playableRef),
+    status,
+    metric,
+    createdAt: validateTimestamp(attempt.createdAt, "attempt.createdAt"),
+    verification,
+    replayEvidence: validateReplayEvidence(attempt.replayEvidence),
+  };
+}
+
 export function resultHasRequiredMetric(policyInput, resultInput) {
   validateResultPolicy(policyInput);
   const result = validatePlayResult(resultInput);
   return result.status === "completed" && result.metric !== null;
+}
+
+export function attemptHasRequiredMetric(policyInput, attemptInput) {
+  validateResultPolicy(policyInput);
+  const attempt = validatePlayAttempt(attemptInput);
+  return attempt.status === "completed" && attempt.metric !== null;
 }
 
 function compareScalar(player, benchmark, lowerWins) {
