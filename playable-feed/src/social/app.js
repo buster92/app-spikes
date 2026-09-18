@@ -1,11 +1,11 @@
 import { Analytics } from "../analytics.js";
-import { BUNDLED_PLAYABLES, bundledPlayable } from "./catalog.js";
+import { BUNDLED_PLAYABLES, bundledPlayable, playableRefFor } from "./catalog.js";
 import { CurrentActorProvider, LocalSocialRepository } from "./repository.js";
 import { SocialService } from "./service.js";
-import { challengeOutcomePresentation, challengePresentation, persistencePresentation, postPresentation, publishValidation, resultPresentation, verificationLabel } from "./presentation.js";
+import { challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, publishValidation, resultPresentation, verificationLabel } from "./presentation.js";
 import { PlayableHost } from "./playable-host.js";
 import { compareResults } from "./domain.js";
-import { observePostImpressions, QualifiedImpressionTracker } from "./impressions.js";
+import { observePostImpressions, QualifiedImpressionTracker, shouldObservePostImpressions } from "./impressions.js";
 
 const analytics = new Analytics();
 const repository = new LocalSocialRepository();
@@ -17,7 +17,7 @@ let loggedFeedScope = null;
 const loggedSurfaces = new Set();
 const impressionTracker = new QualifiedImpressionTracker({ onImpression: (metadata) => analytics.log("social_post_impression", metadata) });
 let stopImpressionObserver = () => {};
-const ui = { view: "discover", profileId: null, selectedGameId: BUNDLED_PLAYABLES[0].id, benchmarkResultId: null, benchmarkPersisted: true, error: null, persistenceWarning: repository.persistenceAvailable ? null : persistencePresentation(false, "social activity").warning, play: null, outcomeChallengeId: null };
+const ui = { view: "discover", profileId: null, selectedGameId: BUNDLED_PLAYABLES[0].id, benchmarkAttempt: null, error: null, persistenceWarning: repository.persistenceAvailable ? null : persistencePresentation(false, "social activity").warning, play: null, outcomeChallengeId: null };
 
 document.body.classList.add("social-mode");
 const root = document.createElement("div");
@@ -76,18 +76,20 @@ function challengesView() {
     const source = post(item.sourcePostId); const challenger = profile(item.challengerId); const target = item.targetActorId ? profile(item.targetActorId) : null;
     const challengerResult = result(item.challengerResultId); const responseResult = result(item.responseResultId);
     const comparison = responseResult ? compareResults(source.resultPolicy, responseResult, challengerResult) : null;
-    const view = challengePresentation({ challenge: item, challenger, target, challengerResult, responseResult, policy: source.resultPolicy, comparison });
-    const action = view.canPlay ? `<p><button class="social-button primary" data-challenge="${item.id}">Play exact challenge</button></p>`
-      : view.canViewOutcome ? `<p><button class="social-button" data-challenge="${item.id}">View outcome</button></p>` : "";
+    const capabilities = service.challengeCapabilities(item);
+    const view = challengePresentation({ challenge: item, challenger, target, challengerResult, responseResult, policy: source.resultPolicy, comparison, capabilities });
+    const action = capabilities.canRespond ? `<p><button class="social-button primary" data-challenge="${item.id}">Play exact challenge</button></p>`
+      : view.canViewOutcome ? `<p><button class="social-button" data-challenge="${item.id}">View outcome</button></p>`
+        : capabilities.canCancel ? `<p><button class="social-button" data-cancel-challenge="${item.id}">Cancel challenge</button></p>` : "";
     return `<article class="challenge-card"><strong>${escapeHtml(view.title)}</strong><p>${escapeHtml(view.status)}${view.response ? ` · response ${escapeHtml(view.response)}` : ""}</p><small>${escapeHtml(bundledPlayable(item.playableRef.gameId)?.title || item.playableRef.gameId)} · ${escapeHtml(verificationLabel(challengerResult))}</small>${action}</article>`;
   }).join("")}</section>`;
 }
 
 function createView() {
   const selected = bundledPlayable(ui.selectedGameId);
-  const validation = publishValidation({ gameId: ui.selectedGameId, caption: document.querySelector?.("#publishCaption")?.value || "placeholder", benchmarkResultId: ui.benchmarkResultId });
-  const benchmarkCopy = ui.benchmarkResultId ? (ui.benchmarkPersisted ? "✓ Benchmark recorded on this device" : "Benchmark available this session; device storage is unavailable") : "Your score must come from an actual completed run.";
-  return `<section class="social-panel"><div class="create-form"><p class="eyebrow">CREATE A PLAYABLE POST</p><h1>Set a challenge</h1><p>Choose a reviewed bundled playable. The game stays declarative; your caption and social actions remain in Playloop.</p></div><div class="create-grid">${BUNDLED_PLAYABLES.map((item) => `<button class="playable-choice ${item.id === ui.selectedGameId ? "selected" : ""}" data-select-game="${item.id}"><span>${item.cover}</span>${escapeHtml(item.title)}</button>`).join("")}</div><div class="create-form"><button class="social-button primary" data-preview-publish="${selected.id}">${ui.benchmarkResultId ? "Replay benchmark" : "Play to set benchmark"}</button><p class="form-status">${escapeHtml(benchmarkCopy)}</p><label for="publishCaption"><strong>Challenge caption</strong></label><textarea id="publishCaption" maxlength="180" placeholder="Nobody gets over 40 on this."></textarea><p class="form-status" id="publishStatus">${validation.errors.filter((error) => !error.includes("caption")).map(escapeHtml).join(" · ")}</p><button class="social-button primary" data-publish>Publish post</button></div></section>`;
+  const validation = publishValidation({ gameId: ui.selectedGameId, caption: document.querySelector?.("#publishCaption")?.value || "placeholder", benchmarkAttempt: ui.benchmarkAttempt });
+  const benchmarkCopy = ui.benchmarkAttempt ? "✓ Benchmark ready to publish" : "Your score must come from an actual completed run.";
+  return `<section class="social-panel"><div class="create-form"><p class="eyebrow">CREATE A PLAYABLE POST</p><h1>Set a challenge</h1><p>Choose a reviewed bundled playable. The game stays declarative; your caption and social actions remain in Playloop.</p></div><div class="create-grid">${BUNDLED_PLAYABLES.map((item) => `<button class="playable-choice ${item.id === ui.selectedGameId ? "selected" : ""}" data-select-game="${item.id}"><span>${item.cover}</span>${escapeHtml(item.title)}</button>`).join("")}</div><div class="create-form"><button class="social-button primary" data-preview-publish="${selected.id}">${ui.benchmarkAttempt ? "Replay benchmark" : "Play to set benchmark"}</button><p class="form-status">${escapeHtml(benchmarkCopy)}</p><label for="publishCaption"><strong>Challenge caption</strong></label><textarea id="publishCaption" maxlength="180" placeholder="Nobody gets over 40 on this."></textarea><p class="form-status" id="publishStatus">${validation.errors.filter((error) => !error.includes("caption")).map(escapeHtml).join(" · ")}</p><button class="social-button primary" data-publish>Publish post</button></div></section>`;
 }
 
 function outcomeModal() {
@@ -113,16 +115,17 @@ function render() {
     content = `<div class="social-panel empty-state"><h2>Could not load this view</h2><p>${escapeHtml(error.message)}</p><button class="social-button" data-view="discover">Back to Discover</button></div>`;
   }
   root.innerHTML = `${nav()}${repository.recovered ? `<div class="error-banner" role="status">Damaged local social data was reset safely.</div>` : ""}${ui.persistenceWarning ? `<div class="error-banner" role="status">${escapeHtml(ui.persistenceWarning)}</div>` : ""}${ui.error ? `<div class="error-banner" role="alert">${escapeHtml(ui.error)}</div>` : ""}${content}${ui.play ? modalView() : ""}${ui.outcomeChallengeId ? outcomeModal() : ""}`;
-  stopImpressionObserver = observePostImpressions({ root, tracker: impressionTracker });
+  stopImpressionObserver = shouldObservePostImpressions({ hasPlayModal: Boolean(ui.play), hasOutcomeModal: Boolean(ui.outcomeChallengeId) }) ? observePostImpressions({ root, tracker: impressionTracker }) : (() => {});
   if (ui.outcomeChallengeId) document.querySelector("[data-close-outcome]")?.focus();
   else if (ui.play) document.querySelector("[data-close-play]")?.focus();
   if (ui.play?.mountPending) mountActivePlayable();
 }
 
 function modalView() {
-  const play = ui.play; const source = post(play.postId); const creator = profile(source.creatorId); const playable = bundledPlayable(source.playableRef.gameId);
+  const play = ui.play; const source = play.postId ? post(play.postId) : play.source; const creator = source.creatorId ? profile(source.creatorId) : null; const playable = bundledPlayable(source.playableRef.gameId);
   if (!playable) return `<div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Playable unavailable"><section class="play-modal"><div class="modal-head"><h2>Playable unavailable</h2><button class="modal-close" data-close-play aria-label="Close playable error">×</button></div><p>This exact playable package is not available on this device.</p></section></div>`;
   if (!play.finished) return `<div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Play ${escapeHtml(playable.title)}"><section class="play-modal"><div class="modal-head"><div><small>${play.mode === "challenge" ? "EXACT CHALLENGE" : "PLAYABLE POST"}</small><h2>${escapeHtml(playable.title)}</h2></div><button class="modal-close" data-close-play aria-label="Close playable">×</button></div><p id="playStatus">Loading exact version and seed…</p><canvas id="socialCanvas" class="game-canvas" aria-label="${escapeHtml(playable.title)} game"></canvas></section></div>`;
+  if (!play.postId) return `<div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Benchmark result"><section class="play-modal"><div class="modal-head"><h2>Benchmark ready</h2><button class="modal-close" data-close-play aria-label="Close benchmark result">×</button></div><div class="result-panel"><p>${escapeHtml(play.result?.metric === null ? "Finish the playable to establish a benchmark." : "Use this completed run when you publish.")}</p><button class="social-button primary" data-continue>Continue</button></div></section></div>`;
   const view = resultPresentation({ post: source, creator, playerResult: play.result, benchmark: result(source.creatorResultId), comparison: play.comparison, mode: presentationMode, persisted: play.persisted });
   return `<div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Play result"><section class="play-modal"><div class="modal-head"><h2>Result</h2><button class="modal-close" data-close-play aria-label="Close result">×</button></div><div class="result-panel"><h2>${escapeHtml(play.mode === "challenge" && play.challengeComparison ? `Challenge: ${play.challengeComparison.outcome}` : view.headline)}</h2><div class="result-metrics"><span>${escapeHtml(view.playerLabel)}</span>${view.benchmarkLabel ? `<span>${escapeHtml(view.benchmarkLabel)}</span>` : ""}</div><p class="persistence-note">${escapeHtml(view.verificationLabel)}${view.persistenceWarning ? ` · ${escapeHtml(view.persistenceWarning)}` : ""}</p><div class="result-buttons">${play.mode !== "challenge" ? `<button class="social-button" data-retry-play>Retry</button>` : ""}${view.canChallenge && play.mode === "post" ? `<button class="social-button" data-create-challenge>Challenge</button>` : ""}${view.showFollow ? `<button class="social-button" data-follow="${creator.id}">${service.isFollowing(creator.id) ? "Following" : "Follow"}</button>` : ""}${view.showLike ? `<button class="social-button" data-like="${source.id}">${service.isLiked(source.id) ? "♥ Liked" : "♡ Like"}</button>` : ""}<button class="social-button primary" data-continue>Continue</button></div></div></section></div>`;
 }
@@ -131,15 +134,16 @@ async function mountActivePlayable() {
   const play = ui.play; play.mountPending = false;
   const canvas = document.querySelector("#socialCanvas"); const status = document.querySelector("#playStatus");
   if (!canvas || !play) return;
-  const source = post(play.postId);
+  const source = play.postId ? post(play.postId) : play.source;
   try {
-    analytics.log("social_post_play_started", { post_id: source.id, game_id: source.playableRef.gameId, runtime: source.playableRef.runtime, source: play.mode });
     await playableHost.mount(canvas, source.playableRef, source.resultPolicy, {
-      onError: (error) => { if (status) status.textContent = `Runtime error: ${error.message}`; },
+      onError: (error) => { if (status) status.textContent = `Runtime error: ${error.message}`; analytics.log("social_post_play_failed", { game_id: source.playableRef.gameId, reason: "runtime_error" }); },
       onFinish: (normalized, snapshot) => finishPlay(normalized, snapshot),
     });
+    analytics.log("social_post_play_started", { post_id: source.id || null, game_id: source.playableRef.gameId, runtime: source.playableRef.runtime, source: play.mode });
     if (status) status.textContent = presentationMode === "creator" ? source.caption : "Play the same exact game version and seed.";
   } catch (error) {
+    analytics.log("social_post_play_failed", { game_id: source.playableRef.gameId, reason: error?.code || "mount_failed" });
     if (status) status.textContent = `Playable unavailable: ${error.message}`;
   }
 }
@@ -147,28 +151,37 @@ async function mountActivePlayable() {
 function finishPlay(normalized, snapshot) {
   if (!ui.play || ui.play.finished) return;
   try {
-    const play = ui.play; const source = post(play.postId);
-    const actorId = play.mode === "challenge" ? play.responseActorId : service.actorId();
-    const saved = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: normalized.status, metric: normalized.metric, actorId, replayEvidence: { kind: "local_snapshot", elapsedMs: Math.round(snapshot?.elapsedMs || 0) } });
+    const play = ui.play; const source = play.postId ? post(play.postId) : play.source;
+    if (!play.postId) {
+      play.result = normalized; play.finished = true; play.persisted = true;
+      if (normalized.status === "completed" && normalized.metric !== null) ui.benchmarkAttempt = service.createBenchmarkAttempt({ playableRef: source.playableRef, policy: source.resultPolicy, status: normalized.status, metric: normalized.metric, replayEvidence: { kind: "local_snapshot", elapsedMs: Math.round(snapshot?.elapsedMs || 0) } });
+      render(); return;
+    }
+    const saved = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: normalized.status, metric: normalized.metric, replayEvidence: { kind: "local_snapshot", elapsedMs: Math.round(snapshot?.elapsedMs || 0) } });
     play.result = saved.result; play.persisted = saved.persisted; play.finished = true; play.comparison = service.comparisonFor(source.id, saved.result.id);
     applyPersistence(saved, "result");
-    if (play.mode === "publish" && saved.result.status === "completed" && saved.result.metric !== null) { ui.benchmarkResultId = saved.result.id; ui.benchmarkPersisted = saved.persisted; }
     if (play.mode === "challenge" && saved.result.status === "completed" && saved.result.metric !== null) { const completed = service.completeChallenge(play.challengeId, saved.result.id); play.challengeComparison = completed.comparison; applyPersistence(completed, "challenge outcome"); }
   } catch (error) { ui.error = error.message; ui.play = null; }
   render();
 }
 
 function applyPersistence(outcome, subject) {
-  const status = persistencePresentation(outcome?.persisted, subject);
-  if (!status.durable) ui.persistenceWarning = status.warning;
+  ui.persistenceWarning = nextPersistenceWarning(outcome, subject);
   return outcome;
 }
 
 function startPost(postId, mode = "post", challenge = null) {
   playableHost.destroy();
   const source = service.post(postId);
-  const responseActorId = challenge ? (challenge.targetActorId || service.actorId()) : service.actorId();
-  ui.play = { postId: source.id, mode, challengeId: challenge?.id || null, responseActorId, finished: false, result: null, comparison: null, mountPending: true };
+  ui.play = { postId: source.id, mode, challengeId: challenge?.id || null, finished: false, result: null, comparison: null, mountPending: true };
+  render();
+}
+
+function startBenchmark(gameId) {
+  const catalog = bundledPlayable(gameId); if (!catalog) throw new Error("Approved playable unavailable");
+  playableHost.destroy();
+  ui.play = { postId: null, source: { id: null, playableRef: playableRefFor(catalog), resultPolicy: catalog.policy }, mode: "publish", finished: false, result: null, comparison: null, mountPending: true };
+  analytics.log("social_post_play_requested", { game_id: catalog.id, runtime: catalog.runtime, source: "publish" });
   render();
 }
 
@@ -180,29 +193,28 @@ root.addEventListener("click", (event) => {
     if (button.dataset.profile) { ui.view = "profile"; ui.profileId = button.dataset.profile; render(); return; }
     if (button.dataset.follow) { applyPersistence(service.setFollow(button.dataset.follow, !service.isFollowing(button.dataset.follow)), "follow change"); render(); return; }
     if (button.dataset.like) { applyPersistence(service.setLike(button.dataset.like, !service.isLiked(button.dataset.like)), "like"); render(); return; }
-    if (button.dataset.play) { startPost(button.dataset.play); return; }
-    if (button.dataset.selectGame) { ui.selectedGameId = button.dataset.selectGame; ui.benchmarkResultId = null; ui.benchmarkPersisted = true; render(); return; }
+    if (button.dataset.play) { analytics.log("social_post_play_requested", { post_id: button.dataset.play, source: "post" }); startPost(button.dataset.play); return; }
+    if (button.dataset.selectGame) { ui.selectedGameId = button.dataset.selectGame; ui.benchmarkAttempt = null; render(); return; }
     if (button.dataset.previewPublish) {
-      const source = state().posts.find((item) => item.playableRef.gameId === button.dataset.previewPublish);
-      if (!source) throw new Error("This approved playable has no local publication fixture");
-      startPost(source.id, "publish"); return;
+      startBenchmark(button.dataset.previewPublish); return;
     }
     if (button.dataset.publish !== undefined) {
       const caption = document.querySelector("#publishCaption")?.value || "";
-      const validation = publishValidation({ gameId: ui.selectedGameId, caption, benchmarkResultId: ui.benchmarkResultId });
+      const validation = publishValidation({ gameId: ui.selectedGameId, caption, benchmarkAttempt: ui.benchmarkAttempt });
       if (!validation.valid) { document.querySelector("#publishStatus").textContent = validation.errors.join(" · "); return; }
-      const published = service.publish({ gameId: ui.selectedGameId, caption, benchmarkResultId: ui.benchmarkResultId });
-      applyPersistence(published, "published post"); ui.benchmarkResultId = null; ui.view = "profile"; ui.profileId = service.actorId(); render(); return;
+      const published = service.publish({ gameId: ui.selectedGameId, caption, benchmarkAttempt: ui.benchmarkAttempt });
+      applyPersistence(published, "published post"); ui.benchmarkAttempt = null; ui.view = "profile"; ui.profileId = service.actorId(); render(); return;
     }
     if (button.dataset.challenge) {
       const challenge = service.openChallenge(button.dataset.challenge);
-      if (challenge.state === "open") startPost(challenge.sourcePostId, "challenge", challenge);
-      else { ui.outcomeChallengeId = challenge.id; render(); }
+      if (service.challengeCapabilities(challenge).canRespond) { analytics.log("social_post_play_requested", { post_id: challenge.sourcePostId, source: "challenge" }); startPost(challenge.sourcePostId, "challenge", challenge); }
+      else if (service.challengeCapabilities(challenge).canViewOutcome) { ui.outcomeChallengeId = challenge.id; render(); }
       return;
     }
+    if (button.dataset.cancelChallenge) { applyPersistence(service.cancelChallenge(button.dataset.cancelChallenge), "challenge cancellation"); render(); return; }
     if (button.dataset.closeOutcome !== undefined) { ui.outcomeChallengeId = null; render(); return; }
     if (button.dataset.closePlay !== undefined || button.dataset.continue !== undefined) { playableHost.destroy(); ui.play = null; render(); return; }
-    if (button.dataset.retryPlay !== undefined) { const { postId, mode, challengeId } = ui.play; const challenge = challengeId ? service.openChallenge(challengeId) : null; startPost(postId, mode, challenge); return; }
+    if (button.dataset.retryPlay !== undefined) { const { postId, mode, challengeId } = ui.play; const challenge = challengeId ? service.openChallenge(challengeId) : null; if (postId) startPost(postId, mode, challenge); else startBenchmark(ui.selectedGameId); return; }
     if (button.dataset.createChallenge !== undefined) {
       const target = post(ui.play.postId).creatorId === service.actorId() ? null : post(ui.play.postId).creatorId;
       applyPersistence(service.createChallenge({ postId: ui.play.postId, resultId: ui.play.result.id, targetActorId: target }), "challenge"); ui.view = "challenges"; ui.play = null; render();

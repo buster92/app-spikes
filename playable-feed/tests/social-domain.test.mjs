@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareResults, playableRefKey, samePlayableRef, validatePlayableRef, validatePost, validateResultPolicy } from "../src/social/domain.js";
+import { compareResults, playableRefKey, samePlayableRef, validateChallenge, validatePlayableRef, validatePlayResult, validatePost, validateResultPolicy } from "../src/social/domain.js";
 import { BUNDLED_PLAYABLES, playableRefFor } from "../src/social/catalog.js";
 
 const ref = playableRefFor(BUNDLED_PLAYABLES[0]);
-const result = (id, metric, status = "completed", playableRef = ref) => ({ id, actorId: `actor_${id}`, postId: "post_test", playableRef, status, metric, createdAt: "2026-09-18T00:00:00Z", verification: "trusted_shell_local" });
+const result = (id, metric, status = "completed", playableRef = ref) => ({ id, actorId: `actor_${id}`, postId: "post_test", playableRef, status, metric, createdAt: "2026-09-18T00:00:00.000Z", verification: "trusted_shell_local" });
 
 test("result policy accepts bounded trusted policies and rejects creator-defined behavior", () => {
   assert.deepEqual(validateResultPolicy({ kind: "higher_score", arbitraryCode: "return true" }), { kind: "higher_score" });
@@ -40,5 +40,14 @@ test("playable identity includes runtime, hashes, manifest version and exact see
 
 test("playable and post validation reject mutable or malformed authority", () => {
   assert.throws(() => validatePlayableRef({ ...ref, specRef: "latest" }), /content-addressed/i);
-  assert.throws(() => validatePost({ id: "post_x", creatorId: "creator_x", createdAt: "now", caption: "", playableRef: ref, resultPolicy: { kind: "higher_score" }, status: "published" }), /caption/i);
+  assert.throws(() => validatePost({ id: "post_x", creatorId: "creator_x", createdAt: "2026-09-18T00:00:00.000Z", caption: "", playableRef: ref, resultPolicy: { kind: "higher_score" }, status: "published" }), /caption/i);
+});
+
+test("social timestamps, replay evidence and previews are bounded", () => {
+  assert.throws(() => validatePost({ id: "post_x", creatorId: "creator_x", createdAt: "now", caption: "Valid", playableRef: ref, resultPolicy: { kind: "higher_score" }, status: "published" }), /ISO-8601/i);
+  assert.throws(() => validatePlayResult({ ...result("one", 1), replayEvidence: { kind: "other", huge: { nested: true } } }), /replay/i);
+  assert.throws(() => validateChallenge({ id: "challenge_x", challengerId: "actor_x", targetActorId: "", sourcePostId: "post_x", playableRef: ref, challengerResultId: "result_x", state: "open", createdAt: "2026-09-18T00:00:00.000Z" }), /invalid/i);
+  const normalized = validatePost({ id: "post_x", creatorId: "creator_x", createdAt: "2026-09-18T00:00:00.000Z", caption: "Valid", playableRef: ref, resultPolicy: { kind: "higher_score" }, status: "published", preview: { kind: "poster", tone: "violet", ignored: true }, ignored: true });
+  assert.deepEqual(normalized.preview, { kind: "poster", tone: "violet" });
+  assert.equal("ignored" in normalized, false);
 });

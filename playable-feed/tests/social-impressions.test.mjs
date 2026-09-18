@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { QualifiedImpressionTracker } from "../src/social/impressions.js";
+import { QualifiedImpressionTracker, shouldObservePostImpressions } from "../src/social/impressions.js";
 
 function harness() {
   const callbacks = new Map(); let id = 0; const events = [];
@@ -34,6 +34,21 @@ test("backgrounding cancels dwell and requires a fresh visible interval", () => 
   flush();
   assert.equal(events.length, 0);
   tracker.setDocumentVisible(true);
+  tracker.update(exposure);
+  flush();
+  assert.deepEqual(events, [exposure.metadata]);
+});
+
+test("play and outcome modals suspend impressions, cancel dwell, and require a fresh interval", () => {
+  const { tracker, events, flush } = harness();
+  assert.equal(shouldObservePostImpressions({ hasPlayModal: true }), false);
+  assert.equal(shouldObservePostImpressions({ hasOutcomeModal: true }), false);
+  assert.equal(shouldObservePostImpressions(), true);
+  tracker.update(exposure);
+  // render() disconnects the observer and calls this when either modal opens.
+  tracker.resetVisible();
+  flush();
+  assert.equal(events.length, 0);
   tracker.update(exposure);
   flush();
   assert.deepEqual(events, [exposure.metadata]);

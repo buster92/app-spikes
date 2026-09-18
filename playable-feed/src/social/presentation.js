@@ -12,6 +12,10 @@ export function persistencePresentation(persisted, subject = "change") {
     : { durable: true, warning: null };
 }
 
+export function nextPersistenceWarning(outcome, subject = "change") {
+  return persistencePresentation(outcome?.persisted, subject).warning;
+}
+
 export function postPresentation({ post, creator, benchmark, liked, following, mode = "creator" }) {
   if (mode === "anonymous") return {
     creatorLabel: null, creatorName: null, caption: null,
@@ -76,11 +80,11 @@ export function challengeOutcomePresentation({ challenger, responder, challenger
   };
 }
 
-export function publishValidation({ gameId, caption, benchmarkResultId }) {
+export function publishValidation({ gameId, caption, benchmarkAttempt }) {
   const errors = [];
   if (!gameId) errors.push("Choose a playable");
   if (typeof caption !== "string" || !caption.trim()) errors.push("Add a short challenge caption");
   if (caption?.trim().length > 180) errors.push("Caption must be 180 characters or fewer");
-  if (!benchmarkResultId) errors.push("Complete the playable to establish your benchmark");
+  if (!benchmarkAttempt) errors.push("Complete the playable to establish your benchmark");
   return { valid: errors.length === 0, errors };
 }

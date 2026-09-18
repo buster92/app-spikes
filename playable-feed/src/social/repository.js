@@ -41,12 +41,12 @@ export function normalizeSocialState(candidate) {
   uniqueMap(challenges, (challenge) => challenge.id, "challenge id");
 
   if (!profileById.has(candidate.actorId)) throw new Error("current actor is unknown");
+  if ([...posts, ...results, ...challenges].some((item) => item.createdAt === null)) throw new Error("persisted social timestamps are required");
 
   for (const result of results) {
     const resultPost = postById.get(result.postId);
     if (!profileById.has(result.actorId) || !resultPost) throw new Error(`result ${result.id} has broken references`);
     if (!samePlayableRef(result.playableRef, resultPost.playableRef)) throw new Error(`result ${result.id} playable does not match post`);
-    if (result.sourceResultId && !resultById.has(result.sourceResultId)) throw new Error(`result ${result.id} has unknown provenance`);
   }
 
   for (const post of posts) {
@@ -71,6 +71,7 @@ export function normalizeSocialState(candidate) {
     const challengerResult = resultById.get(challenge.challengerResultId);
     if (!profileById.has(challenge.challengerId)) throw new Error(`challenge ${challenge.id} has unknown challenger`);
     if (challenge.targetActorId && !profileById.has(challenge.targetActorId)) throw new Error(`challenge ${challenge.id} has unknown target`);
+    if (challenge.targetActorId === challenge.challengerId) throw new Error(`challenge ${challenge.id} targets its challenger`);
     if (!sourcePost || !samePlayableRef(challenge.playableRef, sourcePost.playableRef)) throw new Error(`challenge ${challenge.id} source playable is incoherent`);
     if (!challengerResult || challengerResult.actorId !== challenge.challengerId || challengerResult.postId !== challenge.sourcePostId || !samePlayableRef(challengerResult.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, challengerResult)) throw new Error(`challenge ${challenge.id} challenger result is incoherent`);
     const response = challenge.responseResultId ? resultById.get(challenge.responseResultId) : null;
@@ -79,7 +80,7 @@ export function normalizeSocialState(candidate) {
     if (challenge.state === "cancelled" && response) throw new Error(`cancelled challenge ${challenge.id} cannot have a response`);
     if (response) {
       const expectedActor = challenge.targetActorId || candidate.actorId;
-      if (response.actorId !== expectedActor || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, response)) throw new Error(`challenge ${challenge.id} response is incoherent`);
+      if (response.actorId !== expectedActor || response.actorId === challenge.challengerId || response.postId !== challenge.sourcePostId || !samePlayableRef(response.playableRef, challenge.playableRef) || !resultHasRequiredMetric(sourcePost.resultPolicy, response)) throw new Error(`challenge ${challenge.id} response is incoherent`);
     }
   }
 

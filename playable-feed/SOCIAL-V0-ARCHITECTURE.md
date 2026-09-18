@@ -157,9 +157,17 @@ Cache generation `playloop-spike-v15` includes the full static social import gra
 - remix: populate existing lineage fields and validate attribution through a future creator flow;
 - KMP: share the domain contracts and runtime/replay semantics while replacing DOM rendering/storage adapters.
 
+## Final foundation semantics
+
+Create first records a transient bounded benchmark attempt directly against an approved immutable `PlayableRef`. Publishing then atomically creates the new post and its post-owned `PlayResult`; no existing social post or synthetic source result is required. Persisted results always have a real post, actor, exact playable identity, canonical timestamp, bounded verification state, and only the supported `local_snapshot` replay marker. Preview metadata is likewise limited to a poster/tone variant.
+
+Challenge capability is derived centrally for the current actor. Inbound targeted and other-creator open challenges can be answered; outbound and own open challenges cannot. Normal product result recording always uses the current actor, so this local shell cannot impersonate seeded creators. An open challenge may be cancelled only by its challenger.
+
+An impression requires 50% visibility for 350 ms, while the document is visible and no playable/result/outcome modal obscures the feed. Any interruption cancels dwell; closing it requires a fresh full interval. The play funnel distinguishes request, successful mounted start, and bounded load/runtime failure. A later successful full-state persistence write clears a prior session-only warning because the repository persists its entire snapshot.
+
 ## Known v0 limitations
 
-- One local actor and deterministic seeded creators; outbound target play is simulated on the same device.
+- One local actor and deterministic seeded creators; outbound challenges remain pending until a future authenticated recipient can answer them.
 - No backend delivery, accounts, server verification, anti-cheat, ghost playback or public deep links.
 - Approved content is bundled; no remote CDN resolver or signed publication manifests yet.
 - Passive previews are deterministic posters, not uploaded/transcoded video.

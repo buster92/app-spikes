@@ -30,6 +30,29 @@ function boundedText(value, field, max, { optional = false } = {}) {
   return value.trim();
 }
 
+export function validateTimestamp(value, field = "timestamp") {
+  const text = boundedText(value, field, 40);
+  const milliseconds = Date.parse(text);
+  if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== text) throw new SocialDomainError("invalid_timestamp", `${field} must be canonical ISO-8601`);
+  return text;
+}
+
+function validateReplayEvidence(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.kind !== "local_snapshot") throw new SocialDomainError("invalid_replay_evidence", "Replay evidence is unsupported");
+  const elapsedMs = Number(value.elapsedMs);
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) throw new SocialDomainError("invalid_replay_evidence", "Replay evidence elapsedMs is invalid");
+  return { kind: "local_snapshot", elapsedMs: Math.round(elapsedMs) };
+}
+
+function validatePreview(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.kind !== "poster") throw new SocialDomainError("invalid_preview", "Preview is unsupported");
+  const tone = boundedText(value.tone || "violet", "preview.tone", 24);
+  if (!/^[a-z][a-z0-9_-]{0,23}$/.test(tone)) throw new SocialDomainError("invalid_preview", "Preview tone is invalid");
+  return { kind: "poster", tone };
+}
+
 export function validatePlayableRef(ref) {
   if (!ref || typeof ref !== "object" || Array.isArray(ref)) throw new SocialDomainError("invalid_playable_ref", "PlayableRef is required");
   const value = {
@@ -71,7 +94,6 @@ export function validatePlayResult(result) {
   const verification = result.verification || "unverified";
   if (!["unverified", "trusted_shell_local"].includes(verification)) throw new SocialDomainError("invalid_result", "Result verification state is unsupported");
   return {
-    ...result,
     id: requiredId(result.id, "result.id"),
     actorId: requiredId(result.actorId, "result.actorId"),
     postId: requiredId(result.postId, "result.postId"),
@@ -79,7 +101,8 @@ export function validatePlayResult(result) {
     status,
     metric,
     verification,
-    sourceResultId: result.sourceResultId ? requiredId(result.sourceResultId, "result.sourceResultId") : null,
+    createdAt: result.createdAt === undefined ? null : validateTimestamp(result.createdAt, "result.createdAt"),
+    replayEvidence: validateReplayEvidence(result.replayEvidence),
   };
 }
 
@@ -133,21 +156,20 @@ export function validatePost(post) {
   if (!post || typeof post !== "object") throw new SocialDomainError("invalid_post", "PlayablePost is required");
   const lineage = post.lineage || null;
   return {
-    ...post,
     id: requiredId(post.id, "post.id"),
     creatorId: requiredId(post.creatorId, "post.creatorId"),
-    createdAt: boundedText(post.createdAt, "createdAt", 40),
+    createdAt: post.createdAt === undefined ? null : validateTimestamp(post.createdAt, "post.createdAt"),
     caption: boundedText(post.caption, "caption", 180),
     playableRef: validatePlayableRef(post.playableRef),
     resultPolicy: validateResultPolicy(post.resultPolicy),
-    creatorResultId: post.creatorResultId ? requiredId(post.creatorResultId, "creatorResultId") : null,
+    creatorResultId: post.creatorResultId === undefined || post.creatorResultId === null ? null : requiredId(post.creatorResultId, "creatorResultId"),
     status: post.status === "published" ? "published" : (() => { throw new SocialDomainError("invalid_post", "Post must be published"); })(),
     lineage: lineage ? {
       originalPostId: requiredId(lineage.originalPostId, "lineage.originalPostId"),
-      parentPostId: lineage.parentPostId ? requiredId(lineage.parentPostId, "lineage.parentPostId") : null,
+      parentPostId: lineage.parentPostId === undefined || lineage.parentPostId === null ? null : requiredId(lineage.parentPostId, "lineage.parentPostId"),
       originalCreatorId: requiredId(lineage.originalCreatorId, "lineage.originalCreatorId"),
     } : null,
-    preview: post.preview && typeof post.preview === "object" ? { kind: post.preview.kind || "poster", tone: post.preview.tone || "violet" } : null,
+    preview: validatePreview(post.preview),
   };
 }
 
@@ -156,16 +178,15 @@ export function validateChallenge(challenge) {
   const state = challenge.state;
   if (!["open", "completed", "cancelled"].includes(state)) throw new SocialDomainError("invalid_challenge", "Challenge state is invalid");
   return {
-    ...challenge,
     id: requiredId(challenge.id, "challenge.id"),
     challengerId: requiredId(challenge.challengerId, "challenge.challengerId"),
-    targetActorId: challenge.targetActorId ? requiredId(challenge.targetActorId, "challenge.targetActorId") : null,
+    targetActorId: challenge.targetActorId === undefined || challenge.targetActorId === null ? null : requiredId(challenge.targetActorId, "challenge.targetActorId"),
     sourcePostId: requiredId(challenge.sourcePostId, "challenge.sourcePostId"),
     playableRef: validatePlayableRef(challenge.playableRef),
     challengerResultId: requiredId(challenge.challengerResultId, "challenge.challengerResultId"),
-    responseResultId: challenge.responseResultId ? requiredId(challenge.responseResultId, "challenge.responseResultId") : null,
+    responseResultId: challenge.responseResultId === undefined || challenge.responseResultId === null ? null : requiredId(challenge.responseResultId, "challenge.responseResultId"),
     state,
-    createdAt: boundedText(challenge.createdAt, "challenge.createdAt", 40),
+    createdAt: challenge.createdAt === undefined ? null : validateTimestamp(challenge.createdAt, "challenge.createdAt"),
   };
 }
 

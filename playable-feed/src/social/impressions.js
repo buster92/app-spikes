@@ -46,6 +46,13 @@ export class QualifiedImpressionTracker {
   dispose() { this.resetVisible(); }
 }
 
+// Intersection geometry cannot establish whether a modal covers the feed.
+// The shell uses this before attaching observers, so closing a modal requires
+// a new qualified interval rather than resuming hidden-card dwell.
+export function shouldObservePostImpressions({ hasPlayModal = false, hasOutcomeModal = false } = {}) {
+  return !hasPlayModal && !hasOutcomeModal;
+}
+
 function metadataFor(element) {
   return {
     post_id: element.dataset.postId,

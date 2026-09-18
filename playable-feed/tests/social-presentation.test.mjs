@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { challengeOutcomePresentation, challengePresentation, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
+import { challengeOutcomePresentation, challengePresentation, nextPersistenceWarning, persistencePresentation, postPresentation, resultPresentation, publishValidation } from "../src/social/presentation.js";
 import { createSeedState } from "../src/social/fixtures.js";
 
 test("result presentation explains a valid social comparison without color", () => {
@@ -31,6 +31,8 @@ test("completed challenge outcome and non-durable copy are explicit", () => {
   assert.match(view.title, /outcome/); assert.match(view.challengerLabel, /@/); assert.match(view.responderLabel, /@/); assert.match(view.verification, /Unverified/);
   assert.match(persistencePresentation(false, "result").warning, /this session/);
   assert.equal(persistencePresentation(true, "result").warning, null);
+  assert.match(nextPersistenceWarning({ persisted: false }, "like"), /this session/);
+  assert.equal(nextPersistenceWarning({ persisted: true }, "like"), null);
 });
 
 test("cancelled challenges have status copy without a dead action", () => {
@@ -43,8 +45,8 @@ test("cancelled challenges have status copy without a dead action", () => {
 });
 
 test("publish presentation requires selection, caption and actual benchmark", () => {
-  assert.equal(publishValidation({ gameId: "meteor-dodge", caption: "Try this", benchmarkResultId: "result_x" }).valid, true);
-  const invalid = publishValidation({ gameId: "", caption: "", benchmarkResultId: null });
+  assert.equal(publishValidation({ gameId: "meteor-dodge", caption: "Try this", benchmarkAttempt: {} }).valid, true);
+  const invalid = publishValidation({ gameId: "", caption: "", benchmarkAttempt: null });
   assert.equal(invalid.valid, false);
   assert.equal(invalid.errors.length, 3);
 });

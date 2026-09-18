@@ -93,6 +93,7 @@ function malformedMutation(mutate) {
 const corruptions = [
   ["unknown challenge challenger", (state) => { state.challenges[0].challengerId = "missing"; }],
   ["unknown challenge target", (state) => { state.challenges[0].targetActorId = "missing"; }],
+  ["challenge targets its challenger", (state) => { state.challenges[0].targetActorId = state.challenges[0].challengerId; }],
   ["post benchmark actor mismatch", (state) => { state.results.find((item) => item.id === state.posts[0].creatorResultId).actorId = "actor_local"; }],
   ["post benchmark post mismatch", (state) => { state.results.find((item) => item.id === state.posts[0].creatorResultId).postId = state.posts[1].id; }],
   ["post benchmark playable mismatch", (state) => { state.results.find((item) => item.id === state.posts[0].creatorResultId).playableRef.seed += 1; }],
@@ -128,4 +129,11 @@ test("fixture benchmarks are explicitly unverified", () => {
   const state = new LocalSocialRepository({ storage: new MemoryStorage() }).snapshot();
   assert.ok(state.results.length > 0);
   assert.ok(state.results.every((item) => item.verification === "unverified"));
+});
+
+test("seeded current actor is a generic local creator", () => {
+  const state = new LocalSocialRepository({ storage: new MemoryStorage() }).snapshot();
+  const actor = state.profiles.find((profile) => profile.id === state.actorId);
+  assert.equal(actor.handle, "local_creator");
+  assert.equal(actor.displayName, "Local Creator");
 });

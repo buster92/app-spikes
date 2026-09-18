@@ -30,7 +30,7 @@ test("Discover is deterministic and Following contains only followed creators", 
 });
 
 test("follow and unfollow update Following immediately and idempotently", () => {
-  const { service } = setup();
+  const { service, events } = setup();
   service.setFollow("creator_nova", true);
   service.setFollow("creator_nova", true);
   assert.ok(service.feed("following").some((post) => post.creatorId === "creator_nova"));
@@ -38,6 +38,7 @@ test("follow and unfollow update Following immediately and idempotently", () => 
   service.setFollow("creator_nova", false);
   service.setFollow("creator_nova", false);
   assert.equal(service.feed("following").some((post) => post.creatorId === "creator_nova"), false);
+  assert.equal(events.filter((event) => event.name === "social_follow_changed").length, 2);
 });
 
 test("profile returns only that creator's published posts and derived counts", () => {
@@ -49,12 +50,23 @@ test("profile returns only that creator's published posts and derived counts", (
 });
 
 test("like desired state is idempotent and persisted", () => {
-  const { service } = setup();
+  const { service, events } = setup();
   service.setLike("post_alex_meteor", true);
   service.setLike("post_alex_meteor", true);
   assert.equal(service.state().likes.filter((like) => like.postId === "post_alex_meteor" && like.actorId === "actor_local").length, 1);
   service.setLike("post_alex_meteor", false);
   assert.equal(service.isLiked("post_alex_meteor"), false);
+  assert.equal(events.filter((event) => event.name === "social_like_changed").length, 2);
+});
+
+test("challenge roles prevent self-response and self-targeting", () => {
+  const { service } = setup(); const source = service.post("post_alex_meteor");
+  const run = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
+  assert.throws(() => service.createChallenge({ postId: source.id, resultId: run.result.id, targetActorId: "actor_local" }), (error) => error.code === "invalid_challenge_actor");
+  const own = service.createChallenge({ postId: source.id, resultId: run.result.id }).challenge;
+  assert.equal(service.challengeCapabilities(own).canRespond, false);
+  assert.throws(() => service.completeChallenge(own.id, run.result.id), (error) => error.code === "invalid_challenge_actor");
+  assert.equal(service.challengeCapabilities(service.openChallenge("challenge_seed_open")).canRespond, true);
 });
 
 test("unknown post fails cleanly", () => {
@@ -62,41 +74,35 @@ test("unknown post fails cleanly", () => {
   assert.throws(() => service.post("post_missing"), (error) => error.code === "unknown_post");
 });
 
-test("publishing approved playable stores immutable ref, lineage and makes post visible", () => {
+test("publishing an approved playable uses a transient benchmark, not an existing social result", () => {
   const { service } = setup();
   const source = service.post("post_alex_meteor");
-  const run = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
+  const attempt = service.createBenchmarkAttempt({ playableRef: source.playableRef, policy: source.resultPolicy, status: "completed", metric: 47 });
+  assert.equal(service.state().results.some((item) => item.id === "attempt_local"), false);
   const lineage = { originalPostId: source.id, parentPostId: source.id, originalCreatorId: source.creatorId };
-  const published = service.publish({ gameId: "meteor-dodge", caption: "Forty-seven. Your turn.", benchmarkResultId: run.result.id, lineage });
+  const published = service.publish({ gameId: "meteor-dodge", caption: "Forty-seven. Your turn.", benchmarkAttempt: attempt, lineage });
   assert.equal(published.post.playableRef.specRef, source.playableRef.specRef);
   assert.deepEqual(published.post.lineage, lineage);
   assert.ok(service.feed("discover").some((post) => post.id === published.post.id));
   assert.ok(service.profile("actor_local").posts.some((post) => post.id === published.post.id));
-  const original = service.state().results.find((item) => item.id === run.result.id);
   const copied = service.state().results.find((item) => item.id === published.post.creatorResultId);
-  assert.equal(original.postId, source.id);
-  assert.notEqual(copied.id, original.id);
   assert.equal(copied.postId, published.post.id);
-  assert.equal(copied.sourceResultId, original.id);
+  assert.equal(copied.actorId, "actor_local");
 });
 
 test("publishing rejects unapproved content and missing completed benchmark", () => {
   const { service } = setup();
-  assert.throws(() => service.publish({ gameId: "arbitrary-js", caption: "unsafe", benchmarkResultId: "result_none" }), (error) => error.code === "unapproved_playable");
-  assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "No fake score", benchmarkResultId: "result_alex_meteor" }), (error) => error.code === "benchmark_required");
+  assert.throws(() => service.publish({ gameId: "arbitrary-js", caption: "unsafe", benchmarkAttempt: null }), (error) => error.code === "unapproved_playable");
+  assert.throws(() => service.publish({ gameId: "meteor-dodge", caption: "No fake score", benchmarkAttempt: null }), (error) => error.code === "benchmark_required");
 });
 
-test("challenge captures exact reference and seed, persists, completes with policy outcome", () => {
+test("inbound challenge captures exact reference and can be completed by the local actor", () => {
   const { service } = setup();
-  const source = service.post("post_alex_meteor");
-  const challengerRun = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
-  const created = service.createChallenge({ postId: source.id, resultId: challengerRun.result.id, targetActorId: "creator_alex" });
-  assert.deepEqual(created.challenge.playableRef, source.playableRef);
-  assert.equal(created.challenge.playableRef.seed, source.playableRef.seed);
-  const response = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 52, actorId: "creator_alex" });
-  const completed = service.completeChallenge(created.challenge.id, response.result.id);
+  const challenge = service.openChallenge("challenge_seed_open"); const source = service.post(challenge.sourcePostId);
+  const response = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 6000 });
+  const completed = service.completeChallenge(challenge.id, response.result.id);
   assert.equal(completed.comparison.outcome, "win");
-  assert.equal(service.openChallenge(created.challenge.id).responseResultId, response.result.id);
+  assert.equal(service.openChallenge(challenge.id).responseResultId, response.result.id);
 });
 
 test("challenge response cannot silently change revision or actor", () => {
@@ -120,13 +126,13 @@ test("challenge creation rejects failed and same-playable attempts from another 
   assert.equal(service.createChallenge({ postId: patternPosts[0].id, resultId: completed.result.id }).challenge.sourcePostId, patternPosts[0].id);
 });
 
-test("challenge response cannot come from another post with the same playable", () => {
+test("outbound challenge cannot be completed by its challenger", () => {
   const { service } = setup();
   const patternPosts = service.state().posts.filter((item) => item.playableRef.gameId === "pattern-echo-v2");
   const run = service.recordResult({ postId: patternPosts[0].id, playableRef: patternPosts[0].playableRef, status: "completed", metric: 1000 });
   const challenge = service.createChallenge({ postId: patternPosts[0].id, resultId: run.result.id, targetActorId: "creator_alex" }).challenge;
-  const unrelated = service.recordResult({ postId: patternPosts[1].id, playableRef: patternPosts[1].playableRef, status: "completed", metric: 900, actorId: "creator_alex" });
-  assert.throws(() => service.completeChallenge(challenge.id, unrelated.result.id), (error) => error.code === "playable_mismatch");
+  const own = service.recordResult({ postId: patternPosts[0].id, playableRef: patternPosts[0].playableRef, status: "completed", metric: 900 });
+  assert.throws(() => service.completeChallenge(challenge.id, own.result.id), (error) => error.code === "invalid_challenge_actor");
 });
 
 test("failed persistence preserves usable in-memory mutations and honest status", () => {
@@ -145,8 +151,8 @@ test("social analytics stay centralized, preserve context and exclude caption te
   const { service, events } = setup();
   const source = service.post("post_alex_meteor");
   const caption = "private free-form challenge words";
-  const run = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
-  service.publish({ gameId: "meteor-dodge", caption, benchmarkResultId: run.result.id });
+  const attempt = service.createBenchmarkAttempt({ playableRef: source.playableRef, policy: source.resultPolicy, status: "completed", metric: 47 });
+  service.publish({ gameId: "meteor-dodge", caption, benchmarkAttempt: attempt });
   const serialized = JSON.stringify(events);
   assert.equal(serialized.includes(caption), false);
   assert.ok(events.some((event) => event.name === "social_publish_completed"));
