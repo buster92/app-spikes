@@ -58,13 +58,27 @@ function formatDelta(kind, delta) {
   return `${delta} point${delta === 1 ? "" : "s"}`;
 }
 
-export function challengePresentation({ challenge, challenger, target, challengerResult, responseResult, policy, comparison }) {
-  const title = target ? `@${challenger.handle} challenged @${target.handle}` : `Open challenge from @${challenger.handle}`;
+export function challengePresentation({ challenge, challenger, target, responder, challengerResult, responseResult, policy, comparison, capabilities = {} }) {
+  const title = target
+    ? `@${challenger.handle} challenged @${target.handle}`
+    : challenge.state === "completed" && responder
+      ? `@${responder.handle} answered @${challenger.handle}'s open challenge`
+      : `Open challenge from @${challenger.handle}`;
   const benchmark = formatMetric(policy, challengerResult);
   const status = challenge.state === "completed"
     ? `Completed · ${comparison?.outcome || "recorded"}`
-    : challenge.state === "cancelled" ? "Cancelled" : `Beat ${benchmark}`;
-  return { title, status, response: responseResult ? formatMetric(policy, responseResult) : null, canPlay: challenge.state === "open", canViewOutcome: challenge.state === "completed" };
+    : challenge.state === "cancelled"
+      ? "Cancelled"
+      : capabilities.isOutbound
+        ? (target ? `Waiting for @${target.handle}` : "Open for responses")
+        : `Beat ${benchmark}`;
+  return {
+    title,
+    status,
+    response: responseResult ? formatMetric(policy, responseResult) : null,
+    canPlay: capabilities.canRespond === true,
+    canViewOutcome: capabilities.canViewOutcome === true,
+  };
 }
 
 export function challengeOutcomePresentation({ challenger, responder, challengerResult, responseResult, policy, comparison, playableTitle }) {
