@@ -49,6 +49,7 @@ function rate(numerator, denominator) {
 
 function median(values) {
   const sorted = values
+    .filter((value) => value != null && value !== "")
     .map(Number)
     .filter((value) => Number.isFinite(value) && value >= 0)
     .sort((a, b) => a - b);
