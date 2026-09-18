@@ -185,3 +185,23 @@ test("a completed feed variant can grant progression only once", async () => {
   assert.match(app, /variant_already_rewarded/);
   assert.match(app, /els\.resultScore\.textContent = "0 XP"/);
 });
+
+
+test("secondary event writers use the central analytics pipeline", async () => {
+  const [round3, progression, html] = await Promise.all([
+    readFile(resolve(root, "src/round3-ui.js"), "utf8"),
+    readFile(resolve(root, "src/progression.js"), "utf8"),
+    readFile(resolve(root, "index.html"), "utf8"),
+  ]);
+
+  assert.match(round3, /import \{ logProductEvent \} from "\.\/analytics\.js"/);
+  assert.match(round3, /logProductEvent\(name/);
+  assert.doesNotMatch(round3, /events\.push\(event\)/);
+
+  assert.match(progression, /import \{ logProductEvent \} from "\.\/analytics\.js"/);
+  assert.match(progression, /logProductEvent\("personal_record_broken"/);
+  assert.doesNotMatch(progression, /events\.push\(\{/);
+
+  assert.match(html, /globalThis\.__playloopAnalytics/);
+  assert.match(html, /analytics\.log\(name/);
+});
