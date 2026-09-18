@@ -193,3 +193,32 @@ test("explicitly requested experiment must exist in the supplied exports", () =>
     /Experiment not found in supplied exports/,
   );
 });
+
+
+test("post-exposure ordering stays correct when session timing is missing", () => {
+  const firstExposure = {
+    ...exposure({ id: "ordered-exposure", session: "ordered", variant: "control", sessionMs: null }),
+    sequence: 10,
+    ts: "2026-09-18T10:00:00.000Z",
+  };
+  const feedStarted = {
+    ...event({
+      id: "ordered-feed",
+      session: "ordered",
+      name: "feed_started",
+      variant: "control",
+      sessionMs: 500,
+    }),
+    sequence: 11,
+    ts: "2026-09-18T10:00:00.500Z",
+  };
+
+  const report = analyzeExperimentPayloads([{
+    events: [firstExposure, feedStarted],
+  }], { experimentId: EXPERIMENT });
+
+  assert.deepEqual(
+    report.experiments[0].variants[0].feed_start,
+    { numerator: 1, denominator: 1, rate: 1 },
+  );
+});
