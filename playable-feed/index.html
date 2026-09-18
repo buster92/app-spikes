@@ -31,6 +31,16 @@
       };
       const writeError = (name, payload = {}) => {
         try {
+          const analytics = globalThis.__playloopAnalytics;
+          if (analytics?.log) {
+            analytics.log(name, {
+              page_url: location.href,
+              user_agent: navigator.userAgent,
+              ...payload,
+            });
+            return;
+          }
+
           const events = safeRead();
           const currentSession = [...events].reverse().find((event) => event?.name === "session_start" && event?.session_id)?.session_id || null;
           events.push({

@@ -1,3 +1,5 @@
+import { logProductEvent } from "./analytics.js";
+
 const RECORDS_KEY = "playloop.records.v1";
 const EVENTS_KEY = "playloop.events.v1";
 
@@ -117,20 +119,12 @@ const labels = {
 
 function appendRecordEvent(type, previous, value) {
   try {
-    const events = readEvents();
-    const sessionId = latestSessionId(events);
-    events.push({
-      schema: 1,
-      name: "personal_record_broken",
-      event_id: `evt_record_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      session_id: sessionId,
-      ts: new Date().toISOString(),
+    logProductEvent("personal_record_broken", {
       record_type: type,
       previous,
       value,
       source: "local_progression",
     });
-    writeJson(EVENTS_KEY, events.slice(-2500));
   } catch {
     // Progression reinforcement must never interrupt play.
   }

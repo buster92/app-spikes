@@ -1,6 +1,7 @@
+import { logProductEvent } from "./analytics.js";
+
 const EVENTS_KEY = "playloop.events.v1";
 const LIKES_KEY = "playloop.likes.v1";
-const MAX_EVENTS = 2500;
 
 function readJson(key, fallback) {
   try {
@@ -25,27 +26,11 @@ function readEvents() {
   return Array.isArray(value) ? value : [];
 }
 
-function latestSessionId(events) {
-  for (let i = events.length - 1; i >= 0; i -= 1) {
-    if (events[i]?.name === "session_start" && events[i]?.session_id) return events[i].session_id;
-  }
-  return null;
-}
-
 function appendEvent(name, properties = {}) {
-  const events = readEvents();
-  const event = {
-    schema: 1,
-    name,
-    event_id: `evt_ui_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    session_id: latestSessionId(events),
-    ts: new Date().toISOString(),
+  return logProductEvent(name, {
     source: "round3_ui",
     ...properties,
-  };
-  events.push(event);
-  writeJson(EVENTS_KEY, events.slice(-MAX_EVENTS));
-  return event;
+  });
 }
 
 const shell = document.querySelector("#appShell");

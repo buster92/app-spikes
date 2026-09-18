@@ -1,8 +1,11 @@
+import { ExperimentRegistry } from "./experiments.js";
+
 const EVENTS_KEY = "playloop.events.v1";
 const USER_KEY = "playloop.anon.v1";
 const RECORDS_KEY = "playloop.records.v1";
 const LIKES_KEY = "playloop.likes.v1";
 const MAX_EVENTS = 2500;
+let activeAnalytics = null;
 
 function id(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${crypto.randomUUID()}`;
@@ -27,9 +30,14 @@ function safeWrite(key, value) {
   }
 }
 
+function readAnonId() {
+  const value = readJson(USER_KEY, null);
+  return typeof value === "string" && value.length > 0 && value.length <= 128 ? value : null;
+}
+
 export class Analytics {
   constructor() {
-    this.anonId = readJson(USER_KEY, null) || id("anon");
+    this.anonId = readAnonId() || id("anon");
     safeWrite(USER_KEY, this.anonId);
     this.sessionId = id("session");
     this.sessionStartedAt = Date.now();
@@ -37,12 +45,40 @@ export class Analytics {
     this.sequence = 0;
     this.events = readJson(EVENTS_KEY, []);
     if (!Array.isArray(this.events)) this.events = [];
+    this.exposureEvents = new Map();
+    this.experiments = new ExperimentRegistry({
+      identity: this.anonId,
+      search: globalThis.location?.search || "",
+    });
+    activeAnalytics = this;
+    globalThis.__playloopAnalytics = this;
     this.log("session_start", {
       referrer: document.referrer || null,
       viewport_w: window.innerWidth,
       viewport_h: window.innerHeight,
       user_agent_family: navigator.userAgentData?.mobile ? "mobile" : "unknown",
     });
+  }
+
+  trimEvents(events) {
+    if (events.length <= MAX_EVENTS) return events;
+
+    const protectedIds = new Set(
+      [...this.exposureEvents.values()]
+        .map((event) => event?.event_id)
+        .filter(Boolean),
+    );
+    let ordinaryRemaining = Math.max(0, MAX_EVENTS - protectedIds.size);
+    const kept = [];
+
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      const protectedEvent = protectedIds.has(event?.event_id);
+      if (!protectedEvent && ordinaryRemaining <= 0) continue;
+      kept.unshift(event);
+      if (!protectedEvent) ordinaryRemaining -= 1;
+    }
+    return kept;
   }
 
   syncFromStorage() {
@@ -54,11 +90,12 @@ export class Analytics {
       const key = event?.event_id || `${event?.name}:${event?.ts}:${byId.size}`;
       byId.set(key, event);
     }
-    this.events = [...byId.values()].slice(-MAX_EVENTS);
+    this.events = this.trimEvents([...byId.values()]);
   }
 
   log(name, properties = {}) {
     this.syncFromStorage();
+    const experimentContext = this.experiments?.context?.() || {};
     const event = {
       schema: 1,
       name,
@@ -69,18 +106,30 @@ export class Analytics {
       ts: new Date().toISOString(),
       session_ms: Math.round(performance.now() - this.sessionPerfStart),
       ...properties,
+      ...(Object.keys(experimentContext).length ? { experiment_context: experimentContext } : {}),
     };
 
     this.events.push(event);
-    if (this.events.length > MAX_EVENTS) {
-      this.events = this.events.slice(this.events.length - MAX_EVENTS);
-    }
+    this.events = this.trimEvents(this.events);
     safeWrite(EVENTS_KEY, this.events);
 
     if (location.search.includes("debug=1")) {
       console.debug("[playloop]", name, event);
     }
     return event;
+  }
+
+  experimentVariant(experimentId, properties = {}) {
+    let exposureEvent = null;
+    const variant = this.experiments.expose(
+      experimentId,
+      (name, eventProperties) => {
+        exposureEvent = this.log(name, eventProperties);
+      },
+      properties,
+    );
+    if (exposureEvent) this.exposureEvents.set(experimentId, exposureEvent);
+    return variant;
   }
 
   recent(limit = 100) {
@@ -124,6 +173,7 @@ export class Analytics {
       schema: 1,
       product: "playable-feed-spike",
       summary: this.summary(),
+      experiment_context: this.experiments.context(),
       personal_records: readJson(RECORDS_KEY, null),
       liked_games: readJson(LIKES_KEY, {}),
       events: this.events,
@@ -143,8 +193,12 @@ export class Analytics {
   }
 
   clearStoredEvents() {
-    this.events = [];
+    this.events = [...this.exposureEvents.values()];
     safeWrite(EVENTS_KEY, this.events);
     this.log("analytics_cleared");
   }
+}
+
+export function logProductEvent(name, properties = {}) {
+  return activeAnalytics?.log(name, properties) || null;
 }

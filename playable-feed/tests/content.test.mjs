@@ -28,6 +28,7 @@ const expectedFiles = [
   "src/bootstrap.js",
   "src/app.js",
   "src/analytics.js",
+  "src/experiments.js",
   "src/feed.js",
   "src/games.js",
   "src/extra-games-register.js",
@@ -76,12 +77,13 @@ test("service worker caches the current offline shell", async () => {
   const sw = await readFile(resolve(root, "sw.js"), "utf8");
   for (const asset of [
     "index.html", "round3.css", "bus-feedback.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
+    "src/experiments.js",
     "src/playtest-round2.js", "src/bus-jam-v2.js", "src/bus-jam-v3.js", "src/navigation-guard.js",
     "src/progression.js", "src/round3-ui.js", "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
-  assert.match(sw, /playloop-spike-v11/);
+  assert.match(sw, /playloop-spike-v12/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {
@@ -182,4 +184,24 @@ test("a completed feed variant can grant progression only once", async () => {
   assert.match(app, /game_reward_suppressed/);
   assert.match(app, /variant_already_rewarded/);
   assert.match(app, /els\.resultScore\.textContent = "0 XP"/);
+});
+
+
+test("secondary event writers use the central analytics pipeline", async () => {
+  const [round3, progression, html] = await Promise.all([
+    readFile(resolve(root, "src/round3-ui.js"), "utf8"),
+    readFile(resolve(root, "src/progression.js"), "utf8"),
+    readFile(resolve(root, "index.html"), "utf8"),
+  ]);
+
+  assert.match(round3, /import \{ logProductEvent \} from "\.\/analytics\.js"/);
+  assert.match(round3, /logProductEvent\(name/);
+  assert.doesNotMatch(round3, /events\.push\(event\)/);
+
+  assert.match(progression, /import \{ logProductEvent \} from "\.\/analytics\.js"/);
+  assert.match(progression, /logProductEvent\("personal_record_broken"/);
+  assert.doesNotMatch(progression, /events\.push\(\{/);
+
+  assert.match(html, /globalThis\.__playloopAnalytics/);
+  assert.match(html, /analytics\.log\(name/);
 });
