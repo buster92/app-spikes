@@ -1,5 +1,39 @@
 # Playable Feed Spike
 
+## Playloop social v0
+
+The default app is now a working local-first social-playable foundation. It opens into creator-framed **Discover**, with separate **Following**, **Challenges**, **Profile**, and **Create** surfaces.
+
+The complete v0 loop is usable on one device:
+
+`creator post → follow → exact playable → local result comparison → Like / outbound Challenge; inbound Challenge → response; publish`
+
+Run it locally:
+
+```bash
+cd playable-feed
+npm run serve
+```
+
+Open `http://localhost:8080`. State is stored under the versioned `playloop.social.v1` local record and survives reload. Use `http://localhost:8080/?legacy=1` for the original anonymous handcrafted-feed playtest/control surface. Creator Lab remains at `/creator-lab.html`.
+
+Use `http://localhost:8080/?presentation=anonymous` for the QA control presentation: it runs the exact same post/playable data without creator identity, caption, benchmark-opponent framing or social CTAs. It is not a randomized experiment assignment yet; social funnel events still include the manual presentation value for later analysis. If browser storage is blocked, the app remains usable for the session and displays a non-persistent-mode warning.
+
+The Create flow intentionally uses only approved bundled GameSpecs. A creator must complete the selected playable to establish the benchmark; captions cannot provide a fake score. Posts and challenges retain the exact runtime, content-addressed manifest/spec refs and seed.
+
+Architecture and extension boundaries are documented in [`SOCIAL-V0-ARCHITECTURE.md`](./SOCIAL-V0-ARCHITECTURE.md).
+
+### Short social-v0 smoke check
+
+1. Open the app and confirm Discover contains creator posts.
+2. Open a creator profile and follow them.
+3. Confirm their posts appear in Following.
+4. Play a creator post and inspect the result comparison.
+5. Like it and create an outbound Challenge; confirm it remains pending/cancellable rather than impersonating the remote creator.
+6. Open Challenges and complete the seeded inbound challenge from another creator.
+7. Open Create, choose a playable, complete the benchmark and publish a caption.
+8. Confirm the new post appears first on your profile, reload, and verify the social state remains.
+
 ## Two validation tracks
 
 The repository now contains two related but distinct experiments:

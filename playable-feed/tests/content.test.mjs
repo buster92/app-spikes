@@ -79,11 +79,15 @@ test("service worker caches the current offline shell", async () => {
     "index.html", "round3.css", "bus-feedback.css", "src/bootstrap.js", "src/app.js", "src/analytics.js",
     "src/experiments.js",
     "src/playtest-round2.js", "src/bus-jam-v2.js", "src/bus-jam-v3.js", "src/navigation-guard.js",
-    "src/progression.js", "src/round3-ui.js", "manifest.webmanifest",
+    "src/progression.js", "src/round3-ui.js", "social.css", "src/social/app.js",
+    "src/social/service.js", "src/social/playable-host.js", "examples/meteor-dodge.game.json",
+    "manifest.webmanifest",
   ]) {
     assert.ok(sw.includes(asset), `service worker should cache ${asset}`);
   }
-  assert.match(sw, /playloop-spike-v12/);
+  assert.match(sw, /playloop-spike-v16/);
+  assert.match(sw, /event\.request\.mode === "navigate"/);
+  assert.match(sw, /caches\.match\("\.\/index\.html"\)/);
 });
 
 test("app logging covers behavioral outcomes and renderer failures", async () => {
