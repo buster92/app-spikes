@@ -47,6 +47,7 @@ test("profile returns only that creator's published posts and derived counts", (
   assert.equal(view.posts.length, 2);
   assert.ok(view.posts.every((post) => post.creatorId === "creator_alex"));
   assert.equal(view.followers, 1);
+  assert.deepEqual(view.posts.map((post) => post.id), ["post_alex_meteor", "post_alex_pattern"]);
 });
 
 test("like desired state is idempotent and persisted", () => {
@@ -113,6 +114,7 @@ test("inbound challenge captures exact reference and can be completed by the loc
   assert.equal(completed.comparison.outcome, "win");
   assert.equal(service.openChallenge(challenge.id).responseResultId, response.result.id);
   assert.equal(service.openChallenge(challenge.id).targetActorId, "actor_local");
+  assert.equal(service.openChallenge(challenge.id).responderActorId, "actor_local");
 });
 
 test("open challenge completion binds responder and remains valid under another current actor", () => {
@@ -123,7 +125,8 @@ test("open challenge completion binds responder and remains valid under another 
   const response = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 6200 });
   service.completeChallenge(challenge.id, response.result.id);
   const completed = service.state().challenges.find((item) => item.id === challenge.id);
-  assert.equal(completed.targetActorId, "actor_local");
+  assert.equal(completed.targetActorId, null);
+  assert.equal(completed.responderActorId, "actor_local");
   const historical = { ...service.state(), actorId: "creator_alex" };
   assert.doesNotThrow(() => normalizeSocialState(historical));
 });
@@ -183,4 +186,23 @@ test("social analytics stay centralized, preserve context and exclude caption te
   assert.equal(service.state().posts.at(-1).caption, caption);
   service.feed("discover"); service.profile("creator_alex");
   assert.equal(events.some((event) => event.name === "social_feed_viewed" || event.name === "social_profile_opened"), false);
+});
+
+
+test("newly published posts appear first on the creator profile", () => {
+  const { service } = setup();
+  const source = service.post("post_alex_meteor");
+  const attempt = service.createBenchmarkAttempt({ playableRef: source.playableRef, policy: source.resultPolicy, status: "completed", metric: 52 });
+  const published = service.publish({ gameId: "meteor-dodge", caption: "Newest local challenge", benchmarkAttempt: attempt });
+  assert.equal(service.profile("actor_local").posts[0].id, published.post.id);
+});
+
+test("cancelling a challenge does not emit a challenge-opened event", () => {
+  const { service, events } = setup();
+  const source = service.post("post_alex_meteor");
+  const run = service.recordResult({ postId: source.id, playableRef: source.playableRef, status: "completed", metric: 47 });
+  const challenge = service.createChallenge({ postId: source.id, resultId: run.result.id }).challenge;
+  const before = events.filter((event) => event.name === "social_challenge_opened").length;
+  service.cancelChallenge(challenge.id);
+  assert.equal(events.filter((event) => event.name === "social_challenge_opened").length, before);
 });
