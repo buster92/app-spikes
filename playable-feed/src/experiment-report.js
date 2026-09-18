@@ -20,8 +20,10 @@ const ATTRIBUTION_EVENTS = new Set([
 ]);
 
 function eventOrderValue(event) {
-  const sessionMs = Number(event?.session_ms);
-  if (Number.isFinite(sessionMs)) return sessionMs;
+  if (event?.session_ms != null) {
+    const sessionMs = Number(event.session_ms);
+    if (Number.isFinite(sessionMs)) return sessionMs;
+  }
   const timestamp = Date.parse(event?.ts || "");
   return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
 }
@@ -32,6 +34,8 @@ function compareEvents(a, b) {
   const aSequence = Number(a?.sequence);
   const bSequence = Number(b?.sequence);
   if (Number.isFinite(aSequence) && Number.isFinite(bSequence)) return aSequence - bSequence;
+  const byReportOrder = String(a?.__report_order || "").localeCompare(String(b?.__report_order || ""));
+  if (byReportOrder !== 0) return byReportOrder;
   return String(a?.event_id || "").localeCompare(String(b?.event_id || ""));
 }
 
@@ -184,10 +188,13 @@ function sessionResult(sessionId, exposure, sessionEvents, experimentId, variant
     immediate_skip_without_interaction: immediateSkipWithoutInteraction(attributed),
     client_error: clientError,
     load_render_error: loadRenderError,
-    feed_start_ms: Number.isFinite(Number(feedStarted?.session_ms)) ? Number(feedStarted.session_ms) : null,
-    first_interaction_ms: Number.isFinite(Number(firstInteraction?.session_ms))
-      ? Number(firstInteraction.session_ms)
+    feed_start_ms: feedStarted?.session_ms != null && Number.isFinite(Number(feedStarted.session_ms))
+      ? Number(feedStarted.session_ms)
       : null,
+    first_interaction_ms:
+      firstInteraction?.session_ms != null && Number.isFinite(Number(firstInteraction.session_ms))
+        ? Number(firstInteraction.session_ms)
+        : null,
     games_seen: gamesSeen,
     unattributed_metric_events: unattributedMetricEvents.map(cleanEvent),
   };
@@ -301,10 +308,14 @@ export function analyzeExperimentPayloads(payloads, { experimentId = null } = {}
   }
 
   const events = mergeExportEvents(payloads);
-  const experimentIds = experimentId ? [experimentId] : collectExperimentIds(events);
-  if (experimentIds.length === 0) {
+  const availableExperimentIds = collectExperimentIds(events);
+  if (availableExperimentIds.length === 0) {
     throw new Error("No experiment_exposure events were found in the supplied exports");
   }
+  if (experimentId && !availableExperimentIds.includes(experimentId)) {
+    throw new Error("Experiment not found in supplied exports: " + experimentId);
+  }
+  const experimentIds = experimentId ? [experimentId] : availableExperimentIds;
 
   return {
     schema: 1,
