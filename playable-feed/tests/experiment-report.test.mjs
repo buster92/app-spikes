@@ -172,3 +172,24 @@ test("rejects inputs with no experiment exposure records", () => {
     /No experiment_exposure events/,
   );
 });
+
+
+test("does not treat null timing values as zero", () => {
+  const report = analyzeExperimentPayloads([{
+    events: [
+      exposure({ id: "e-null", session: "s-null", variant: "control", sessionMs: 100 }),
+      event({ id: "f-null", session: "s-null", name: "feed_started", variant: "control", sessionMs: null }),
+    ],
+  }], { experimentId: EXPERIMENT });
+
+  assert.equal(report.experiments[0].variants[0].median_feed_start_ms, null);
+});
+
+test("explicitly requested experiment must exist in the supplied exports", () => {
+  assert.throws(
+    () => analyzeExperimentPayloads([{
+      events: [exposure({ id: "e1", session: "s1" })],
+    }], { experimentId: "missing_experiment" }),
+    /Experiment not found in supplied exports/,
+  );
+});
