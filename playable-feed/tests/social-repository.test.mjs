@@ -93,6 +93,7 @@ function malformedMutation(mutate) {
 const corruptions = [
   ["unknown challenge challenger", (state) => { state.challenges[0].challengerId = "missing"; }],
   ["unknown challenge target", (state) => { state.challenges[0].targetActorId = "missing"; }],
+  ["unknown challenge responder", (state) => { state.challenges[0].responderActorId = "missing"; }],
   ["challenge targets its challenger", (state) => { state.challenges[0].targetActorId = state.challenges[0].challengerId; }],
   ["post benchmark actor mismatch", (state) => { state.results.find((item) => item.id === state.posts[0].creatorResultId).actorId = "actor_local"; }],
   ["post benchmark post mismatch", (state) => { state.results.find((item) => item.id === state.posts[0].creatorResultId).postId = state.posts[1].id; }],
@@ -102,6 +103,7 @@ const corruptions = [
   ["challenge result wrong post", (state) => { state.results.find((item) => item.id === state.challenges[0].challengerResultId).postId = state.posts[1].id; }],
   ["challenge playable differs from post", (state) => { state.challenges[0].playableRef.seed += 1; }],
   ["completed challenge missing response", (state) => { state.challenges[0].state = "completed"; }],
+  ["open challenge has responder", (state) => { state.challenges[0].responderActorId = "actor_local"; }],
   ["broken original lineage", (state) => { state.posts.find((item) => item.lineage).lineage.originalPostId = "missing"; }],
   ["duplicate profile id", (state) => { state.profiles.push(structuredClone(state.profiles[0])); }],
   ["duplicate profile handle", (state) => { state.profiles[1].handle = state.profiles[0].handle; }],
@@ -121,7 +123,7 @@ test("malformed completed challenge responses recover for actor, post, and playa
     if (kind === "actor") response.actorId = "creator_alex";
     if (kind === "post") response.postId = state.posts[1].id;
     if (kind === "playable") response.playableRef.seed += 1;
-    state.results.push(response); challenge.state = "completed"; challenge.responseResultId = response.id;
+    state.results.push(response); challenge.state = "completed"; challenge.responderActorId = "actor_local"; challenge.responseResultId = response.id;
   });
 });
 
@@ -136,4 +138,18 @@ test("seeded current actor is a generic local creator", () => {
   const actor = state.profiles.find((profile) => profile.id === state.actorId);
   assert.equal(actor.handle, "local_creator");
   assert.equal(actor.displayName, "Local Creator");
+});
+
+
+test("like and follow normalization strips unknown persisted fields", () => {
+  const repository = new LocalSocialRepository({ storage: new MemoryStorage() });
+  repository.transaction((state) => {
+    state.likes.push({ actorId: "actor_local", postId: "post_alex_meteor", arbitrary: { nested: true } });
+    state.follows.push({ followerId: "actor_local", followedId: "creator_nova", arbitrary: "drop-me" });
+  });
+  const snapshot = repository.snapshot();
+  const like = snapshot.likes.find((item) => item.postId === "post_alex_meteor");
+  const follow = snapshot.follows.find((item) => item.followedId === "creator_nova");
+  assert.deepEqual(like, { actorId: "actor_local", postId: "post_alex_meteor" });
+  assert.deepEqual(follow, { followerId: "actor_local", followedId: "creator_nova" });
 });
