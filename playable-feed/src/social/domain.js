@@ -172,7 +172,6 @@ export function validateProfile(profile) {
     avatar: boundedText(profile.avatar, "avatar", 8),
     bio: boundedText(profile.bio, "bio", 160, { optional: true }),
     badge: boundedText(profile.badge, "badge", 32, { optional: true }),
-    isLocal: profile.isLocal === true,
   };
 }
 
