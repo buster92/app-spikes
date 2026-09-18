@@ -290,6 +290,103 @@ A single social product may support:
 The important shift is that **interaction itself becomes publishable content**.
 
 
+
+## Portable interactive content
+
+A larger platform vision is that a Playloop game should not necessarily be trapped inside Playloop.
+
+If the runtime becomes stable, lightweight and portable enough, a published playable could become a **platform-independent interactive object** that can run anywhere a host chooses to integrate the Playloop runtime.
+
+Conceptually:
+
+`creator idea → Playloop GameSpec/package → Playloop feed`
+
+could evolve toward:
+
+`creator idea → portable Playloop package → Playloop / creator site / partner social platform / campaign surface / messaging surface`
+
+The important architectural implication is that the **game package should be separate from the Playloop social shell**.
+
+The portable package contains the bounded interactive experience:
+
+- GameSpec / runtime version;
+- reviewed assets;
+- deterministic rules and seeds where applicable;
+- presentation metadata;
+- declared capabilities;
+- content hash/version;
+- replay/verification contracts.
+
+The host platform owns:
+
+- identity;
+- follows/subscriptions;
+- comments/reactions;
+- payments;
+- moderation actions;
+- recommendation;
+- account data;
+- social graph;
+- host navigation.
+
+This preserves the existing trust boundary while allowing the same playable artifact to be mounted in different products.
+
+### Why portability matters
+
+If this works, Playloop is no longer only a destination social network. It can also become an **interactive-content standard/runtime**.
+
+A creator could publish one bounded playable and, where partner platforms allow it, distribute the same underlying experience across multiple surfaces without rebuilding it for each platform.
+
+That creates several strategic possibilities:
+
+- creators keep a reusable library of interactive posts;
+- brands build one interactive campaign package and distribute it across partner surfaces;
+- game publishers create portable playable trailers/challenges;
+- social platforms gain interactive content without exposing arbitrary third-party code;
+- Playloop can grow through distribution as well as through its own feed;
+- performance, safety, replay and analytics semantics can remain consistent across hosts.
+
+### Current platform reality
+
+This is a forward-looking interoperability strategy, not something Playloop can unilaterally enable inside arbitrary third-party feeds today.
+
+As of 2026:
+
+- **YouTube** already has Playables that run directly on YouTube and provides an interest path for game developers, showing that YouTube is willing to host lightweight games, but this is a curated YouTube surface rather than a generic arbitrary-game embed available in normal posts.
+- **LinkedIn** has its own Games hub and social score/streak features, but does not expose a general third-party playable-post runtime.
+- **Meta/Facebook** has historically operated Instant Games and other hosted game surfaces, demonstrating that social hosts can provide sandboxed game containers, but integration depends on Meta's current platform programs and policies.
+
+Therefore the near-term architecture should aim for **hostability**, not assume distribution agreements that do not exist.
+
+### Architectural target
+
+The ideal package should be:
+
+- deterministic where the mechanic requires verification;
+- declarative and non-executable from the host's perspective;
+- content-addressed;
+- small enough for social/mobile loading budgets;
+- renderer/runtime-versioned;
+- capability-declared;
+- portable across web and native implementations;
+- able to emit a standard event/result contract to the trusted host;
+- unable to directly access the host's accounts, network, payments or social graph.
+
+A future partner integration could then look conceptually like:
+
+`host social post → trusted Playloop host adapter → portable GameSpec runtime → result event → host social action`
+
+This is another reason not to bind GameSpec semantics to Playloop-specific UI, accounts, or backend concepts.
+
+### Strategic possibility
+
+If multiple products can safely render the same Playloop content, the moat changes.
+
+Playloop would not only own a consumer destination or creator tool. It could own part of the **authoring + packaging + runtime layer for interactive social media**.
+
+That is a much larger ambition and should not distract from validating the core creator/follower loop first, but the runtime should avoid architectural decisions that make this future unnecessarily difficult.
+
+
 ## Bounded does not mean creatively small
 
 A critical architectural principle is that the creator framework can become **very expressive** without becoming unsafe.
